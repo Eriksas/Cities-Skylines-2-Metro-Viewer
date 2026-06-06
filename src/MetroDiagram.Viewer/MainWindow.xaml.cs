@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using MetroDiagram.Core;
@@ -19,10 +20,14 @@ public partial class MainWindow : Window
     private string? _jsonPath;
     private string? _currentSvg;
     private string? _defaultExportPath;
+    private string? _diagnosticsPath;
+    private string? _previewHtmlPath;
     private ViewerSettings _settings = new();
     private string _language = "en";
     private bool _uiReady;
     private bool _suppressUiEvents;
+    private IReadOnlyList<string> _loadWarnings = [];
+    private IReadOnlyList<string> _renderWarnings = [];
 
     public MainWindow()
     {
@@ -34,6 +39,7 @@ public partial class MainWindow : Window
         ApplyLanguage();
         RefreshDefaultExportState(showStatus: false);
         UpdateSummary(null, null);
+        UpdateInspector(null, null, [], []);
         ClearPreview(T("InitialPreview"));
         SetStatus(_defaultExportPath is null ? T("Ready") : string.Format(CultureInfo.CurrentCulture, T("DefaultFound"), _defaultExportPath));
 
@@ -87,6 +93,27 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             SetError(string.Format(CultureInfo.CurrentCulture, T("OpenFolderFailed"), ex.Message));
+        }
+    }
+
+    private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_diagnosticsPath) || !File.Exists(_diagnosticsPath))
+        {
+            SetStatus(T("DiagnosticsMissing"));
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_diagnosticsPath)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("OpenDiagnosticsFailed"), ex.Message));
         }
     }
 
@@ -204,6 +231,25 @@ public partial class MainWindow : Window
         TrySaveCurrentSettings(showError: false);
     }
 
+    private void PreviewZoomComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady || _suppressUiEvents)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_currentSvg))
+        {
+            WritePreviewHtml(_currentSvg);
+        }
+        else if (_document is null)
+        {
+            ClearPreview(T("InitialPreview"));
+        }
+
+        TrySaveCurrentSettings(showError: false);
+    }
+
     private void SizeTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (!_uiReady || _suppressUiEvents)
@@ -253,6 +299,7 @@ public partial class MainWindow : Window
                 SaveButton.IsEnabled = false;
                 ClearPreview(T("JsonCouldNotLoad"));
                 UpdateSummary(null, null);
+                UpdateInspector(null, null, [], []);
                 SetError(string.Format(CultureInfo.CurrentCulture, T("InvalidJson"), string.Join(Environment.NewLine, loadResult.Errors)));
                 SetStatus(T("JsonLoadFailed"));
                 return;
@@ -260,8 +307,11 @@ public partial class MainWindow : Window
 
             _document = loadResult.Document;
             _jsonPath = path;
+            _loadWarnings = loadResult.Warnings;
+            _renderWarnings = [];
             FileTextBlock.Text = path;
             UpdateSummary(_document, path);
+            UpdateInspector(_document, path, _loadWarnings, _renderWarnings);
             ClearError();
             SetStatus(loadResult.Warnings.Count == 0
                 ? T("JsonLoaded")
@@ -271,6 +321,14 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _document = null;
+            _jsonPath = null;
+            _currentSvg = null;
+            _loadWarnings = [ex.Message];
+            _renderWarnings = [];
+            SaveButton.IsEnabled = false;
+            UpdateSummary(null, null);
+            UpdateInspector(null, null, _loadWarnings, _renderWarnings);
             SetError(string.Format(CultureInfo.CurrentCulture, T("InvalidJson"), ex.Message));
             SetStatus(T("JsonLoadFailed"));
         }
@@ -289,8 +347,11 @@ public partial class MainWindow : Window
             SvgRenderOptions options = ReadRenderOptions();
             SvgRenderResult renderResult = _renderer.Render(_document, options);
             _currentSvg = renderResult.Svg;
+            _renderWarnings = renderResult.Warnings;
             SaveButton.IsEnabled = true;
             WritePreviewHtml(renderResult.Svg);
+            MainContentTabControl.SelectedItem = MapPreviewTabItem;
+            UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
             ClearError();
             SetStatus(renderResult.Warnings.Count == 0
                 ? string.Format(CultureInfo.CurrentCulture, T("Rendered"), GetLayoutModeText(options.LayoutMode))
@@ -299,6 +360,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _renderWarnings = [ex.Message];
+            UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
             SetError(string.Format(CultureInfo.CurrentCulture, T("RenderFailed"), ex.Message));
             SetStatus(T("RenderFailed").Replace("{0}", ex.Message, StringComparison.Ordinal));
         }
@@ -310,6 +373,7 @@ public partial class MainWindow : Window
         int height = ReadPositiveInt(HeightTextBox, T("Height"));
         int legendWidth = ReadPositiveInt(LegendWidthTextBox, T("Legend"));
         int padding = ReadPositiveInt(PaddingTextBox, T("Padding"));
+        NormalizeRenderLayoutInputs(width, height, ref legendWidth, ref padding);
         double lineWidth = ReadPositiveDouble(LineWidthTextBox, T("Line"));
         double stationRadius = ReadPositiveDouble(StationRadiusTextBox, T("Station"));
         double labelFontSize = ReadPositiveDouble(LabelFontSizeTextBox, T("Label"));
@@ -343,9 +407,12 @@ public partial class MainWindow : Window
     private SvgLayoutMode ReadSelectedLayoutMode()
     {
         string? tag = (LayoutComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-        return string.Equals(tag, "schematic-lite", StringComparison.Ordinal)
-            ? SvgLayoutMode.SchematicLite
-            : SvgLayoutMode.Geographic;
+        return tag switch
+        {
+            "schematic-lite" => SvgLayoutMode.SchematicLite,
+            "schematic-v2" => SvgLayoutMode.SchematicV2,
+            _ => SvgLayoutMode.Geographic
+        };
     }
 
     private string ReadSelectedLanguage()
@@ -358,6 +425,12 @@ public partial class MainWindow : Window
     {
         string? tag = (SizePresetComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
         return NormalizeSizePreset(tag);
+    }
+
+    private string ReadSelectedPreviewZoom()
+    {
+        string? tag = (PreviewZoomComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        return NormalizePreviewZoom(tag);
     }
 
     private int ReadPositiveInt(TextBox textBox, string label)
@@ -382,7 +455,9 @@ public partial class MainWindow : Window
 
     private void WritePreviewHtml(string svg)
     {
-        PreviewBrowser.NavigateToString(BuildPreviewHtml(svg));
+        string previewPath = EnsurePreviewHtmlPath();
+        File.WriteAllText(previewPath, BuildPreviewHtml(svg, ReadSelectedPreviewZoom()), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        PreviewBrowser.Navigate(new Uri(previewPath));
     }
 
     private void ClearPreview(string message)
@@ -394,27 +469,172 @@ public partial class MainWindow : Window
               <text x="48" y="72" font-family="Arial, sans-serif" font-size="20" font-weight="600" fill="#52616f">{escapedMessage}</text>
             </svg>
             """;
-        PreviewBrowser.NavigateToString(BuildPreviewHtml(svg));
+        WritePreviewHtml(svg);
     }
 
-    private static string BuildPreviewHtml(string svg)
+    private readonly record struct SvgPixelSize(double Width, double Height);
+
+    private static string BuildPreviewHtml(string svg, string previewZoom)
     {
-        return """
-            <!doctype html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <style>
-                html, body { margin: 0; min-height: 100%; background: #f4f6f8; }
-                body { padding: 16px; box-sizing: border-box; }
-                svg { display: block; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); }
-              </style>
-            </head>
-            <body>
-            """ + svg + """
-            </body>
-            </html>
-            """;
+        SvgPixelSize svgSize = ReadSvgPixelSize(svg);
+        bool fitWidth = string.Equals(previewZoom, "fit-width", StringComparison.Ordinal);
+        int zoomPercent = ParsePreviewZoomPercent(previewZoom);
+        double displayedWidth = fitWidth ? svgSize.Width : svgSize.Width * zoomPercent / 100;
+        double displayedHeight = fitWidth ? svgSize.Height : svgSize.Height * zoomPercent / 100;
+        string widthText = displayedWidth.ToString("0.###", CultureInfo.InvariantCulture);
+        string heightText = displayedHeight.ToString("0.###", CultureInfo.InvariantCulture);
+        string svgWidthText = svgSize.Width.ToString("0.###", CultureInfo.InvariantCulture);
+        string svgHeightText = svgSize.Height.ToString("0.###", CultureInfo.InvariantCulture);
+        string svgCss = fitWidth
+            ? "svg { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }"
+            : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
+        string fitWidthScript = fitWidth
+            ? string.Join(Environment.NewLine,
+            [
+                "  <script>",
+                "    (function () {",
+                $"      var svgWidth = {svgWidthText};",
+                $"      var svgHeight = {svgHeightText};",
+                "      function resizeSvg() {",
+                "        var svg = document.getElementsByTagName('svg')[0];",
+                "        var frame = document.getElementById('preview-frame');",
+                "        if (!svg || !frame || svgWidth <= 0 || svgHeight <= 0) { return; }",
+                "        var availableWidth = Math.max(320, frame.clientWidth - 32);",
+                "        var scale = availableWidth / svgWidth;",
+                "        svg.style.width = availableWidth + 'px';",
+                "        svg.style.height = Math.max(1, svgHeight * scale) + 'px';",
+                "      }",
+                "      if (window.attachEvent) {",
+                "        window.attachEvent('onload', resizeSvg);",
+                "        window.attachEvent('onresize', resizeSvg);",
+                "      } else {",
+                "        window.addEventListener('load', resizeSvg, false);",
+                "        window.addEventListener('resize', resizeSvg, false);",
+                "      }",
+                "    }());",
+                "  </script>"
+            ])
+            : string.Join(Environment.NewLine,
+            [
+                "  <script>",
+                "    (function () {",
+                "      function centerPreview() {",
+                "        var contentWidth = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);",
+                "        var contentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);",
+                "        var viewWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;",
+                "        var viewHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;",
+                "        window.scrollTo(Math.max(0, (contentWidth - viewWidth) / 2), Math.max(0, (contentHeight - viewHeight) / 3));",
+                "      }",
+                "      if (window.attachEvent) { window.attachEvent('onload', centerPreview); }",
+                "      else { window.addEventListener('load', centerPreview, false); }",
+                "    }());",
+                "  </script>"
+            ]);
+
+        return string.Join(Environment.NewLine,
+        [
+            "<!doctype html>",
+            "<html>",
+            "<head>",
+            "  <meta charset=\"utf-8\">",
+            "  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">",
+            "  <style>",
+            "    html, body { margin: 0; min-height: 100%; background: #f4f6f8; }",
+            "    body { padding: 16px; box-sizing: border-box; overflow: auto; }",
+            "    .preview-frame { min-width: 100%; overflow: visible; }",
+            $"    {svgCss}",
+            "  </style>",
+            fitWidthScript,
+            "</head>",
+            "<body>",
+            "<div id=\"preview-frame\" class=\"preview-frame\">",
+            svg,
+            "</div>",
+            "</body>",
+            "</html>"
+        ]);
+    }
+
+    private static SvgPixelSize ReadSvgPixelSize(string svg)
+    {
+        Match svgTagMatch = Regex.Match(svg, "<svg\\b[^>]*>", RegexOptions.IgnoreCase);
+        if (!svgTagMatch.Success)
+        {
+            return new SvgPixelSize(1200, 800);
+        }
+
+        string svgTag = svgTagMatch.Value;
+        double? width = ReadSvgLengthAttribute(svgTag, "width");
+        double? height = ReadSvgLengthAttribute(svgTag, "height");
+
+        if ((width is null || height is null) && TryReadViewBoxSize(svgTag, out SvgPixelSize viewBoxSize))
+        {
+            width ??= viewBoxSize.Width;
+            height ??= viewBoxSize.Height;
+        }
+
+        return new SvgPixelSize(
+            Math.Max(1, width ?? 1200),
+            Math.Max(1, height ?? 800));
+    }
+
+    private static double? ReadSvgLengthAttribute(string svgTag, string attributeName)
+    {
+        Match match = Regex.Match(
+            svgTag,
+            $@"\b{Regex.Escape(attributeName)}\s*=\s*[""'](?<value>[-+]?\d+(?:\.\d+)?)(?:px)?[""']",
+            RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        return double.TryParse(match.Groups["value"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+            ? value
+            : null;
+    }
+
+    private static bool TryReadViewBoxSize(string svgTag, out SvgPixelSize size)
+    {
+        Match match = Regex.Match(
+            svgTag,
+            @"\bviewBox\s*=\s*[""'](?<value>[^""']+)[""']",
+            RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            string[] parts = match.Groups["value"].Value
+                .Split([' ', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 4
+                && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double width)
+                && double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double height))
+            {
+                size = new SvgPixelSize(width, height);
+                return true;
+            }
+        }
+
+        size = default;
+        return false;
+    }
+
+    private static int ParsePreviewZoomPercent(string previewZoom)
+    {
+        return int.TryParse(previewZoom, NumberStyles.Integer, CultureInfo.InvariantCulture, out int zoomPercent) && zoomPercent > 0
+            ? zoomPercent
+            : 100;
+    }
+
+    private string EnsurePreviewHtmlPath()
+    {
+        if (!string.IsNullOrWhiteSpace(_previewHtmlPath))
+        {
+            return _previewHtmlPath;
+        }
+
+        string folder = Path.Combine(Path.GetTempPath(), "CS2MetroDiagramViewer");
+        Directory.CreateDirectory(folder);
+        _previewHtmlPath = Path.Combine(folder, $"preview-{Guid.NewGuid():N}.html");
+        return _previewHtmlPath;
     }
 
     private void UpdateSummary(MetroExportDocument? document, string? path)
@@ -433,6 +653,36 @@ public partial class MainWindow : Window
         SummaryTextBlock.Text = string.Format(CultureInfo.CurrentCulture, T("Summary"), city, lineCount, stationCount);
     }
 
+    private void UpdateInspector(
+        MetroExportDocument? document,
+        string? path,
+        IReadOnlyList<string> loadWarnings,
+        IReadOnlyList<string> renderWarnings)
+    {
+        if (document is null)
+        {
+            InspectorSummaryTextBlock.Text = T("InspectorEmpty");
+            InspectorWarningsTextBlock.Text = string.Join(Environment.NewLine, loadWarnings.Concat(renderWarnings).Where(warning => !string.IsNullOrWhiteSpace(warning)));
+            DiagnosticsPathTextBlock.Text = string.Empty;
+            _diagnosticsPath = null;
+            OpenDiagnosticsButton.IsEnabled = false;
+            LinesDataGrid.ItemsSource = Array.Empty<LineInspectorRow>();
+            StationsDataGrid.ItemsSource = Array.Empty<StationInspectorRow>();
+            return;
+        }
+
+        ExportDataInspection inspection = ExportDataInspector.Inspect(document, path, loadWarnings, renderWarnings, T);
+        InspectorSummaryTextBlock.Text = inspection.Summary;
+        InspectorWarningsTextBlock.Text = inspection.Warnings.Count == 0 ? string.Empty : string.Join(Environment.NewLine, inspection.Warnings);
+        _diagnosticsPath = inspection.DiagnosticsPath;
+        OpenDiagnosticsButton.IsEnabled = _diagnosticsPath is not null;
+        DiagnosticsPathTextBlock.Text = _diagnosticsPath is null
+            ? T("DiagnosticsMissing")
+            : string.Format(CultureInfo.CurrentCulture, T("DiagnosticsFound"), _diagnosticsPath);
+        LinesDataGrid.ItemsSource = inspection.Lines;
+        StationsDataGrid.ItemsSource = inspection.Stations;
+    }
+
     private string BuildDefaultSvgFileName()
     {
         string layout = GetLayoutModeText(ReadSelectedLayoutMode());
@@ -444,7 +694,12 @@ public partial class MainWindow : Window
 
     private static string GetLayoutModeText(SvgLayoutMode layoutMode)
     {
-        return layoutMode == SvgLayoutMode.SchematicLite ? "schematic-lite" : "geographic";
+        return layoutMode switch
+        {
+            SvgLayoutMode.SchematicLite => "schematic-lite",
+            SvgLayoutMode.SchematicV2 => "schematic-v2",
+            _ => "geographic"
+        };
     }
 
     private void RefreshDefaultExportState(bool showStatus)
@@ -558,9 +813,10 @@ public partial class MainWindow : Window
         _suppressUiEvents = true;
         try
         {
-            SelectComboBoxItem(LayoutComboBox, settings.LayoutMode);
+            SelectComboBoxItem(LayoutComboBox, NormalizeLayoutMode(settings.LayoutMode));
             SelectComboBoxItem(LanguageComboBox, NormalizeLanguage(settings.Language));
             SelectComboBoxItem(SizePresetComboBox, NormalizeSizePreset(settings.SizePreset));
+            SelectComboBoxItem(PreviewZoomComboBox, NormalizePreviewZoom(settings.PreviewZoom));
             WidthTextBox.Text = settings.Width.ToString(CultureInfo.InvariantCulture);
             HeightTextBox.Text = settings.Height.ToString(CultureInfo.InvariantCulture);
             LegendWidthTextBox.Text = settings.LegendWidth.ToString(CultureInfo.InvariantCulture);
@@ -593,6 +849,7 @@ public partial class MainWindow : Window
         ResetButton.Content = T("ResetDefaults");
         RefreshButton.Content = T("RefreshPreview");
         SaveButton.Content = T("SaveSvg");
+        OpenDiagnosticsButton.Content = T("OpenDiagnostics");
         LayoutLabelTextBlock.Text = T("Layout");
         SizePresetLabelTextBlock.Text = T("SizePreset");
         SizePresetCustomItem.Content = T("SizeCustom");
@@ -601,6 +858,8 @@ public partial class MainWindow : Window
         SizePresetPosterItem.Content = T("SizePoster");
         SizePresetUltraItem.Content = T("SizeUltra");
         LanguageLabelTextBlock.Text = T("Language");
+        PreviewZoomLabelTextBlock.Text = T("PreviewZoom");
+        PreviewZoomFitWidthItem.Content = T("PreviewZoomFitWidth");
         WidthLabelTextBlock.Text = T("Width");
         HeightLabelTextBlock.Text = T("Height");
         LegendLabelTextBlock.Text = T("Legend");
@@ -616,7 +875,25 @@ public partial class MainWindow : Window
         UsePathPointsCheckBox.Content = T("UsePathPoints");
         SimplifyPathPointsCheckBox.Content = T("SimplifyPathPoints");
         PathToleranceLabelTextBlock.Text = T("PathTolerance");
+        MapPreviewTabItem.Header = T("MapPreviewTab");
+        ExportDataTabItem.Header = T("ExportDataTab");
+        InspectorHeadingTextBlock.Text = T("InspectorHeading");
+        LinesHeadingTextBlock.Text = T("LinesHeading");
+        StationsHeadingTextBlock.Text = T("StationsHeading");
+        LineColorColumn.Header = T("LineColorColumn");
+        LineNameColumn.Header = T("LineNameColumn");
+        LineModeColumn.Header = T("LineModeColumn");
+        LineStopsColumn.Header = T("LineStopsColumn");
+        LinePathPointsColumn.Header = T("LinePathPointsColumn");
+        LinePathSourcesColumn.Header = T("LinePathSourcesColumn");
+        LineTerminiColumn.Header = T("LineTerminiColumn");
+        StationNameColumn.Header = T("StationNameColumn");
+        StationIdColumn.Header = T("StationIdColumn");
+        StationLinesColumn.Header = T("StationLinesColumn");
+        StationInterchangeColumn.Header = T("StationInterchangeColumn");
+        StationPositionColumn.Header = T("StationPositionColumn");
         UpdateSummary(_document, _jsonPath);
+        UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
     }
 
     private void TrySaveCurrentSettings(bool showError)
@@ -643,6 +920,7 @@ public partial class MainWindow : Window
             Language = _language,
             LayoutMode = GetLayoutModeText(ReadSelectedLayoutMode()),
             SizePreset = ReadSelectedSizePreset(),
+            PreviewZoom = ReadSelectedPreviewZoom(),
             Width = ReadIntOrDefault(WidthTextBox, _settings.Width),
             Height = ReadIntOrDefault(HeightTextBox, _settings.Height),
             LegendWidth = ReadIntOrDefault(LegendWidthTextBox, _settings.LegendWidth),
@@ -693,6 +971,16 @@ public partial class MainWindow : Window
         return string.Equals(language, "zh", StringComparison.Ordinal) ? "zh" : "en";
     }
 
+    private static string NormalizeLayoutMode(string? layoutMode)
+    {
+        return layoutMode switch
+        {
+            "schematic-lite" => "schematic-lite",
+            "schematic-v2" => "schematic-v2",
+            _ => "geographic"
+        };
+    }
+
     private static string NormalizeSizePreset(string? preset)
     {
         return preset switch
@@ -702,6 +990,20 @@ public partial class MainWindow : Window
             "poster" => "poster",
             "ultra" => "ultra",
             _ => "custom"
+        };
+    }
+
+    private static string NormalizePreviewZoom(string? previewZoom)
+    {
+        return previewZoom switch
+        {
+            "fit-width" => "fit-width",
+            "50" => "50",
+            "75" => "75",
+            "150" => "150",
+            "200" => "200",
+            "300" => "300",
+            _ => "100"
         };
     }
 
@@ -728,6 +1030,8 @@ public partial class MainWindow : Window
         {
             WidthTextBox.Text = size.Width.ToString(CultureInfo.InvariantCulture);
             HeightTextBox.Text = size.Height.ToString(CultureInfo.InvariantCulture);
+            LegendWidthTextBox.Text = "240";
+            PaddingTextBox.Text = "80";
         }
         finally
         {
@@ -758,6 +1062,49 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         TrySaveCurrentSettings(showError: false);
+        TryDeletePreviewHtml();
         base.OnClosed(e);
     }
+
+    private void TryDeletePreviewHtml()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_previewHtmlPath) && File.Exists(_previewHtmlPath))
+            {
+                File.Delete(_previewHtmlPath);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private void NormalizeRenderLayoutInputs(int width, int height, ref int legendWidth, ref int padding)
+    {
+        int normalizedLegendWidth = ViewerRenderSettingSanitizer.NormalizeLegendWidth(legendWidth, width);
+        int normalizedPadding = ViewerRenderSettingSanitizer.NormalizePadding(padding, width, height);
+        if (normalizedLegendWidth == legendWidth && normalizedPadding == padding)
+        {
+            return;
+        }
+
+        legendWidth = normalizedLegendWidth;
+        padding = normalizedPadding;
+
+        _suppressUiEvents = true;
+        try
+        {
+            LegendWidthTextBox.Text = normalizedLegendWidth.ToString(CultureInfo.InvariantCulture);
+            PaddingTextBox.Text = normalizedPadding.ToString(CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _suppressUiEvents = false;
+        }
+    }
+
 }

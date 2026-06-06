@@ -14,8 +14,8 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Background="#ffffff" BorderBrush="#d7dde5" BorderThickness="0,0,0,1" Padding="12">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Left" Orientation="Vertical">
+            <StackPanel>
+                <StackPanel Orientation="Vertical">
                     <WrapPanel>
                         <Button x:Name="OpenButton" Content="Open JSON" MinWidth="104" Margin="0,0,8,8" Padding="10,3" Click="OpenJson_Click" />
                         <Button x:Name="OpenDefaultButton" Content="Open Default Export" MinWidth="148" Margin="0,0,8,8" Padding="10,3" Click="OpenDefaultExport_Click" IsEnabled="False" />
@@ -28,6 +28,7 @@
                         <ComboBox x:Name="LayoutComboBox" Width="150" Margin="0,0,12,8" SelectionChanged="LayoutComboBox_SelectionChanged">
                             <ComboBoxItem Content="geographic" Tag="geographic" IsSelected="True" />
                             <ComboBoxItem Content="schematic-lite" Tag="schematic-lite" />
+                            <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                         </ComboBox>
 
                         <TextBlock x:Name="SizePresetLabelTextBlock" Text="Size" VerticalAlignment="Center" Margin="0,0,6,8" />
@@ -43,6 +44,16 @@
                         <ComboBox x:Name="LanguageComboBox" Width="104" Margin="0,0,0,8" SelectionChanged="LanguageComboBox_SelectionChanged">
                             <ComboBoxItem Content="English" Tag="en" IsSelected="True" />
                             <ComboBoxItem Content="中文" Tag="zh" />
+                        </ComboBox>
+                        <TextBlock x:Name="PreviewZoomLabelTextBlock" Text="Preview" VerticalAlignment="Center" Margin="12,0,6,8" />
+                        <ComboBox x:Name="PreviewZoomComboBox" Width="112" Margin="0,0,0,8" SelectionChanged="PreviewZoomComboBox_SelectionChanged">
+                            <ComboBoxItem x:Name="PreviewZoomFitWidthItem" Content="Fit width" Tag="fit-width" />
+                            <ComboBoxItem Content="50%" Tag="50" />
+                            <ComboBoxItem Content="75%" Tag="75" />
+                            <ComboBoxItem Content="100%" Tag="100" IsSelected="True" />
+                            <ComboBoxItem Content="150%" Tag="150" />
+                            <ComboBoxItem Content="200%" Tag="200" />
+                            <ComboBoxItem Content="300%" Tag="300" />
                         </ComboBox>
                     </WrapPanel>
 
@@ -93,17 +104,76 @@
                     </WrapPanel>
                 </StackPanel>
 
-                <StackPanel DockPanel.Dock="Right" Width="420" Margin="18,0,0,0">
-                    <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock x:Name="SummaryTextBlock" Text="City: -   Lines: -   Stations: -" Margin="0,8,0,0" />
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                    <TextBlock x:Name="SummaryTextBlock" Text="City: -   Lines: -   Stations: -" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                     <TextBlock x:Name="ErrorTextBlock" Foreground="#b42318" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
-            </DockPanel>
+            </StackPanel>
         </Border>
 
-        <Border Grid.Row="1" Margin="12" Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1">
-            <WebBrowser x:Name="PreviewBrowser" />
-        </Border>
+        <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="12">
+            <TabItem x:Name="MapPreviewTabItem" Header="Map Preview">
+                <Border Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1">
+                    <WebBrowser x:Name="PreviewBrowser" />
+                </Border>
+            </TabItem>
+            <TabItem x:Name="ExportDataTabItem" Header="Export Data">
+                <Border Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1" Padding="14">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock x:Name="InspectorHeadingTextBlock" Text="Export Data Preview" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock x:Name="InspectorSummaryTextBlock" Text="Open a metro JSON file to inspect exported lines and stations." TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock x:Name="InspectorWarningsTextBlock" Foreground="#b42318" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <DockPanel Margin="0,8,0,14">
+                                <Button x:Name="OpenDiagnosticsButton" DockPanel.Dock="Right" Content="Open Diagnostics" MinWidth="132" Margin="12,0,0,0" Padding="10,3" Click="OpenDiagnostics_Click" IsEnabled="False" />
+                                <TextBlock x:Name="DiagnosticsPathTextBlock" Foreground="#52616f" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <TextBlock x:Name="LinesHeadingTextBlock" Text="Lines" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,6" />
+                            <DataGrid x:Name="LinesDataGrid"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      AlternatingRowBackground="#f8fafc"
+                                      MaxHeight="270">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn x:Name="LineColorColumn" Header="Color" Binding="{Binding Color}" Width="82" />
+                                    <DataGridTextColumn x:Name="LineNameColumn" Header="Line" Binding="{Binding Name}" Width="2*" />
+                                    <DataGridTextColumn x:Name="LineModeColumn" Header="Mode" Binding="{Binding Mode}" Width="84" />
+                                    <DataGridTextColumn x:Name="LineStopsColumn" Header="Stops" Binding="{Binding StopCount}" Width="72" />
+                                    <DataGridTextColumn x:Name="LinePathPointsColumn" Header="PathPoints" Binding="{Binding PathPointCount}" Width="94" />
+                                    <DataGridTextColumn x:Name="LinePathSourcesColumn" Header="Path sources" Binding="{Binding PathPointSources}" Width="2*" />
+                                    <DataGridTextColumn x:Name="LineTerminiColumn" Header="Termini" Binding="{Binding Termini}" Width="2*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <TextBlock x:Name="StationsHeadingTextBlock" Text="Stations" FontSize="15" FontWeight="SemiBold" Margin="0,16,0,6" />
+                            <DataGrid x:Name="StationsDataGrid"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      IsReadOnly="True"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      AlternatingRowBackground="#f8fafc"
+                                      MaxHeight="310">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn x:Name="StationNameColumn" Header="Station" Binding="{Binding Name}" Width="2*" />
+                                    <DataGridTextColumn x:Name="StationIdColumn" Header="Id" Binding="{Binding Id}" Width="160" />
+                                    <DataGridTextColumn x:Name="StationLinesColumn" Header="Lines" Binding="{Binding Lines}" Width="2*" />
+                                    <DataGridCheckBoxColumn x:Name="StationInterchangeColumn" Header="Interchange" Binding="{Binding IsInterchange}" Width="104" />
+                                    <DataGridTextColumn x:Name="StationPositionColumn" Header="Position" Binding="{Binding Position}" Width="150" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+        </TabControl>
 
         <Border Grid.Row="2" Background="#ffffff" BorderBrush="#d7dde5" BorderThickness="0,1,0,0" Padding="12,8">
             <TextBlock x:Name="StatusTextBlock" Text="Ready" TextTrimming="CharacterEllipsis" />

@@ -90,32 +90,31 @@ public sealed class MetroSvgRenderer
 
         if (options.LayoutMode == SvgLayoutMode.SchematicV2)
         {
-            SvgRenderOptions detectionOptions = new()
-            {
-                MapStyle = SvgMapStyle.Standard,
-                Width = options.Width,
-                Height = options.Height,
-                Padding = options.Padding,
-                Margin = options.Margin,
-                LegendWidth = options.LegendWidth,
-                LegendGap = options.LegendGap,
-                EnableCenterExpansion = options.EnableCenterExpansion,
-                CenterExpansionStrength = options.CenterExpansionStrength
-            };
-            CoordinateProjector detectionProjector = CoordinateProjector.Create(sourceCoordinates, detectionOptions, reserveLegendSpace) ?? projector;
-            Dictionary<string, SvgPoint> detectionPoints = new(StringComparer.Ordinal);
+            SvgRenderOptions canonicalOptions = CreateSchematicV2CanonicalOptions(options);
+            CoordinateProjector canonicalProjector = CoordinateProjector.Create(sourceCoordinates, canonicalOptions, reserveLegendSpace) ?? projector;
+            Dictionary<string, SvgPoint> canonicalPoints = new(StringComparer.Ordinal);
             foreach (SourceStationPoint station in sourcePoints)
             {
-                if (detectionPoints.ContainsKey(station.Id))
+                if (canonicalPoints.ContainsKey(station.Id))
                 {
                     continue;
                 }
 
-                detectionPoints[station.Id] = detectionProjector.Project(station.X, station.Z);
+                canonicalPoints[station.Id] = canonicalProjector.Project(station.X, station.Z);
             }
 
-            SchematicLayoutResult schematicLayout = ApplySchematicV2Layout(points, projector, detectionPoints, detectionProjector, displayFamilies, stationsById, options, reserveLegendSpace, warnings);
-            return new RenderGeometry(schematicLayout.Points, projector, schematicLayout.Adjustments, schematicLayout.RouteGuideByFamily, schematicLayout.RouteGuideMetadataByFamily);
+            SchematicLayoutResult canonicalLayout = ApplySchematicV2Layout(
+                canonicalPoints,
+                canonicalProjector,
+                canonicalPoints,
+                canonicalProjector,
+                displayFamilies,
+                stationsById,
+                canonicalOptions,
+                reserveLegendSpace,
+                warnings);
+            SchematicLayoutResult targetLayout = ScaleSchematicV2LayoutToTarget(canonicalLayout, canonicalOptions, options, reserveLegendSpace);
+            return new RenderGeometry(targetLayout.Points, projector, targetLayout.Adjustments, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
         }
 
         return new RenderGeometry(points, projector, [], null, null);
@@ -792,6 +791,96 @@ public sealed class MetroSvgRenderer
         double maxAdjustment = adjustments.Values.Select(adjustment => adjustment.Distance).DefaultIfEmpty(0).Max();
         warnings.Add($"Schematic-v2 topology diagnostics: initial dense station pairs: {initialDensePairs}; remaining dense station pairs: {remainingDensePairs}; initial short adjacency edges: {initialShortEdges}; remaining short adjacency edges: {remainingShortEdges}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; sharp angle relaxations: {relaxedSharpAngles}; geometry shared corridors: {geometryCorridors.Count}.");
         return new SchematicLayoutResult(points, adjustments, routeGuideResult.RouteGuideByFamily, routeGuideResult.MetadataByFamily);
+    }
+
+    private static SvgRenderOptions CreateSchematicV2CanonicalOptions(SvgRenderOptions options)
+    {
+        SvgRenderSize poster = SvgRenderSizePresets.Get(SvgRenderSizePreset.Poster);
+        return new SvgRenderOptions
+        {
+            LayoutMode = options.LayoutMode,
+            MapStyle = options.MapStyle,
+            Width = poster.Width,
+            Height = poster.Height,
+            Padding = 80,
+            Margin = 80,
+            LegendWidth = 240,
+            LegendGap = options.LegendGap,
+            LineWidth = options.LineWidth,
+            StationRadius = options.StationRadius,
+            InterchangeStationRadius = options.InterchangeStationRadius,
+            LabelFontSize = options.LabelFontSize,
+            LegendLabelFontSize = options.LegendLabelFontSize,
+            LabelGap = options.LabelGap,
+            EnableCenterExpansion = options.EnableCenterExpansion,
+            CenterExpansionStrength = options.CenterExpansionStrength,
+            GridSize = options.GridSize,
+            HideGenericStationLabels = options.HideGenericStationLabels,
+            HideCrowdedLabels = options.HideCrowdedLabels,
+            AlwaysShowInterchanges = options.AlwaysShowInterchanges,
+            AlwaysShowTerminals = options.AlwaysShowTerminals,
+            UsePathPoints = options.UsePathPoints,
+            PathPointSimplificationEnabled = options.PathPointSimplificationEnabled,
+            PathPointSimplificationTolerance = options.PathPointSimplificationTolerance,
+            MinPathSegmentLength = options.MinPathSegmentLength,
+            AdaptivePathPointSimplificationEnabled = options.AdaptivePathPointSimplificationEnabled,
+            EnableParallelCorridorOffset = options.EnableParallelCorridorOffset,
+            EnableServiceFamilyMerge = options.EnableServiceFamilyMerge,
+            EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
+            EnableExpressCenterStripe = options.EnableExpressCenterStripe,
+            EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
+            StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
+            StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,
+            EnableSchematicSegmentOverlapResolver = options.EnableSchematicSegmentOverlapResolver,
+            SchematicSegmentOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance,
+            SchematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim,
+            SchematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold,
+            SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing
+        };
+    }
+
+    private static SchematicLayoutResult ScaleSchematicV2LayoutToTarget(
+        SchematicLayoutResult layout,
+        SvgRenderOptions sourceOptions,
+        SvgRenderOptions targetOptions,
+        bool reserveLegendSpace)
+    {
+        SvgRect sourceBounds = CreateGeometryBounds(sourceOptions, reserveLegendSpace);
+        SvgRect targetBounds = CreateGeometryBounds(targetOptions, reserveLegendSpace);
+        double sourceWidth = Math.Max(1, sourceBounds.Right - sourceBounds.Left);
+        double sourceHeight = Math.Max(1, sourceBounds.Bottom - sourceBounds.Top);
+        double targetWidth = Math.Max(1, targetBounds.Right - targetBounds.Left);
+        double targetHeight = Math.Max(1, targetBounds.Bottom - targetBounds.Top);
+
+        SvgPoint Transform(SvgPoint point)
+        {
+            double xRatio = (point.X - sourceBounds.Left) / sourceWidth;
+            double yRatio = (point.Y - sourceBounds.Top) / sourceHeight;
+            return new SvgPoint(
+                targetBounds.Left + xRatio * targetWidth,
+                targetBounds.Top + yRatio * targetHeight);
+        }
+
+        Dictionary<string, SvgPoint> scaledPoints = layout.Points.ToDictionary(
+            pair => pair.Key,
+            pair => Transform(pair.Value),
+            StringComparer.Ordinal);
+        Dictionary<string, SchematicStationAdjustment> scaledAdjustments = layout.Adjustments.ToDictionary(
+            pair => pair.Key,
+            pair =>
+            {
+                SvgPoint originalPoint = Transform(pair.Value.OriginalPoint);
+                SvgPoint adjustedPoint = Transform(pair.Value.AdjustedPoint);
+                return pair.Value with
+                {
+                    OriginalPoint = originalPoint,
+                    AdjustedPoint = adjustedPoint,
+                    Distance = Distance(originalPoint, adjustedPoint)
+                };
+            },
+            StringComparer.Ordinal);
+
+        return new SchematicLayoutResult(scaledPoints, scaledAdjustments, layout.RouteGuideByFamily, layout.RouteGuideMetadataByFamily);
     }
 
     private static int RelaxSchematicV2SharpAngles(

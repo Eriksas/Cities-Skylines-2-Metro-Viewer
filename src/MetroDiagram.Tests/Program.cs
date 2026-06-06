@@ -65,6 +65,7 @@ List<(string Name, Action Test)> tests =
     ("schematic-v2 detects geometry shared corridor for skip-stop service", SchematicV2DetectsGeometrySharedCorridorForSkipStopService),
     ("schematic-v2 reconstructs follower route chain with pass-through nodes", SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes),
     ("schematic-v2 materializes route guide as parallel corridor", SchematicV2MaterializesRouteGuideAsParallelCorridor),
+    ("schematic-v2 shared corridor is stable across size presets", SchematicV2SharedCorridorIsStableAcrossSizePresets),
     ("schematic-v2 renders express stripe on parallel corridor", SchematicV2RendersExpressStripeOnParallelCorridor),
     ("schematic-v2 normalizes canonical backtracking route chains", SchematicV2NormalizesCanonicalBacktrackingRouteChains),
     ("schematic-v2 does not mistake single crossings for shared corridors", SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors),
@@ -1088,6 +1089,37 @@ static void SchematicV2MaterializesRouteGuideAsParallelCorridor()
     Assert(parallelCorridors.All(element => int.TryParse((string?)element.Attribute("data-schematic-v2-shared-corridor-point-count"), out int count) && count > 2), "Parallel corridor still looks like a short two-point overlay.");
     Assert(parallelCorridors.Select(element => (string?)element.Attribute("data-display-family-key")).OrderBy(value => value).SequenceEqual(["Line 10", "Line 2"]), "Parallel corridor was not rendered for both display families.");
     AssertValidSvg(xml, "schematic-v2 parallel corridor SVG");
+}
+
+static void SchematicV2SharedCorridorIsStableAcrossSizePresets()
+{
+    MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
+    XDocument standard = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 2200, height: 1400, legendWidth: 240)).Svg);
+    XDocument poster = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 3200, height: 2000, legendWidth: 240)).Svg);
+
+    IReadOnlyList<XElement> standardCorridors = GetSchematicV2ParallelCorridorElements(standard)
+        .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "geometry-route-guide")
+        .ToList();
+    IReadOnlyList<XElement> posterCorridors = GetSchematicV2ParallelCorridorElements(poster)
+        .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "geometry-route-guide")
+        .ToList();
+
+    Assert(standardCorridors.Count == 2, $"Standard schematic-v2 should preserve the materialized geometry corridor, but found {standardCorridors.Count} overlays.");
+    Assert(posterCorridors.Count == 2, $"Poster schematic-v2 should preserve the materialized geometry corridor, but found {posterCorridors.Count} overlays.");
+    Assert(
+        standardCorridors.Select(element => (string?)element.Attribute("data-display-family-key")).OrderBy(value => value).SequenceEqual(
+            posterCorridors.Select(element => (string?)element.Attribute("data-display-family-key")).OrderBy(value => value)),
+        "Schematic-v2 materialized different corridor families at different output sizes.");
+    Assert(standardCorridors.All(element => (string?)element.Attribute("data-schematic-v2-route-guide-materialized") == "true"), "Standard schematic-v2 did not materialize the route guide.");
+    Assert(posterCorridors.All(element => (string?)element.Attribute("data-schematic-v2-route-guide-materialized") == "true"), "Poster schematic-v2 did not materialize the route guide.");
+    Assert(standardCorridors.All(element => (string?)element.Attribute("data-schematic-v2-pass-through-stations") == (string?)posterCorridors.First().Attribute("data-schematic-v2-pass-through-stations")), "Standard schematic-v2 did not keep the same pass-through corridor station chain.");
+    Assert(standardCorridors.All(element => int.TryParse((string?)element.Attribute("data-schematic-v2-shared-corridor-point-count"), out int count) && count > 2), "Standard schematic-v2 collapsed the corridor into a short overlay.");
+    AssertValidSvg(standard, "standard schematic-v2 size-stable corridor SVG");
+    AssertValidSvg(poster, "poster schematic-v2 size-stable corridor SVG");
 }
 
 static void SchematicV2RendersExpressStripeOnParallelCorridor()

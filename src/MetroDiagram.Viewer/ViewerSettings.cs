@@ -18,6 +18,9 @@ public sealed class ViewerSettings
     [JsonPropertyName("sizePreset")]
     public string SizePreset { get; set; } = "custom";
 
+    [JsonPropertyName("previewZoom")]
+    public string PreviewZoom { get; set; } = "100";
+
     [JsonPropertyName("width")]
     public int Width { get; set; } = 1200;
 
@@ -62,6 +65,40 @@ public sealed class ViewerSettings
 
     [JsonPropertyName("pathPointSimplificationTolerance")]
     public double PathPointSimplificationTolerance { get; set; } = 0.75;
+
+    public void NormalizeRenderSettings()
+    {
+        Width = Math.Clamp(Width, 600, 8000);
+        Height = Math.Clamp(Height, 400, 6000);
+        LegendWidth = ViewerRenderSettingSanitizer.NormalizeLegendWidth(LegendWidth, Width);
+        Padding = ViewerRenderSettingSanitizer.NormalizePadding(Padding, Width, Height);
+    }
+}
+
+public static class ViewerRenderSettingSanitizer
+{
+    public static int NormalizeLegendWidth(int legendWidth, int canvasWidth)
+    {
+        if (legendWidth < 120)
+        {
+            return 240;
+        }
+
+        int maxLegendWidth = Math.Max(240, canvasWidth / 3);
+        return Math.Min(legendWidth, maxLegendWidth);
+    }
+
+    public static int NormalizePadding(int padding, int canvasWidth, int canvasHeight)
+    {
+        if (padding < 20)
+        {
+            return 80;
+        }
+
+        int shortSide = Math.Min(canvasWidth, canvasHeight);
+        int maxPadding = Math.Min(360, Math.Max(80, shortSide / 5));
+        return padding > maxPadding ? 80 : padding;
+    }
 }
 
 public static class ViewerSettingsStore
@@ -96,7 +133,9 @@ public static class ViewerSettingsStore
             }
 
             string json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<ViewerSettings>(json, Options) ?? new ViewerSettings();
+            ViewerSettings settings = JsonSerializer.Deserialize<ViewerSettings>(json, Options) ?? new ViewerSettings();
+            settings.NormalizeRenderSettings();
+            return settings;
         }
         catch
         {
@@ -106,6 +145,7 @@ public static class ViewerSettingsStore
 
     public static void Save(ViewerSettings settings)
     {
+        settings.NormalizeRenderSettings();
         string path = SettingsPath;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, JsonSerializer.Serialize(settings, Options));

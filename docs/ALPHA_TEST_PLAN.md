@@ -104,6 +104,7 @@ artifacts\path-geometry-comparison\17-geographic-express-normalized.svg
 - Phase 5D.1 freezes the current schematic-v2 candidate under `artifacts\schematic-v2-candidate-freeze\20260604-222351`. Use it as the visual regression reference before accepting future label, badge, legend, or frame polish.
 - Phase 5E transit-map readability check: route number badges should avoid station labels and other badges. A badge can be omitted at a crowded endpoint; that is preferable to forcing overlap.
 - Phase 5E also adds an `Express service marker` sample to the bottom key when white center stripes are present.
+- Schematic-v2 size stability check: Compact, Standard, Poster, Ultra, and Custom sizes should preserve the same schematic-v2 topology and shared-corridor materialization. Size should affect output scale/framing, not whether `2号线` / `10号线` appears as a materialized shared corridor.
 
 ## In-Game Export Scenarios
 
@@ -173,9 +174,16 @@ Optional comparison artifacts:
 - [ ] Open sample JSON.
 - [ ] Open real `metro-export.json`.
 - [ ] Use `Open Default Export`.
+- [ ] Confirm the metro map appears directly inside `Map Preview` after opening JSON, without saving/opening SVG manually.
 - [ ] Switch language between English and Chinese.
-- [ ] Change layout between `geographic` and `schematic-lite`.
+- [ ] Change layout between `geographic`, `schematic-lite`, and experimental `schematic-v2`.
 - [ ] Change width, height, label font size, and grid size.
+- [ ] Open the `Export Data` tab and confirm line/station counts match the loaded JSON.
+- [ ] Confirm per-line stop counts, pathPoints counts, path point source summaries, and termini are visible.
+- [ ] Confirm per-station line membership, interchange flag, and position are visible.
+- [ ] Confirm the Viewer reports whether a matching `metro-export-diagnostics.txt` or snapshot diagnostics file exists.
+- [ ] If diagnostics exists, click `Open Diagnostics` and confirm the text file opens.
+- [ ] If the export is stale or has placeholder city name, confirm the `Export Data` tab shows a clear warning.
 - [ ] Confirm Viewer setting persistence after restart.
 - [ ] Save SVG and open it in a browser.
 

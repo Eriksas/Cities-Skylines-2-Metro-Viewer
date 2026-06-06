@@ -2058,3 +2058,44 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-valid
 ```text
 artifacts\alpha-validation\20260605-101043-freshness-check-fixed
 ```
+
+## Viewer Export Data Inspector - 2026-06-05
+
+- The Viewer now has two tabs:
+  - `Map Preview` keeps the existing SVG preview.
+  - `Export Data` is a read-only inspection panel for the loaded JSON.
+- `Export Data` shows schema/generator/game versions, export time, line/station counts, total stops/pathPoints, interchange count, diagnostics-file status, line details, and station details.
+- The inspection code is encapsulated in `src\MetroDiagram.Viewer\ExportDataInspector.cs`; keep future derived Viewer-only data summaries there instead of growing `MainWindow.xaml.cs`.
+- `Open Diagnostics` opens the matching diagnostics text file when one is found.
+- The inspector adds warnings for stale generator/tool version mismatch and placeholder city names.
+- The SVG preview now writes a temporary HTML file under `%TEMP%\CS2MetroDiagramViewer` and navigates the embedded browser to that file. This is more reliable for large inline SVG than `NavigateToString`; the temp file is deleted on Viewer close when possible.
+- Viewer preview scale is controlled by `PreviewZoom` in `viewer-settings.json`. Default `100` now reads the SVG root `width`/`height` and displays the SVG at actual rendered pixel size with scrollbars; `fit-width` gives a whole-map overview by scaling to the preview pane width.
+- The Viewer app icon source is `src\MetroDiagram.Viewer\Assets\MetroDiagramViewerIcon.svg`; generated assets are `MetroDiagramViewerIcon-256.png` and `MetroDiagramViewer.ico`.
+- Regenerate the icon with:
+
+```text
+scripts\generate-viewer-icon.ps1
+```
+
+- The `.ico` is wired through `MetroDiagram.Viewer.csproj` `ApplicationIcon` for the executable icon.
+- Avoid setting `MainWindow.xaml` `Icon="Assets/MetroDiagramViewer.ico"` unless the pack URI is verified in the self-contained package. That XAML startup-time icon lookup caused a `XamlParseException` (`could not find resource assets/metrodiagramviewer.ico`) and made the Viewer appear to do nothing on double-click. The safer current behavior is to keep the executable icon and leave the window `Icon` attribute unset.
+- The diagnostics lookup is path-based:
+  - `metro-export.json` -> `metro-export-diagnostics.txt`
+  - `exports\metro-export-{slug}-{timestamp}.json` -> `exports\metro-export-diagnostics-{slug}-{timestamp}.txt`
+  - then falls back to `metro-export-diagnostics.txt` in the same folder.
+- Viewer layout selection now includes `schematic-v2`, but geographic remains the recommended alpha default.
+- This is Viewer-only alpha feedback tooling. Exporter logic, JSON schema, geographic rendering, raw `line.stops`, and raw `line.pathPoints` were not changed.
+
+## Viewer Header Layout Polish - 2026-06-05
+
+- Moved the loaded JSON path, city summary, and error text out of the cramped right-side toolbar area into a full-width header row below the render controls.
+- Long loaded JSON paths now use text trimming plus a tooltip so the top-right header no longer clips export information when the Viewer is opened wide with many controls visible.
+- Added Viewer render-setting sanitization for obviously broken saved values such as `legendWidth=24` or `padding=800`. Loading settings, saving settings, rendering, and size preset changes now normalize legend width and padding back to stable values so schematic-v2 is not distorted by stale custom settings.
+
+## Schematic-v2 Size Stability - 2026-06-06
+
+- Schematic-v2 now computes topology/grid/shared-corridor layout in a stable Poster-sized canonical space (`3200 x 2000`) and then maps the result into the requested output canvas.
+- This keeps schematic-v2 content relationships stable across Compact, Standard, Poster, Ultra, and Custom sizes: output size should scale/framing the diagram, not change whether shared corridors such as 2号线 / 10号线 materialize.
+- The change is renderer-only. It does not modify exporter logic, JSON schema, raw `line.stops`, raw `line.pathPoints`, geographic rendering, or schematic-lite.
+- Added a regression test for a skip-stop geometry shared corridor fixture to ensure Standard and Poster both render the same materialized route-guide parallel corridor with the same pass-through station chain.
+

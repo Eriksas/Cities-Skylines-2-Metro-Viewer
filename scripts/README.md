@@ -6,6 +6,7 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 - `publish-viewer-self-contained.ps1` - publishes the Windows Viewer as a self-contained win-x64 package.
 - `publish-viewer-framework-dependent.ps1` - publishes the Windows Viewer as a framework-dependent package.
+- `generate-viewer-icon.ps1` - regenerates the Viewer app icon PNG/ICO assets from the deterministic icon drawing script.
 - `package-alpha-release.ps1` - builds/tests, publishes Viewer, copies docs/samples/mod artifacts when available, and creates an alpha release folder/zip.
 
 ## Local CS2 Mod Workflow

@@ -100,10 +100,12 @@ For normal users:
 3. Click `Open Default Export` if `D:\CS2MetroDiagram\metro-export.json` or `Documents\CS2MetroDiagram\metro-export.json` exists.
 4. Otherwise click `Open JSON` and choose a sample JSON or real export.
 
+The Viewer opens the map inside the app after JSON load; saving SVG is only needed when you want to export the preview. Use the `Preview` zoom control to switch between actual SVG pixel-size preview (`100%`) and scaled overview (`Fit width`). The Windows executable includes a CS2 Metro Diagram app icon.
+
 Inside the viewer:
 
 1. Click `Open JSON` or `Open Default Export`.
-2. Switch `Layout` between `geographic` and `schematic-lite`.
+2. Switch `Layout` between `geographic`, `schematic-lite`, and experimental `schematic-v2`.
 3. Adjust width, height, legend width, padding, line width, station radius, label font size, or grid size.
 4. Use label options to hide generic station names or crowded low-priority labels while keeping interchanges and terminals visible.
 5. Use `Use exported path geometry` to draw geographic routes from exported `pathPoints` when available.
@@ -112,6 +114,11 @@ Inside the viewer:
 8. Switch `Language` between English and Chinese when needed.
 9. Click `Refresh Preview`.
 10. Click `Save SVG`.
+
+The Viewer has two main tabs:
+
+- `Map Preview`: renders the selected JSON as SVG using the current render options.
+- `Export Data`: shows a read-only inspection view of the loaded export, including schema/generator/game versions, export time, line and station counts, total stops/pathPoints, interchange count, per-line stop/pathPoint details, per-station line membership, and whether a matching diagnostics file was found next to the JSON. It also warns when the export generator version differs from the current Viewer/tool version or when the city name looks like a placeholder. Use `Open Diagnostics` from this tab to open the matching diagnostics text file when available.
 
 Current real exports are expected under `D:\CS2MetroDiagram`, with `Documents\CS2MetroDiagram` also supported as a fallback. The latest files remain `metro-export.json` and `metro-export-diagnostics.txt`; real exports also create timestamped snapshots under the `exports` subdirectory. Viewer settings are saved to `Documents\CS2MetroDiagram\viewer-settings.json`.
 

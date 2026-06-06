@@ -5,12 +5,17 @@
     <ProjectReference Include="..\MetroDiagram.Rendering\MetroDiagram.Rendering.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\MetroDiagramViewer.ico" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ApplicationIcon>Assets\MetroDiagramViewer.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

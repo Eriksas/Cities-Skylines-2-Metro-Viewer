@@ -27,12 +27,24 @@ Latest real exports remain `metro-export.json`. Timestamped snapshots are writte
 
 ## Preview
 
-The Viewer renders the SVG preview using the same renderer as the CLI.
+The Viewer renders the SVG preview inside the app using the same renderer as the CLI. After you open a JSON file, the app switches to `Map Preview` and shows the generated metro diagram directly; you do not need to save the SVG first or open it manually in a browser.
+
+Use `Preview` to choose the in-app preview scale. `100%` shows the SVG at its actual rendered pixel size, based on the SVG root `width` and `height`, and lets you scroll around large maps. `Fit width` gives an overview by scaling the whole SVG down to the preview pane width.
 
 Layout modes:
 
 - `geographic`: keeps normalized source coordinate geometry.
 - `schematic-lite`: snaps rendered stations to a grid and makes route segments more regular.
+- `schematic-v2`: experimental topology-first schematic layout for validation.
+
+The Viewer has two main tabs:
+
+- `Map Preview`: renders the selected JSON as SVG.
+- `Export Data`: shows schema/generator/game versions, export time, line and station counts, per-line stop/pathPoint details, per-station membership, warnings for stale exports or placeholder city names, and matching diagnostics-file status.
+
+If a matching diagnostics file is found, click `Open Diagnostics` from the `Export Data` tab to open it.
+
+The Windows executable includes a CS2 Metro Diagram app icon.
 
 ## Adjust
 

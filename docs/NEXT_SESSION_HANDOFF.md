@@ -37,6 +37,17 @@ artifacts\alpha-validation\alpha-validation-20260605-095556-primary-city-post-cl
 artifacts\alpha-validation\20260605-101043-freshness-check-fixed
 ```
 
+Viewer alpha feedback loop follow-up:
+
+- The Viewer now has a `Map Preview` tab for the SVG map and an `Export Data` tab for read-only export inspection.
+- `Export Data` summarizes schema/generator/game versions, export time, line/station totals, total stops/pathPoints, interchange count, matching diagnostics status, per-line details, and per-station details.
+- The data-inspection logic is encapsulated in `src\MetroDiagram.Viewer\ExportDataInspector.cs`; future Viewer-only summaries should live there.
+- The tab can open matching diagnostics files directly and warns when the export version appears stale or the city name is a placeholder.
+- Viewer layout selection now includes experimental `schematic-v2`; do not promote it as the default yet.
+- Viewer map preview now uses a temporary HTML file in `%TEMP%\CS2MetroDiagramViewer` for more reliable in-app SVG display and switches back to `Map Preview` after rendering.
+- Viewer now has an application icon. Source: `src\MetroDiagram.Viewer\Assets\MetroDiagramViewerIcon.svg`; generated executable icon: `src\MetroDiagram.Viewer\Assets\MetroDiagramViewer.ico`; regeneration script: `scripts\generate-viewer-icon.ps1`.
+- This is useful for alpha testers who need to confirm what the JSON contains before attaching feedback. It does not change exporter output or schema.
+
 Phase 5D.1 froze the current schematic-v2 candidate artifacts under:
 
 ```text
@@ -873,4 +884,5 @@ dotnet build CS2MetroDiagram.slnx --no-restore
 ```
 
 - Next good step: continue alpha validation with more city bundles, or do a small label hierarchy pass if the user wants another visual polish round. Do not change exporter/schema/geographic defaults for this work.
+- 2026-06-06 schematic-v2 size stability follow-up: schematic-v2 now computes topology/grid/shared-corridor layout in a canonical Poster-sized space and scales it to the requested output size. Standard/Compact should no longer change whether `2号线` / `10号线` is materialized compared with Poster/Ultra; if it does, treat that as a renderer regression rather than a tuning issue.
 
