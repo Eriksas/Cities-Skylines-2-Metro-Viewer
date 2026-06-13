@@ -21,9 +21,12 @@ public sealed class MetroSvgRenderer
             .GroupBy(station => station.Id!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         List<DisplayLineFamily> displayFamilies = DisplayLineFamilyResolver.Resolve(lines, stationsById, options.EnableServiceFamilyMerge);
+        CanonicalSchematicNetwork? canonicalNetwork = options.LayoutMode == SvgLayoutMode.SchematicV2
+            ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
+            : null;
 
         bool hasLegend = displayFamilies.Count > 0;
-        RenderGeometry geometry = CreateRenderGeometry(stations, lines, displayFamilies, stationsById, options, hasLegend, warnings);
+        RenderGeometry geometry = CreateRenderGeometry(stations, lines, displayFamilies, canonicalNetwork, stationsById, options, hasLegend, warnings);
         StationRouteAnchorMap stationAnchors = ResolveStationRouteAnchors(stations, displayFamilies, stationsById, geometry, options, warnings);
         Dictionary<string, SvgPoint> stationPoints = stationAnchors.Points;
         HashSet<string> terminalStationIds = GetTerminalStationIds(lines, stationsById);
@@ -44,6 +47,7 @@ public sealed class MetroSvgRenderer
         List<MetroStation> stations,
         List<MetroLine> lines,
         List<DisplayLineFamily> displayFamilies,
+        CanonicalSchematicNetwork? canonicalNetwork,
         Dictionary<string, MetroStation> stationsById,
         SvgRenderOptions options,
         bool reserveLegendSpace,
@@ -109,6 +113,7 @@ public sealed class MetroSvgRenderer
                 canonicalPoints,
                 canonicalProjector,
                 displayFamilies,
+                canonicalNetwork,
                 stationsById,
                 canonicalOptions,
                 reserveLegendSpace,
@@ -690,6 +695,7 @@ public sealed class MetroSvgRenderer
         Dictionary<string, SvgPoint> corridorDetectionPoints,
         CoordinateProjector corridorDetectionProjector,
         List<DisplayLineFamily> displayFamilies,
+        CanonicalSchematicNetwork? canonicalNetwork,
         Dictionary<string, MetroStation> stationsById,
         SvgRenderOptions options,
         bool reserveLegendSpace,
@@ -703,7 +709,9 @@ public sealed class MetroSvgRenderer
                 pair => SnapPointToGrid(pair.Value, gridSize, bounds),
                 StringComparer.Ordinal);
         Dictionary<string, SvgPoint> original = points.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        Dictionary<string, HashSet<string>> adjacency = BuildSchematicV2Adjacency(displayFamilies, stationsById, points);
+        Dictionary<string, HashSet<string>> adjacency = canonicalNetwork is null
+            ? BuildSchematicV2Adjacency(displayFamilies, stationsById, points)
+            : BuildSchematicV2Adjacency(canonicalNetwork, points);
         Dictionary<string, int> degreeByStation = adjacency.ToDictionary(pair => pair.Key, pair => pair.Value.Count, StringComparer.Ordinal);
         HashSet<string> interchangeStationIds = stationsById.Values
             .Where(station => !string.IsNullOrWhiteSpace(station.Id) && IsInterchange(station))
@@ -713,7 +721,9 @@ public sealed class MetroSvgRenderer
             ? options.SchematicMinimumStationSpacing
             : Math.Max(gridSize * 1.35, SvgVisualStyle.From(options).StationMarkerOuterRadius * 4.0);
 
-        List<SchematicV2FamilyPath> familyPaths = BuildSchematicV2FamilyPaths(displayFamilies, stationsById, points);
+        List<SchematicV2FamilyPath> familyPaths = canonicalNetwork is null
+            ? BuildSchematicV2FamilyPaths(displayFamilies, stationsById, points)
+            : BuildSchematicV2FamilyPaths(canonicalNetwork, points);
         int initialDensePairs = CountSchematicSpacingConflicts(points, minimumSpacing);
         int initialShortEdges = CountShortSchematicEdges(points, adjacency, minimumSpacing);
         double maxStep = Math.Max(3, gridSize * 0.22);
@@ -779,17 +789,31 @@ public sealed class MetroSvgRenderer
         }
 
         List<SchematicV2GeometryCorridorConstraint> geometryCorridors = DetectSchematicV2GeometryCorridors(displayFamilies, stationsById, corridorDetectionPoints, corridorDetectionProjector, options);
-        SchematicV2RouteGuideResult routeGuideResult = BuildSchematicV2RouteGuideByFamily(displayFamilies, stationsById, points, geometryCorridors);
+        SchematicV2RouteGuideResult routeGuideResult = BuildSchematicV2RouteGuideByFamily(displayFamilies, canonicalNetwork, stationsById, points, geometryCorridors);
+        int straightenedTerminalTails = StraightenSchematicV2TerminalTails(
+            points,
+            routeGuideResult.RouteGuideByFamily.Values,
+            degreeByStation,
+            interchangeStationIds,
+            gridSize);
         int relaxedSharpAngles = RelaxSchematicV2SharpAngles(
             points,
             familyPaths.Select(path => (IReadOnlyList<string>)path.Stops).Concat(routeGuideResult.RouteGuideByFamily.Values),
             bounds,
             halfGrid);
-        Dictionary<string, SchematicStationAdjustment> adjustments = BuildSchematicStationAdjustments(original, points, relaxedSharpAngles > 0 ? "topology-spacing-sharp-angle-relaxation" : "topology-spacing");
+        string adjustmentReason = straightenedTerminalTails > 0
+            ? "topology-spacing-terminal-tail-straightening"
+            : relaxedSharpAngles > 0
+                ? "topology-spacing-sharp-angle-relaxation"
+                : "topology-spacing";
+        Dictionary<string, SchematicStationAdjustment> adjustments = BuildSchematicStationAdjustments(original, points, adjustmentReason);
         int remainingDensePairs = CountSchematicSpacingConflicts(points, minimumSpacing);
         int remainingShortEdges = CountShortSchematicEdges(points, adjacency, minimumSpacing);
         double maxAdjustment = adjustments.Values.Select(adjustment => adjustment.Distance).DefaultIfEmpty(0).Max();
-        warnings.Add($"Schematic-v2 topology diagnostics: initial dense station pairs: {initialDensePairs}; remaining dense station pairs: {remainingDensePairs}; initial short adjacency edges: {initialShortEdges}; remaining short adjacency edges: {remainingShortEdges}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; sharp angle relaxations: {relaxedSharpAngles}; geometry shared corridors: {geometryCorridors.Count}.");
+        string canonicalNetworkText = canonicalNetwork is null
+            ? "none"
+            : $"stations={canonicalNetwork.Stations.Count}, families={canonicalNetwork.Families.Count}, edges={canonicalNetwork.AdjacencyEdges.Count}, corridor hints={canonicalNetwork.CorridorHints.Count}";
+        warnings.Add($"Schematic-v2 topology diagnostics: initial dense station pairs: {initialDensePairs}; remaining dense station pairs: {remainingDensePairs}; initial short adjacency edges: {initialShortEdges}; remaining short adjacency edges: {remainingShortEdges}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; sharp angle relaxations: {relaxedSharpAngles}; terminal tail straightening: {straightenedTerminalTails}; geometry shared corridors: {geometryCorridors.Count}; canonical network: {canonicalNetworkText}.");
         return new SchematicLayoutResult(points, adjustments, routeGuideResult.RouteGuideByFamily, routeGuideResult.MetadataByFamily);
     }
 
@@ -972,6 +996,151 @@ public sealed class MetroSvgRenderer
         return angleDegrees < 58;
     }
 
+    private static int StraightenSchematicV2TerminalTails(
+        Dictionary<string, SvgPoint> points,
+        IEnumerable<List<string>> routeChains,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        double gridSize)
+    {
+        int straightened = 0;
+        foreach (List<string> routeChain in routeChains)
+        {
+            List<string> stops = RemoveConsecutiveDuplicateStops(routeChain);
+            if (stops.Count < 4)
+            {
+                continue;
+            }
+
+            if (TryStraightenSchematicV2TerminalTail(points, stops, degreeByStation, interchangeStationIds, gridSize, fromStart: true))
+            {
+                straightened++;
+            }
+
+            if (TryStraightenSchematicV2TerminalTail(points, stops, degreeByStation, interchangeStationIds, gridSize, fromStart: false))
+            {
+                straightened++;
+            }
+        }
+
+        return straightened;
+    }
+
+    private static bool TryStraightenSchematicV2TerminalTail(
+        Dictionary<string, SvgPoint> points,
+        List<string> routeChain,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        double gridSize,
+        bool fromStart)
+    {
+        int endpointIndex = fromStart ? 0 : routeChain.Count - 1;
+        string endpointId = routeChain[endpointIndex];
+        if (GetSchematicV2NodeDegree(endpointId, degreeByStation) > 1 || interchangeStationIds.Contains(endpointId))
+        {
+            return false;
+        }
+
+        List<string> tail = [];
+        for (int offset = 0; offset < routeChain.Count; offset++)
+        {
+            int index = fromStart ? offset : routeChain.Count - 1 - offset;
+            string stationId = routeChain[index];
+            tail.Add(stationId);
+
+            if (offset == 0)
+            {
+                continue;
+            }
+
+            bool isAnchor = interchangeStationIds.Contains(stationId) || GetSchematicV2NodeDegree(stationId, degreeByStation) >= 3;
+            if (isAnchor)
+            {
+                break;
+            }
+
+            if (tail.Count >= 6)
+            {
+                break;
+            }
+        }
+
+        if (tail.Count < 4)
+        {
+            return false;
+        }
+
+        string anchorId = tail[^1];
+        if (!interchangeStationIds.Contains(anchorId) && GetSchematicV2NodeDegree(anchorId, degreeByStation) < 3)
+        {
+            return false;
+        }
+
+        tail.Reverse();
+        if (!tail.All(points.ContainsKey))
+        {
+            return false;
+        }
+
+        SvgPoint anchor = points[tail[0]];
+        SvgPoint endpoint = points[tail[^1]];
+        double directDistance = Distance(anchor, endpoint);
+        if (directDistance < Math.Max(gridSize * 4.0, 1))
+        {
+            return false;
+        }
+
+        double polylineDistance = 0;
+        for (int i = 1; i < tail.Count; i++)
+        {
+            polylineDistance += Distance(points[tail[i - 1]], points[tail[i]]);
+        }
+
+        if (polylineDistance / directDistance < 1.22)
+        {
+            return false;
+        }
+
+        double maxPerpendicularDistance = 0;
+        for (int i = 1; i < tail.Count - 1; i++)
+        {
+            maxPerpendicularDistance = Math.Max(maxPerpendicularDistance, DistancePointToLine(points[tail[i]], anchor, endpoint));
+        }
+
+        if (maxPerpendicularDistance < gridSize * 1.5)
+        {
+            return false;
+        }
+
+        for (int i = 1; i < tail.Count - 1; i++)
+        {
+            double t = i / (double)(tail.Count - 1);
+            points[tail[i]] = new SvgPoint(
+                anchor.X + (endpoint.X - anchor.X) * t,
+                anchor.Y + (endpoint.Y - anchor.Y) * t);
+        }
+
+        return true;
+    }
+
+    private static int GetSchematicV2NodeDegree(string stationId, Dictionary<string, int> degreeByStation)
+    {
+        return degreeByStation.TryGetValue(stationId, out int degree) ? degree : 0;
+    }
+
+    private static double DistancePointToLine(SvgPoint point, SvgPoint start, SvgPoint end)
+    {
+        double dx = end.X - start.X;
+        double dy = end.Y - start.Y;
+        double denominator = Math.Sqrt(dx * dx + dy * dy);
+        if (denominator <= 0.001)
+        {
+            return Distance(point, start);
+        }
+
+        return Math.Abs(((end.X - start.X) * (start.Y - point.Y)) - ((start.X - point.X) * (end.Y - start.Y))) / denominator;
+    }
+
     private static List<SchematicV2FamilyPath> BuildSchematicV2FamilyPaths(
         List<DisplayLineFamily> displayFamilies,
         Dictionary<string, MetroStation> stationsById,
@@ -995,6 +1164,34 @@ public sealed class MetroSvgRenderer
         return paths;
     }
 
+    private static List<SchematicV2FamilyPath> BuildSchematicV2FamilyPaths(
+        CanonicalSchematicNetwork canonicalNetwork,
+        Dictionary<string, SvgPoint> stationPoints)
+    {
+        List<SchematicV2FamilyPath> paths = [];
+        foreach (CanonicalServiceFamily family in canonicalNetwork.Families.OrderBy(item => item.DisplayName, StringComparer.CurrentCulture))
+        {
+            List<string> stops = RemoveConsecutiveDuplicateStops(
+                family.CanonicalStops
+                    .Where(stopId => !string.IsNullOrWhiteSpace(stopId) && stationPoints.ContainsKey(stopId))
+                    .ToList());
+            if (stops.Count < 2)
+            {
+                continue;
+            }
+
+            SvgPoint first = stationPoints[stops[0]];
+            SvgPoint last = stationPoints[stops[^1]];
+            SvgPoint fallback = new(1, 0);
+            paths.Add(new SchematicV2FamilyPath(
+                family.FamilyKey,
+                stops,
+                QuantizeSchematicDirection(new SvgPoint(last.X - first.X, last.Y - first.Y), fallback)));
+        }
+
+        return paths;
+    }
+
     private static SchematicV2RouteGuideResult BuildSchematicV2CanonicalRouteGuideByFamily(
         List<DisplayLineFamily> displayFamilies,
         Dictionary<string, MetroStation> stationsById,
@@ -1011,15 +1208,25 @@ public sealed class MetroSvgRenderer
 
     private static SchematicV2RouteGuideResult BuildSchematicV2RouteGuideByFamily(
         List<DisplayLineFamily> displayFamilies,
+        CanonicalSchematicNetwork? canonicalNetwork,
         Dictionary<string, MetroStation> stationsById,
         Dictionary<string, SvgPoint> stationPoints,
         List<SchematicV2GeometryCorridorConstraint> geometryCorridors)
     {
-        Dictionary<string, List<string>> routeGuideByFamily = displayFamilies
-            .ToDictionary(
-                family => family.FamilyKey,
-                family => GetSchematicV2TopologyStops(family, stationsById, stationPoints),
-                StringComparer.Ordinal);
+        Dictionary<string, List<string>> routeGuideByFamily = canonicalNetwork is null
+            ? displayFamilies
+                .ToDictionary(
+                    family => family.FamilyKey,
+                    family => GetSchematicV2TopologyStops(family, stationsById, stationPoints),
+                    StringComparer.Ordinal)
+            : canonicalNetwork.Families
+                .ToDictionary(
+                    family => family.FamilyKey,
+                    family => RemoveConsecutiveDuplicateStops(
+                        family.CanonicalStops
+                            .Where(stopId => !string.IsNullOrWhiteSpace(stopId) && stationPoints.ContainsKey(stopId))
+                            .ToList()),
+                    StringComparer.Ordinal);
         Dictionary<string, DisplayLineFamily> familyByKey = displayFamilies.ToDictionary(family => family.FamilyKey, StringComparer.Ordinal);
         Dictionary<string, SchematicV2RouteGuideMetadata> metadataByFamily = new(StringComparer.Ordinal);
         List<SchematicV2GeometryCorridorConstraint> corridorConstraints = [..geometryCorridors];
@@ -2245,6 +2452,29 @@ public sealed class MetroSvgRenderer
         return adjacency;
     }
 
+    private static Dictionary<string, HashSet<string>> BuildSchematicV2Adjacency(
+        CanonicalSchematicNetwork canonicalNetwork,
+        Dictionary<string, SvgPoint> stationPoints)
+    {
+        Dictionary<string, HashSet<string>> adjacency = stationPoints.Keys
+            .ToDictionary(id => id, _ => new HashSet<string>(StringComparer.Ordinal), StringComparer.Ordinal);
+
+        foreach (CanonicalAdjacencyEdge edge in canonicalNetwork.AdjacencyEdges)
+        {
+            if (!stationPoints.ContainsKey(edge.StartStationId)
+                || !stationPoints.ContainsKey(edge.EndStationId)
+                || string.Equals(edge.StartStationId, edge.EndStationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            adjacency[edge.StartStationId].Add(edge.EndStationId);
+            adjacency[edge.EndStationId].Add(edge.StartStationId);
+        }
+
+        return adjacency;
+    }
+
     private static bool RelaxSchematicV2DensePairs(
         Dictionary<string, SvgPoint> points,
         Dictionary<string, SvgPoint> original,
@@ -3059,7 +3289,7 @@ public sealed class MetroSvgRenderer
             ? " data-schematic-v2-route-guide-materialized=\"true\""
             : " data-schematic-v2-parallel-platform=\"true\"";
         string familyKeys = string.Join("|", run.FamilyKeys);
-        string attributes = $"class=\"schematic-v2-parallel-corridor\" data-line-id=\"{Escape(renderRoute.Line.Id)}\" data-display-family-key=\"{Escape(renderRoute.Family.FamilyKey)}\" data-schematic-v2-shared-corridor-run=\"true\" data-schematic-v2-shared-corridor-run-id=\"{Escape(run.RunId)}\" data-schematic-v2-shared-corridor-family-a=\"{Escape(run.FamilyAKey)}\" data-schematic-v2-shared-corridor-family-b=\"{Escape(run.FamilyBKey)}\" data-schematic-v2-shared-corridor-family-count=\"{run.FamilyKeys.Count}\" data-schematic-v2-shared-corridor-families=\"{Escape(familyKeys)}\" data-schematic-v2-parallel-corridor=\"true\" data-schematic-v2-parallel-corridor-source=\"{Escape(run.Source)}\" data-schematic-v2-parallel-offset=\"{Format(offset)}\"{routeGuideAttribute} data-schematic-v2-pass-through-stations=\"{Escape(stationIds)}\" data-schematic-v2-shared-corridor-point-count=\"{run.Points.Count}\" points=\"{pointList}\"";
+        string attributes = $"class=\"schematic-v2-parallel-corridor\" data-line-id=\"{Escape(renderRoute.Line.Id)}\" data-display-family-key=\"{Escape(renderRoute.Family.FamilyKey)}\" data-schematic-v2-canonical-corridor=\"true\" data-schematic-v2-shared-corridor-run=\"true\" data-schematic-v2-shared-corridor-run-id=\"{Escape(run.RunId)}\" data-schematic-v2-shared-corridor-family-a=\"{Escape(run.FamilyAKey)}\" data-schematic-v2-shared-corridor-family-b=\"{Escape(run.FamilyBKey)}\" data-schematic-v2-shared-corridor-family-count=\"{run.FamilyKeys.Count}\" data-schematic-v2-shared-corridor-families=\"{Escape(familyKeys)}\" data-schematic-v2-parallel-corridor=\"true\" data-schematic-v2-parallel-corridor-source=\"{Escape(run.Source)}\" data-schematic-v2-parallel-offset=\"{Format(offset)}\"{routeGuideAttribute} data-schematic-v2-pass-through-stations=\"{Escape(stationIds)}\" data-schematic-v2-shared-corridor-point-count=\"{run.Points.Count}\" points=\"{pointList}\"";
         svg.AppendLine($"""<polyline {attributes} stroke="{Escape(renderRoute.Family.Color)}" style="stroke-width: {Format(strokeWidth)};" />""");
 
         if (!ShouldRenderExpressCenterStripe(options, renderRoute.Family))

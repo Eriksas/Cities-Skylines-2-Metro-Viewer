@@ -62,12 +62,16 @@ List<(string Name, Action Test)> tests =
     ("schematic-v2 chooses canonical service route by stop count", SchematicV2ChoosesCanonicalServiceRouteByStopCount),
     ("schematic-v2 hides express variant geometry", SchematicV2HidesExpressVariantGeometry),
     ("schematic-v2 marks express service family with center stripe", SchematicV2MarksExpressServiceFamilyWithCenterStripe),
+    ("canonical schematic network selects service family route", CanonicalSchematicNetworkSelectsServiceFamilyRoute),
+    ("canonical schematic network records exact shared edges", CanonicalSchematicNetworkRecordsExactSharedEdges),
+    ("canonical schematic network records geometry corridor hints", CanonicalSchematicNetworkRecordsGeometryCorridorHints),
     ("schematic-v2 detects geometry shared corridor for skip-stop service", SchematicV2DetectsGeometrySharedCorridorForSkipStopService),
     ("schematic-v2 reconstructs follower route chain with pass-through nodes", SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes),
     ("schematic-v2 materializes route guide as parallel corridor", SchematicV2MaterializesRouteGuideAsParallelCorridor),
     ("schematic-v2 shared corridor is stable across size presets", SchematicV2SharedCorridorIsStableAcrossSizePresets),
     ("schematic-v2 renders express stripe on parallel corridor", SchematicV2RendersExpressStripeOnParallelCorridor),
     ("schematic-v2 normalizes canonical backtracking route chains", SchematicV2NormalizesCanonicalBacktrackingRouteChains),
+    ("schematic-v2 straightens zigzag terminal tails", SchematicV2StraightensZigzagTerminalTails),
     ("schematic-v2 does not mistake single crossings for shared corridors", SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors),
     ("schematic-v2 does not render parallel corridor for single crossing", SchematicV2DoesNotRenderParallelCorridorForSingleCrossing),
     ("schematic-v2 does not merge non-shared lines", SchematicV2DoesNotMergeNonSharedLines),
@@ -925,6 +929,7 @@ static void SchematicV2RendersExactSharedPlatformCorridors()
     Assert(platformCorridors.Count == 2, $"Expected two exact shared platform overlays, but found {platformCorridors.Count}.");
     Assert(platformCorridors.Select(element => (string?)element.Attribute("data-display-family-key")).OrderBy(value => value).SequenceEqual(["Line 3", "Line 4"]), "Exact shared platform overlays were not rendered for both families.");
     Assert(platformCorridors.All(element => (string?)element.Attribute("data-schematic-v2-parallel-platform") == "true"), "Exact shared platform overlays did not carry the platform debug attribute.");
+    Assert(platformCorridors.All(element => (string?)element.Attribute("data-schematic-v2-canonical-corridor") == "true"), "Exact shared platform overlays should be marked as canonical corridor output.");
     Assert(platformCorridors.All(element => int.TryParse((string?)element.Attribute("data-schematic-v2-shared-corridor-point-count"), out int count) && count == 3), "Exact shared platform corridor should cover the full three-station shared chain.");
     Assert(!platformCorridors.Any(element => (string?)element.Attribute("data-schematic-v2-route-guide-materialized") == "true"), "Exact shared platform rendering should not claim route-guide materialization.");
     AssertValidSvg(xml, "schematic-v2 exact shared platform SVG");
@@ -1047,6 +1052,51 @@ static void SchematicV2MarksExpressServiceFamilyWithCenterStripe()
     AssertSvgContains(xml.ToString(), ".express-decoration { fill: none;", "Schematic-v2 express marker style");
 }
 
+static void CanonicalSchematicNetworkSelectsServiceFamilyRoute()
+{
+    MetroExportDocument document = CreateSchematicV2ServiceVariantSimplificationDocument();
+
+    CanonicalSchematicNetwork network = CanonicalSchematicNetworkBuilder.Build(document);
+    CanonicalServiceFamily family = network.Families.Single(family => family.FamilyKey == "Line 10");
+
+    Assert(family.CanonicalLineId == "line_10_local", "Canonical network should choose the all-stop Line 10 local variant.");
+    Assert(family.CanonicalStops.SequenceEqual(["station_a", "station_b", "station_c", "station_d", "station_e"]), "Canonical stops should preserve the all-stop service order.");
+    Assert(family.HasExpressService, "Canonical network should record that the family has an express service variant.");
+    Assert(family.Variants.Single(variant => variant.LineId == "line_10_express").IsExpressService, "Express variant metadata was not detected.");
+    Assert(family.Variants.Single(variant => variant.LineId == "line_10_local").IsCanonical, "Local variant should be marked canonical.");
+    Assert(network.Stations["station_a"].FamilyKeys.SequenceEqual(["Line 10"]), "Station family membership should collapse variants into one service family.");
+}
+
+static void CanonicalSchematicNetworkRecordsExactSharedEdges()
+{
+    MetroExportDocument document = CreateSchematicV2ExactSharedPlatformDocument();
+
+    CanonicalSchematicNetwork network = CanonicalSchematicNetworkBuilder.Build(document);
+    CanonicalCorridorHint sharedEdge = network.CorridorHints.Single(hint =>
+        hint.Source == "exact-shared-adjacent-stop-edge"
+        && hint.StationIds.SequenceEqual(["station_shared_a", "station_shared_b"]));
+
+    Assert(sharedEdge.FamilyKeys.Count == 2, "Exact shared edge should include both display families.");
+    Assert(sharedEdge.Confidence == 1, "Exact shared edge should have full confidence.");
+    Assert(network.AdjacencyEdges.Count(edge => edge.EdgeKey == "station_shared_a|station_shared_b") == 2, "Adjacency should preserve one edge per involved family.");
+    Assert(network.InterchangeGroups.Any(group => group.StationId == "station_shared_a"), "Shared station should be represented as an interchange/corridor group node.");
+}
+
+static void CanonicalSchematicNetworkRecordsGeometryCorridorHints()
+{
+    MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
+
+    CanonicalSchematicNetwork network = CanonicalSchematicNetworkBuilder.Build(document);
+    CanonicalCorridorHint geometryHint = network.CorridorHints.Single(hint =>
+        hint.Source == "geometry-pathPoints-corridor"
+        && hint.FamilyKeys.Contains("Line 2")
+        && hint.FamilyKeys.Contains("Line 10"));
+
+    Assert(geometryHint.ApproximateSharedLength >= 300, "Geometry corridor should record a substantial shared pathPoints length.");
+    Assert(geometryHint.AverageDistance <= 1, "Synthetic shared pathPoints corridor should have near-zero average distance.");
+    Assert(geometryHint.Confidence > 0.35, "Geometry corridor confidence should be strong enough for downstream schematic constraints.");
+}
+
 static void SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes()
 {
     MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
@@ -1084,6 +1134,7 @@ static void SchematicV2MaterializesRouteGuideAsParallelCorridor()
 
     Assert(parallelCorridors.Count == 2, $"Expected two parallel corridor overlays for the materialized shared run, but found {parallelCorridors.Count}.");
     Assert(parallelCorridors.All(element => (string?)element.Attribute("data-schematic-v2-route-guide-materialized") == "true"), "Parallel corridor did not mark route guide materialization.");
+    Assert(parallelCorridors.All(element => (string?)element.Attribute("data-schematic-v2-canonical-corridor") == "true"), "Materialized route-guide overlays should be marked as canonical corridor output.");
     Assert(parallelCorridors.All(element => ((string?)element.Attribute("data-schematic-v2-pass-through-stations"))?.Contains("station_corridor_mid", StringComparison.Ordinal) == true), "Parallel corridor did not record the pass-through corridor station.");
     Assert(parallelCorridors.All(element => ((string?)element.Attribute("data-schematic-v2-pass-through-stations"))?.Contains("station_corridor_mid_2", StringComparison.Ordinal) == true), "Parallel corridor did not record the second pass-through corridor station.");
     Assert(parallelCorridors.All(element => int.TryParse((string?)element.Attribute("data-schematic-v2-shared-corridor-point-count"), out int count) && count > 2), "Parallel corridor still looks like a short two-point overlay.");
@@ -1156,6 +1207,29 @@ static void SchematicV2NormalizesCanonicalBacktrackingRouteChains()
     Assert(points.Any(point => Distance(point, GetStationCenter(xml, "station_d")) < 0.001), "Normalized route lost the far terminal.");
     Assert(FindPointIndex(points, GetStationCenter(xml, "station_d")) == points.Count - 1, "Normalized route still contains points after the far terminal.");
     AssertValidSvg(xml, "schematic-v2 normalized backtracking route SVG");
+}
+
+static void SchematicV2StraightensZigzagTerminalTails()
+{
+    MetroExportDocument document = CreateSchematicV2ZigzagTerminalTailDocument();
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 1600, height: 1000, legendWidth: 220)).Svg);
+
+    XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Tail Line");
+    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+
+    (double X, double Y) anchor = GetStationCenter(xml, "station_anchor");
+    (double X, double Y) terminal = GetStationCenter(xml, "station_terminal");
+    (double X, double Y) bendA = GetStationCenter(xml, "station_bend_a");
+    (double X, double Y) bendB = GetStationCenter(xml, "station_bend_b");
+
+    Assert(points.Count == 4, $"Terminal tail fixture should render four route points, but rendered {points.Count}.");
+    Assert(DistancePointToLine(bendA, anchor, terminal) < 0.001, "First terminal-tail bend was not straightened onto the anchor-terminal line.");
+    Assert(DistancePointToLine(bendB, anchor, terminal) < 0.001, "Second terminal-tail bend was not straightened onto the anchor-terminal line.");
+    Assert(FindPointIndex(points, anchor) == 0, "Terminal tail straightening moved the anchor out of route order.");
+    Assert(FindPointIndex(points, terminal) == points.Count - 1, "Terminal tail straightening moved the terminal out of route order.");
+    AssertValidSvg(xml, "schematic-v2 straightened terminal tail SVG");
 }
 
 static void SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors()
@@ -3048,6 +3122,53 @@ static MetroExportDocument CreateSchematicV2BacktrackingCanonicalRouteDocument()
     };
 }
 
+static MetroExportDocument CreateSchematicV2ZigzagTerminalTailDocument()
+{
+    return new MetroExportDocument
+    {
+        City = new CityInfo { Name = "Zigzag Terminal Tail City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation { Id = "station_anchor", Name = "Anchor", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["line_tail", "line_stub_east", "line_stub_west"], IsInterchange = true },
+                new MetroStation { Id = "station_bend_a", Name = "Bend A", Position = new MetroPosition { X = 160, Z = -240 }, Lines = ["line_tail"] },
+                new MetroStation { Id = "station_bend_b", Name = "Bend B", Position = new MetroPosition { X = -110, Z = -500 }, Lines = ["line_tail"] },
+                new MetroStation { Id = "station_terminal", Name = "Terminal", Position = new MetroPosition { X = -20, Z = -760 }, Lines = ["line_tail"] },
+                new MetroStation { Id = "station_east", Name = "East", Position = new MetroPosition { X = 420, Z = 0 }, Lines = ["line_stub_east"] },
+                new MetroStation { Id = "station_west", Name = "West", Position = new MetroPosition { X = -420, Z = 0 }, Lines = ["line_stub_west"] }
+            ],
+            Lines =
+            [
+                new MetroLine
+                {
+                    Id = "line_tail",
+                    Name = "Tail Line",
+                    Color = "#DE5D00",
+                    Mode = "metro",
+                    Stops = ["station_anchor", "station_bend_a", "station_bend_b", "station_terminal"]
+                },
+                new MetroLine
+                {
+                    Id = "line_stub_east",
+                    Name = "East Stub",
+                    Color = "#2AED33",
+                    Mode = "metro",
+                    Stops = ["station_anchor", "station_east"]
+                },
+                new MetroLine
+                {
+                    Id = "line_stub_west",
+                    Name = "West Stub",
+                    Color = "#342AED",
+                    Mode = "metro",
+                    Stops = ["station_anchor", "station_west"]
+                }
+            ]
+        }
+    };
+}
+
 static MetroExportDocument CreateSchematicV2CrossingOnlyDocument()
 {
     return new MetroExportDocument
@@ -3636,6 +3757,19 @@ static double Distance((double X, double Y) a, (double X, double Y) b)
     double dx = a.X - b.X;
     double dy = a.Y - b.Y;
     return Math.Sqrt(dx * dx + dy * dy);
+}
+
+static double DistancePointToLine((double X, double Y) point, (double X, double Y) start, (double X, double Y) end)
+{
+    double dx = end.X - start.X;
+    double dy = end.Y - start.Y;
+    double denominator = Math.Sqrt(dx * dx + dy * dy);
+    if (denominator <= 0.001)
+    {
+        return Distance(point, start);
+    }
+
+    return Math.Abs(((end.X - start.X) * (start.Y - point.Y)) - ((start.X - point.X) * (end.Y - start.Y))) / denominator;
 }
 
 static double CalculateTurnAngleDegrees((double X, double Y) previous, (double X, double Y) current, (double X, double Y) next)

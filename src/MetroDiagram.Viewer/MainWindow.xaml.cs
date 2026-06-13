@@ -394,7 +394,7 @@ public partial class MainWindow : Window
             InterchangeStationRadius = Math.Max(stationRadius + 3.5, stationRadius * 1.45),
             LabelFontSize = labelFontSize,
             GridSize = gridSize,
-            HideGenericStationLabels = HideGenericCheckBox.IsChecked == true,
+            HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
@@ -409,7 +409,6 @@ public partial class MainWindow : Window
         string? tag = (LayoutComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
         return tag switch
         {
-            "schematic-lite" => SvgLayoutMode.SchematicLite,
             "schematic-v2" => SvgLayoutMode.SchematicV2,
             _ => SvgLayoutMode.Geographic
         };
@@ -487,7 +486,7 @@ public partial class MainWindow : Window
         string svgHeightText = svgSize.Height.ToString("0.###", CultureInfo.InvariantCulture);
         string svgCss = fitWidth
             ? "svg { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }"
-            : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
+            : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
         string fitWidthScript = fitWidth
             ? string.Join(Environment.NewLine,
             [
@@ -518,15 +517,12 @@ public partial class MainWindow : Window
             [
                 "  <script>",
                 "    (function () {",
-                "      function centerPreview() {",
-                "        var contentWidth = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);",
-                "        var contentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);",
-                "        var viewWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;",
-                "        var viewHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;",
-                "        window.scrollTo(Math.max(0, (contentWidth - viewWidth) / 2), Math.max(0, (contentHeight - viewHeight) / 3));",
+                "      function resetPreviewScroll() {",
+                "        window.scrollTo(0, 0);",
+                "        window.setTimeout(function () { window.scrollTo(0, 0); }, 0);",
                 "      }",
-                "      if (window.attachEvent) { window.attachEvent('onload', centerPreview); }",
-                "      else { window.addEventListener('load', centerPreview, false); }",
+                "      if (window.attachEvent) { window.attachEvent('onload', resetPreviewScroll); }",
+                "      else { window.addEventListener('load', resetPreviewScroll, false); }",
                 "    }());",
                 "  </script>"
             ]);
@@ -825,7 +821,7 @@ public partial class MainWindow : Window
             StationRadiusTextBox.Text = settings.StationRadius.ToString(CultureInfo.InvariantCulture);
             LabelFontSizeTextBox.Text = settings.LabelFontSize.ToString(CultureInfo.InvariantCulture);
             GridSizeTextBox.Text = settings.GridSize.ToString(CultureInfo.InvariantCulture);
-            HideGenericCheckBox.IsChecked = settings.HideGenericStationLabels;
+            ShowNonImportantStationLabelsCheckBox.IsChecked = !settings.HideGenericStationLabels;
             HideCrowdedCheckBox.IsChecked = settings.HideCrowdedLabels;
             AlwaysInterchangesCheckBox.IsChecked = settings.AlwaysShowInterchanges;
             AlwaysTerminalsCheckBox.IsChecked = settings.AlwaysShowTerminals;
@@ -868,7 +864,7 @@ public partial class MainWindow : Window
         StationLabelTextBlock.Text = T("Station");
         LabelFontLabelTextBlock.Text = T("Label");
         GridLabelTextBlock.Text = T("Grid");
-        HideGenericCheckBox.Content = T("HideGeneric");
+        ShowNonImportantStationLabelsCheckBox.Content = T("ShowNonImportantLabels");
         HideCrowdedCheckBox.Content = T("HideCrowded");
         AlwaysInterchangesCheckBox.Content = T("AlwaysInterchanges");
         AlwaysTerminalsCheckBox.Content = T("AlwaysTerminals");
@@ -929,7 +925,7 @@ public partial class MainWindow : Window
             StationRadius = ReadDoubleOrDefault(StationRadiusTextBox, _settings.StationRadius),
             LabelFontSize = ReadDoubleOrDefault(LabelFontSizeTextBox, _settings.LabelFontSize),
             GridSize = ReadDoubleOrDefault(GridSizeTextBox, _settings.GridSize),
-            HideGenericStationLabels = HideGenericCheckBox.IsChecked == true,
+            HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
@@ -975,7 +971,7 @@ public partial class MainWindow : Window
     {
         return layoutMode switch
         {
-            "schematic-lite" => "schematic-lite",
+            "schematic-lite" => "schematic-v2",
             "schematic-v2" => "schematic-v2",
             _ => "geographic"
         };

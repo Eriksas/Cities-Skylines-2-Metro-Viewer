@@ -2099,3 +2099,234 @@ scripts\generate-viewer-icon.ps1
 - The change is renderer-only. It does not modify exporter logic, JSON schema, raw `line.stops`, raw `line.pathPoints`, geographic rendering, or schematic-lite.
 - Added a regression test for a skip-stop geometry shared corridor fixture to ensure Standard and Poster both render the same materialized route-guide parallel corridor with the same pass-through station chain.
 
+## Real Export City Name - 2026-06-06
+
+- `metro-export.json` previously fell back to `CS2 Metro Export` / `UnnamedCity` because `RealMetroJsonExporter.MetroExport.CityName` was never populated.
+- The real exporter now reads `Game.City.CityConfigurationSystem` after the world and `EntityManager` are available.
+- Read order:
+  - `cityName`
+  - `overrideCityName`
+  - private backing field `m_LoadedCityName`
+- Each candidate is written to `metro-export-diagnostics.txt`, so manual validation can confirm which CS2 field supplied the city name.
+- The resolved value is used for `city.name` and timestamped snapshot filenames. If all candidates are empty, the old fallback behavior remains.
+- This is exporter metadata only. It does not alter line/station extraction, schema version, raw stops, pathPoints, or renderer behavior.
+
+## Schematic-v2 Terminal Tail Straightening - 2026-06-07
+
+- New Zhaoqing export exposed a schematic-v2 artifact where a near-terminal 8号线 tail rendered as a zigzag even though the geographic/pathPoints view reads as a simple straight terminal corridor.
+- Cause: schematic-v2 was using the normalized station route chain and snapped station positions; a low-degree terminal tail with lateral station offsets could become a 45-degree back-and-forth even when no topology issue existed.
+- Fix: renderer-only terminal-tail straightening for schematic-v2. It only applies to short tails from a terminal endpoint back to an interchange/high-degree anchor, only when the rendered polyline detour ratio is high, and only moves internal low-degree tail stations onto the anchor-to-terminal line.
+- This does not modify exporter output, JSON schema, geographic rendering, schematic-lite, raw `line.stops`, raw `line.pathPoints`, or previously materialized shared corridor logic.
+- Validation snapshot:
+
+```text
+D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json
+artifacts\schematic-v2-diagnostics\latest-zhaoqing-schematic-v2.svg
+```
+
+- The regenerated CLI warning showed `terminal tail straightening: 1`, with two adjusted stations on the 8号线 tail.
+
+## Paradox Mods Publish - 2026-06-06
+
+- First Paradox Mods upload completed through the CS2 mod project publish profile.
+- Published mod id:
+
+```text
+146643
+```
+
+- The mod is currently published as `Unlisted` in `CS2 Metro\Properties\PublishConfiguration.xml`.
+- `PublishConfiguration.xml` now stores `<ModId Value="146643" />`; do not use `PublishNewMod` again unless intentionally creating a separate Paradox Mods listing.
+- Future mod binary/version uploads should use:
+
+```text
+dotnet publish "CS2 Metro\CS2 Metro.csproj" --no-restore /p:PublishProfile=PublishNewVersion
+```
+
+- Metadata-only updates should use:
+
+```text
+dotnet publish "CS2 Metro\CS2 Metro.csproj" --no-restore /p:PublishProfile=UpdatePublishedConfiguration
+```
+
+- The Paradox publisher auto-logged in with the account currently authenticated in-game. If upload auth fails later, launch CS2 and sign in to the PDX account first.
+
+## Project Review / Workflow Guardrails - 2026-06-11
+
+- Added a single local validation entrypoint:
+
+```text
+scripts\validate-local.ps1
+```
+
+- By default it runs:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+```
+
+- Use this when reviewing broad project changes or before committing. If the CS2 modding toolchain is configured, add `-IncludeModBuild` to also build `CS2 Metro\CS2 Metro.csproj`.
+- Added a guarded Paradox Mods publish script:
+
+```text
+scripts\publish-mod.ps1 -Mode NewVersion
+scripts\publish-mod.ps1 -Mode UpdateConfiguration
+```
+
+- The script requires `PublishConfiguration.xml` to contain the existing `ModId` and intentionally does not support `PublishNewMod`, reducing the chance of accidentally creating a duplicate Paradox Mods listing. Add `-WhatIf` to verify the target/profile without uploading.
+- Added `docs\PROJECT_REVIEW_NOTES.md` to keep broad review findings and low-risk optimization backlog separate from phase state.
+
+## Viewer schematic-lite retirement - 2026-06-11
+
+- Removed `schematic-lite` from the Viewer layout dropdown.
+- Existing Viewer settings with `layoutMode = schematic-lite` now normalize to `schematic-v2` so old settings do not silently reselect the retired mode.
+- CLI `--layout schematic-lite` remains available for historical comparison and regression scripts.
+- Added `docs\SCHEMATIC_REBUILD_PLAN.md` as the staged plan for a topology/corridor-first schematic-map rebuild.
+
+## Schematic rebuild S2 canonical network model - 2026-06-11
+
+- Added `src\MetroDiagram.Rendering\CanonicalSchematicNetwork.cs`.
+- The new model is render-only and separate from `metro-export.json`:
+  - station nodes,
+  - service families,
+  - service variants,
+  - canonical route selection,
+  - adjacency edges,
+  - exact shared-edge corridor hints,
+  - pathPoints-based geometry corridor hints,
+  - interchange groups.
+- `CanonicalSchematicNetworkBuilder.Build(document)` is now the intended S2 entrypoint for future schematic-v2 skeleton work.
+- Current schematic-v2 rendering is not switched over yet; S2 is a stable graph layer for S3.
+- Added tests:
+  - `canonical schematic network selects service family route`,
+  - `canonical schematic network records exact shared edges`,
+  - `canonical schematic network records geometry corridor hints`.
+- This does not modify exporter logic, JSON schema, geographic rendering, raw `line.stops`, or raw `line.pathPoints`.
+
+## Schematic rebuild S3/S4 canonical-backed renderer wiring - 2026-06-11
+
+- Schematic-v2 now builds `CanonicalSchematicNetwork` before layout and passes it into the layout pipeline.
+- `ApplySchematicV2Layout` uses canonical adjacency edges for station graph constraints and canonical service-family stops for family path skeletons when the canonical network is available.
+- Route-guide construction starts from canonical family routes, then applies the existing conservative geometry corridor materialization rules.
+- Schematic-v2 shared corridor overlays now emit `data-schematic-v2-canonical-corridor="true"` for exact shared-platform and materialized geometry-route-guide overlays.
+- This is S3/S4 initial wiring, not the final schematic-map solver. It deliberately leaves exporter logic, JSON schema, geographic output, raw `line.stops`, raw `line.pathPoints`, and Viewer defaults unchanged.
+- Verified:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+```
+
+## S4 product-candidate validation bundle - 2026-06-11
+
+- `scripts\generate-alpha-validation-bundle.ps1` was updated for PowerShell 7 strict binding: empty validation-warning arrays are now valid for both `Write-ValidationNotes` and `Write-FilledFeedbackTemplate`.
+- This fixed a failure where a clean export with no freshness warnings could not produce a bundle.
+- Generated validation bundle:
+
+```text
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-bundle.ps1 -InputJson 'D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json' -CaseName 'zhaoqing-s4-product-candidate'
+```
+
+- Output:
+
+```text
+artifacts\alpha-validation\20260611-232357-zhaoqing-s4-product-candidate
+artifacts\alpha-validation\alpha-validation-20260611-232357-zhaoqing-s4-product-candidate.zip
+```
+
+- Generated transit-map style schematic-v2 product candidate:
+
+```text
+dotnet run --project src\MetroDiagram.Cli\MetroDiagram.Cli.csproj --no-restore -- 'D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json' artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.svg --layout schematic-v2 --size ultra --style transit-map --hide-generic-labels --hide-crowded-labels --use-path-points
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\capture-svg-screenshot.ps1 -InputSvg artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.svg -OutputPng artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.full.png -Width 4200 -Height 2600
+```
+
+- Important screenshot note: when capturing `--size ultra`, pass `-Width 4200 -Height 2600`; otherwise Edge captures a smaller viewport with scrollbars instead of the full SVG canvas.
+- Verified product candidate:
+
+```text
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\validate-local.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\publish-viewer-self-contained.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\package-alpha-release.ps1
+```
+
+- Release package regenerated:
+
+```text
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
+```
+
+- Release Viewer exe started successfully in a short smoke test.
+
+## Product candidate map script - 2026-06-13
+
+- Added:
+
+```text
+scripts\generate-product-candidate-map.ps1
+```
+
+- Default behavior:
+  - input: `D:\CS2MetroDiagram\metro-export.json`
+  - output root: `artifacts\product-candidate`
+  - layout: `schematic-v2`
+  - size: `ultra`
+  - style: `transit-map`
+  - enabled: `--use-path-points --hide-generic-labels --hide-crowded-labels`
+- The script writes:
+  - `metro-export.json`
+  - `product-candidate.svg`
+  - `product-candidate.full.png`
+  - `render-log.txt`
+  - `notes.md`
+- It passes the correct screenshot viewport for the selected size preset, avoiding the earlier Edge screenshot issue where ultra SVGs were captured with scrollbars.
+
+## Viewer default/non-important station label option - 2026-06-13
+
+- The Viewer now exposes the generic-label setting as a positive checkbox:
+
+```text
+Show default / non-important station labels
+显示默认/非重要站名
+```
+
+- The persisted setting remains `hideGenericStationLabels` in `Documents\CS2MetroDiagram\viewer-settings.json` for backward compatibility.
+- Mapping:
+  - checkbox checked -> `HideGenericStationLabels = false`
+  - checkbox unchecked -> `HideGenericStationLabels = true`
+- Renderer, CLI, exporter, and JSON schema behavior were not changed.
+
+## Alpha.2 short-term validation pass - 2026-06-14
+
+- Added:
+
+```text
+docs\ALPHA2_SHORT_TERM_CHECKLIST.md
+```
+
+- Generated the latest short-term validation bundle from:
+
+```text
+D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json
+```
+
+- Outputs:
+
+```text
+artifacts\alpha-validation\20260614-002122-zhaoqing-alpha2-short-term
+artifacts\alpha-validation\alpha-validation-20260614-002122-zhaoqing-alpha2-short-term.zip
+artifacts\product-candidate\20260614-002504-zhaoqing-alpha2-short-term
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
+```
+
+- Refreshed the self-contained Viewer package:
+
+```text
+artifacts\viewer-win-x64-self-contained\MetroDiagram.Viewer.exe
+```
+
+- NuGet / dotnet / npm cache should stay on `E:\CS2\.tool-cache` for future work to avoid filling C drive.
+

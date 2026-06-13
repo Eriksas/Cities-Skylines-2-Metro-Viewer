@@ -6,7 +6,7 @@ This is an alpha build. It is intended for testing and feedback, not production 
 
 - Only metro/subway networks are supported.
 - Offline save parsing is not supported. You must load a city and export from inside Cities: Skylines II.
-- `schematic-lite` is not a professional-grade automatic schematic layout. It now performs a small station-spacing relaxation after grid snapping, then uses conservative overlap handling. Dense areas can still be imperfect, and very short overlaps may not show every involved line color distinctly.
+- `schematic-lite` is not a professional-grade automatic schematic layout. It is now kept as a CLI/regression comparison mode and is no longer exposed in the Viewer.
 - `schematic-v2` is experimental. It is a topology-first exploration intended to preserve stop order, adjacency, interchange nodes, exact shared station-edge corridors, and now pathPoints-based physical corridor hints before visual polish. It is not the alpha default yet.
 - In schematic-v2, express / rapid / skip-stop variants are simplified into service metadata. Only one canonical family route is drawn; white center stripes indicate that a family contains express service. Exact skip-stop stopping patterns are not drawn as independent schematic geometry.
 - In schematic-v2, exact same final-route-chain segments are protected from draw-order hiding with explicit `exact-shared-platform` overlays for all involved display families. Near-parallel or close-but-not-identical routes are not guaranteed to be detected as shared; if a future city shows hiding without exact segment sharing, attach the SVG and schematic-v2 diagnostics for a new corridor-detection pass.
@@ -34,7 +34,7 @@ This is an alpha build. It is intended for testing and feedback, not production 
 
 - If `Open Default Export` is disabled, confirm that `metro-export.json` exists under `D:\CS2MetroDiagram` or `Documents\CS2MetroDiagram`.
 - Real export snapshots are written under the `exports` subdirectory next to the latest files. Use Viewer `Open JSON` to open a snapshot manually; `Open Default Export` continues to open only the latest file.
-- If the diagram is too crowded, try `schematic-lite`, larger width/height, smaller label font size, `Hide generic station labels`, and `Hide crowded labels`.
+- If the diagram is too crowded, try `schematic-v2`, larger width/height, smaller label font size, disabling `Show default / non-important station labels`, and enabling `Hide crowded labels`.
 - For alpha feedback, prioritize the geographic normalized baseline before judging experimental shared corridor or express stripe outputs.
 - When reviewing `schematic-v2`, attach `artifacts\schematic-v2-diagnostics\geometry-shared-corridors.txt`, `schematic-v2-route-guides.txt`, and `schematic-v2-parallel-corridors.txt` if a physical shared corridor or skip-stop / express service looks wrong.
 - If export fails in-game, attach `metro-export-diagnostics.txt` and the game/mod log when reporting the issue.

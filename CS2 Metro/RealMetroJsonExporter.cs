@@ -1,4 +1,5 @@
 using Game;
+using Game.City;
 using Game.Common;
 using Game.Objects;
 using Game.Prefabs;
@@ -143,6 +144,7 @@ namespace CS2_Metro
 
             context.EntityManager = context.UpdateSystem.EntityManager;
             context.NameSystem = TryGetNameSystem(world, context.Diagnostics);
+            export.CityName = TryReadCityName(world, context.Diagnostics);
 
             using (EntityQuery query = context.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<TransportLine>()))
             using (NativeArray<Entity> lineEntities = query.ToEntityArray(Allocator.Temp))
@@ -164,6 +166,97 @@ namespace CS2_Metro
             context.Diagnostics.AppendLine($"Stations exported: {export.Stations.Count}");
 
             return export;
+        }
+
+        private static string TryReadCityName(World world, StringBuilder diagnostics)
+        {
+            if (world == null || !world.IsCreated)
+            {
+                diagnostics.AppendLine("City name: world is unavailable.");
+                return string.Empty;
+            }
+
+            try
+            {
+                CityConfigurationSystem cityConfigurationSystem = world.GetExistingSystemManaged<CityConfigurationSystem>();
+                if (cityConfigurationSystem == null)
+                {
+                    diagnostics.AppendLine("City name: CityConfigurationSystem unavailable.");
+                    return string.Empty;
+                }
+
+                string cityName = FirstNonEmpty(
+                    TryReadStringProperty(cityConfigurationSystem, "cityName", diagnostics),
+                    TryReadStringProperty(cityConfigurationSystem, "overrideCityName", diagnostics),
+                    TryReadStringField(cityConfigurationSystem, "m_LoadedCityName", diagnostics));
+
+                if (string.IsNullOrWhiteSpace(cityName))
+                {
+                    diagnostics.AppendLine("City name: CityConfigurationSystem returned no readable city name; fallback will be used.");
+                    return string.Empty;
+                }
+
+                diagnostics.AppendLine($"City name: {cityName}");
+                return cityName.Trim();
+            }
+            catch (Exception ex)
+            {
+                diagnostics.AppendLine($"City name: failed to read CityConfigurationSystem: {ex.GetType().Name}: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        private static string TryReadStringProperty(object instance, string propertyName, StringBuilder diagnostics)
+        {
+            try
+            {
+                object value = instance.GetType()
+                    .GetProperty(propertyName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.GetValue(instance, null);
+                string text = value as string;
+                diagnostics.AppendLine(string.IsNullOrWhiteSpace(text)
+                    ? $"City name candidate {propertyName}: empty"
+                    : $"City name candidate {propertyName}: {text}");
+                return text ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                diagnostics.AppendLine($"City name candidate {propertyName}: failed ({ex.GetType().Name}: {ex.Message})");
+                return string.Empty;
+            }
+        }
+
+        private static string TryReadStringField(object instance, string fieldName, StringBuilder diagnostics)
+        {
+            try
+            {
+                object value = instance.GetType()
+                    .GetField(fieldName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.GetValue(instance);
+                string text = value as string;
+                diagnostics.AppendLine(string.IsNullOrWhiteSpace(text)
+                    ? $"City name candidate {fieldName}: empty"
+                    : $"City name candidate {fieldName}: {text}");
+                return text ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                diagnostics.AppendLine($"City name candidate {fieldName}: failed ({ex.GetType().Name}: {ex.Message})");
+                return string.Empty;
+            }
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            foreach (string value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            return string.Empty;
         }
 
         private static NameSystem TryGetNameSystem(World world, StringBuilder diagnostics)

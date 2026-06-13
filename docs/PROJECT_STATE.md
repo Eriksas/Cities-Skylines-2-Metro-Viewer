@@ -63,12 +63,96 @@ Viewer alpha feedback loop follow-up:
 - The data tab shows export schema, generator/game version, export time, line/station totals, total stops/pathPoints, interchange count, matching diagnostics-file status, per-line stop/pathPoint/source/termini details, and per-station membership/position details.
 - The data-inspection logic is now encapsulated in `ExportDataInspector`, and the tab can open the matching diagnostics file directly when present.
 - The data tab warns when an export appears stale compared with the current Viewer/tool version or when the city name is still a placeholder.
-- Viewer layout selection now includes experimental `schematic-v2` in addition to `geographic` and `schematic-lite`.
+- Viewer layout selection now includes `geographic` and experimental `schematic-v2`; the older `schematic-lite` option has been retired from the Viewer.
 - Viewer map preview now writes a temporary HTML preview file and navigates the embedded browser to it, improving reliability for larger SVG maps; opening a JSON switches back to the `Map Preview` tab so the map appears in-app immediately.
 - Viewer preview now has a `Preview` zoom control. The default `100%` view reads the SVG root `width`/`height` and shows large rendered SVGs at actual pixel size with scrollbars; `Fit width` remains available for whole-map overview.
 - The Viewer project now includes a CS2 Metro Diagram app icon generated from `Assets\MetroDiagramViewerIcon.svg` / `Assets\MetroDiagramViewer.ico`.
 - Schematic-v2 size stability follow-up: schematic-v2 now computes layout in a canonical Poster-sized space and scales the result to the requested output size, so lower size presets should not change shared corridor topology compared with Poster/Ultra.
 - This is Viewer-only inspection/polish work. It does not modify the exporter, JSON schema, geographic default rendering, raw `line.stops`, or raw `line.pathPoints`.
+
+Viewer schematic direction update:
+
+- The Viewer no longer exposes the old `schematic-lite` option. Saved Viewer settings that still contain `schematic-lite` are migrated to `schematic-v2`.
+- `schematic-lite` remains available from the CLI for historical comparison and regression scripts, but it is no longer the product-facing schematic direction.
+- Future schematic-map work should follow `docs\SCHEMATIC_REBUILD_PLAN.md`: topology/corridor-first graph model, stable route skeleton, continuous shared corridor rules, service-variant semantics, and official-map styling.
+
+Schematic rebuild S2 status:
+
+- Added a render-only `CanonicalSchematicNetwork` model in the Rendering project.
+- The model records station nodes, service families, service variants, canonical family routes, adjacency edges, interchange groups, exact shared-edge corridor hints, and pathPoints-based physical corridor hints.
+- S3/S4 initial wiring is now in place: schematic-v2 builds this canonical network before layout, uses canonical adjacency and canonical family routes for the layout skeleton, and marks shared corridor overlays with canonical debug attributes.
+- This is an incremental skeleton/corridor integration, not a full solver rewrite. It does not change exporter output, JSON schema, geographic rendering, raw stops, or raw pathPoints.
+- New tests cover canonical service-route selection, exact shared-edge hints, and geometry/pathPoints corridor hints.
+
+S4 product-candidate validation:
+
+- A fresh Zhaoqing alpha validation bundle was generated from:
+
+```text
+D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json
+```
+
+- Bundle output:
+
+```text
+artifacts\alpha-validation\20260611-232357-zhaoqing-s4-product-candidate
+artifacts\alpha-validation\alpha-validation-20260611-232357-zhaoqing-s4-product-candidate.zip
+```
+
+- The bundle includes geographic, schematic-lite comparison, schematic-v2, PNG screenshots, visual continuity report, schematic-v2 diagnostics, notes, and a filled feedback template.
+- A transit-map style schematic-v2 product-candidate output was also generated:
+
+```text
+artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.svg
+artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.full.png
+```
+
+- The current release package was regenerated and smoke checked:
+
+```text
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
+```
+
+- Release Viewer exe was launched successfully in a short smoke test.
+
+Product candidate workflow follow-up:
+
+- Added a focused product-candidate generation script:
+
+```text
+scripts\generate-product-candidate-map.ps1
+```
+
+- The script renders one human-review map output, copies the source export JSON, captures a full-size PNG with the correct preset viewport, and writes review notes.
+- This is intentionally separate from `generate-alpha-validation-bundle.ps1`: validation bundles compare layouts and collect diagnostics, while product-candidate output is the current best-looking map for manual review.
+
+Real export city-name fix:
+
+- The real CS2 exporter now reads the city name from `Game.City.CityConfigurationSystem` during `Export Real Metro JSON`.
+- `cityName` is tried first, then `overrideCityName`, then the loaded-name backing field `m_LoadedCityName`.
+- The resolved name is written to `city.name`, snapshot filenames, and diagnostics. If CS2 returns no readable city name, the previous fallback remains in place and diagnostics explain which candidates were empty or failed.
+- This changes only export metadata; it does not modify the JSON schema, metro line/station extraction, raw `line.stops`, raw `line.pathPoints`, or renderer behavior.
+
+Schematic-v2 terminal-tail polish:
+
+- A new Zhaoqing snapshot showed a low-degree 8号线 terminal tail rendered as an unnecessary zigzag in schematic-v2 while the geographic/pathPoints view read as a simple terminal corridor.
+- Schematic-v2 now has a narrow renderer-only terminal-tail straightening pass. It preserves terminal and anchor stations, only moves internal ordinary tail stations, and only activates when the rendered tail has a high detour ratio.
+- The current validation output is:
+
+```text
+artifacts\schematic-v2-diagnostics\latest-zhaoqing-schematic-v2.svg
+```
+
+- This pass is intentionally scoped away from previously fixed 2号线/10号线 geometry sharing, 3号线/4号线 exact shared platform overlays, geographic output, exporter logic, and JSON schema.
+
+Paradox Mods publishing status:
+
+- First Paradox Mods upload completed successfully.
+- Published mod id: `146643`.
+- Current access level: `Unlisted`.
+- `CS2 Metro\Properties\PublishConfiguration.xml` now stores the published id so future uploads update the same listing.
+- Future binary/version uploads should use `PublishNewVersion`; metadata-only changes should use `UpdatePublishedConfiguration`.
 
 Phase 4D.4 is closed. The primary city baseline has been accepted for alpha.2 candidate review. Route continuity is acceptable, stroke width consistency is acceptable, white-filled station markers are restored, station alignment is acceptable for alpha, and label readability is acceptable while still a known polish area. Shared corridor and express stripe remain experimental and off by default.
 
@@ -397,7 +481,7 @@ Keep the `v0.1.0-alpha.2-candidate` package and geographic baseline stable while
 - Can assemble an alpha release folder and zip under `artifacts\releases`.
 - Viewer can open the default real export with one button when it exists.
 - Viewer can remember user settings between runs.
-- Viewer can reduce default/generic station-name clutter.
+- Viewer can reduce default/generic station-name clutter by default, and users can explicitly enable `Show default / non-important station labels` when they want every unrenamed/default station name visible.
 - Basic label placement, legend sorting, and schematic-lite layout are available.
 - Real exports can include optional `pathPoints` for route geometry while keeping `stops` as the station sequence.
 - Geographic rendering can clean and simplify `pathPoints` before drawing routes when path geometry is enabled.
@@ -421,6 +505,7 @@ Keep the `v0.1.0-alpha.2-candidate` package and geographic baseline stable while
 
 ## In Progress
 
+- Short-term alpha.2 candidate validation and packaging.
 - External/manual alpha.2 candidate review.
 - Generate alpha validation bundles for each real city before making further renderer decisions.
 - External multi-city validation remains the next larger testing direction after the alpha.2 candidate package is reviewed.
@@ -451,17 +536,20 @@ Keep the `v0.1.0-alpha.2-candidate` package and geographic baseline stable while
 
 ## Next Actions
 
-1. Run `scripts\generate-alpha-validation-bundle.ps1` for each real city export.
-2. Review the generated `baseline-geographic.full.png`, `schematic-lite.full.png`, `schematic-v2.full.png`, and `notes.md`.
-3. Keep geographic as the recommended alpha.2 baseline.
-4. Keep `schematic-lite` and `schematic-v2` as secondary/experimental layouts.
-5. Manually review the `v0.1.0-alpha.2-candidate` package.
-6. Run in-game smoke for `Export Real Metro JSON` on the primary city and future alpha cities.
-7. Confirm latest and snapshot exports still appear under `D:\CS2MetroDiagram`.
-8. Defer new renderer feature work until alpha validation bundles show repeated issues.
+1. Run `scripts\validate-local.ps1` before committing broad changes.
+2. Use `docs\ALPHA2_SHORT_TERM_CHECKLIST.md` for the current manual smoke pass.
+3. Run `scripts\generate-alpha-validation-bundle.ps1` for each real city export.
+4. Review the generated `baseline-geographic.full.png`, `schematic-lite.full.png`, `schematic-v2.full.png`, and `notes.md`.
+5. Keep geographic as the recommended alpha.2 baseline.
+6. Keep CLI `schematic-lite` only for historical comparison; continue schematic-map work through experimental `schematic-v2`.
+7. Manually review the `v0.1.0-alpha.2-candidate` package.
+8. Run in-game smoke for `Export Real Metro JSON` on the primary city and future alpha cities.
+9. Confirm latest and snapshot exports still appear under `D:\CS2MetroDiagram`.
+10. Defer new renderer feature work until alpha validation bundles show repeated issues.
 
 ## Verification
 
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\validate-local.ps1`
 - `dotnet build CS2MetroDiagram.slnx --no-restore`
 - `dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore`
 - `dotnet build "CS2 Metro\CS2 Metro.csproj" --no-restore`

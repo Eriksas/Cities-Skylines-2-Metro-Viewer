@@ -139,7 +139,7 @@ artifacts\path-geometry-comparison\17-geographic-express-normalized.svg
 - [ ] City with renamed stations:
   - Confirm custom station names appear in the export and Viewer.
 - [ ] City with default/generic station names:
-  - Confirm `Hide generic station labels` reduces clutter.
+  - Confirm `Show default / non-important station labels` can be enabled when the user wants every default station label, and disabled to reduce clutter.
 - [ ] Airport line / express-service city:
   - Confirm service family merge keeps same-line variants understandable in the legend.
   - Use baseline rendering first.

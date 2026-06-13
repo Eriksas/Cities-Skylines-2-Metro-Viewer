@@ -540,3 +540,41 @@ Reason: The white center stripe is now part of schematic-v2 service-variant simp
 Decision: Schematic-v2 now renders exact shared final-route-chain segments through centered `exact-shared-platform` overlays for any two-or-more display families, including single-edge runs and express/service families.
 
 Reason: The primary transit-map schematic-v2 output showed that a Line 7 shared segment could still depend on route draw order. Exact final-route-chain sharing is strong topology evidence, so every family on that segment should be drawn explicitly instead of allowing the last normal route stroke to hide earlier colors. This remains renderer-only and does not change exporter data, JSON schema, geographic rendering, raw stops, or raw path points.
+
+## 2026-06-07 - Straighten only high-detour schematic-v2 terminal tails
+
+Decision: Schematic-v2 now has a narrow terminal-tail straightening pass after route-guide materialization. It only applies to short tails from a terminal endpoint to an interchange/high-degree anchor, and only when the rendered tail has a high detour ratio.
+
+Reason: A new Zhaoqing export showed the 8号线 southern terminal tail as a visually wrong zigzag even though geographic/pathPoints output reads as a simple terminal corridor. This is a schematic rendering artifact from snapped station positions, not an exporter/schema problem. The fix keeps endpoints fixed, moves only internal ordinary tail stations, and leaves geographic output, schematic-lite, 2号线/10号线 geometry sharing, and 3号线/4号线 exact shared platform overlays untouched.
+
+## 2026-06-11 - Retire schematic-lite from Viewer
+
+Decision: Remove `schematic-lite` from the Viewer layout dropdown and migrate saved Viewer `schematic-lite` settings to `schematic-v2`.
+
+Reason: `schematic-lite` was useful as an early grid-snapping experiment, but recent work shows the target schematic-map experience needs a topology/corridor-first architecture. Keeping the old mode in the Viewer makes it look like a supported user-facing layout even though it is no longer the design direction.
+
+Consequence: CLI `--layout schematic-lite` remains available for historical comparison and regression scripts. Viewer users now choose between the stable geographic baseline and experimental topology-first `schematic-v2`.
+
+## 2026-06-11 - Add render-only canonical schematic network model
+
+Decision: Add `CanonicalSchematicNetworkBuilder` in the Rendering project as the S2 graph layer for future schematic-map work.
+
+Reason: Schematic-v2 needs a stable intermediate model before another layout solver rewrite. Raw JSON is service/export data, not a direct schematic graph. The new model turns display families, variants, stop adjacency, interchange membership, exact shared edges, and pathPoints corridor hints into one render-only structure without mutating `MetroExportDocument`.
+
+Consequence: Current rendering behavior is unchanged. S3 should consume this canonical model instead of adding more direct `MetroSvgRenderer` patch logic.
+
+## 2026-06-11 - Wire schematic-v2 skeleton and corridor output to the canonical model
+
+Decision: Schematic-v2 now consumes `CanonicalSchematicNetwork` for its initial station adjacency graph, family route skeletons, and route-guide starting chains. Shared corridor overlays are explicitly marked as canonical corridor output.
+
+Reason: S2 should not remain a passive data model. The next step toward a real schematic-map system is to make the renderer's topology skeleton start from canonical service families and adjacency instead of repeatedly deriving graph meaning from raw lines inside `MetroSvgRenderer`.
+
+Consequence: This is an incremental S3/S4 bridge, not a complete new solver. Existing spacing, route-guide, and shared-corridor rendering rules remain in place. Exporter output, JSON schema, geographic rendering, raw `line.stops`, raw `line.pathPoints`, and Viewer defaults remain unchanged.
+
+## 2026-06-13 - Make Viewer default-station label control positive
+
+Decision: Expose the Viewer generic-label setting as `Show default / non-important station labels`.
+
+Reason: Alpha review needs a clear way to temporarily show unrenamed/default station names. A positive checkbox matches the user's intent better than the previous `Hide generic station labels` wording.
+
+Consequence: The UI checkbox is inverted when mapped to the existing renderer and settings field: checked means `HideGenericStationLabels = false`. Existing `viewer-settings.json` files remain compatible.
