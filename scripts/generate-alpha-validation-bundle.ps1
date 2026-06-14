@@ -126,7 +126,7 @@ function Get-ValidationWarnings {
 }
 
 function Format-MarkdownList {
-    param([Parameter(Mandatory = $true)][string[]] $Items)
+    param([string[]] $Items = @())
 
     if ($Items.Count -eq 0) {
         return '- none'
@@ -192,7 +192,7 @@ function Write-ValidationNotes {
         [Parameter(Mandatory = $true)] $Metadata,
         [Parameter(Mandatory = $true)][string] $BundlePath,
         [Parameter(Mandatory = $true)][string] $CurrentAppVersion,
-        [Parameter(Mandatory = $true)][string[]] $ValidationWarnings
+        [string[]] $ValidationWarnings = @()
     )
 
     $warningText = Format-MarkdownList -Items $ValidationWarnings
@@ -262,7 +262,7 @@ function Write-FilledFeedbackTemplate {
         [Parameter(Mandatory = $true)][string] $BundlePath,
         [Parameter(Mandatory = $true)] $Metadata,
         [Parameter(Mandatory = $true)][string] $CurrentAppVersion,
-        [Parameter(Mandatory = $true)][string[]] $ValidationWarnings
+        [string[]] $ValidationWarnings = @()
     )
 
     $warningText = Format-MarkdownList -Items $ValidationWarnings

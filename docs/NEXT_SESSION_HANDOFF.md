@@ -885,4 +885,34 @@ dotnet build CS2MetroDiagram.slnx --no-restore
 
 - Next good step: continue alpha validation with more city bundles, or do a small label hierarchy pass if the user wants another visual polish round. Do not change exporter/schema/geographic defaults for this work.
 - 2026-06-06 schematic-v2 size stability follow-up: schematic-v2 now computes topology/grid/shared-corridor layout in a canonical Poster-sized space and scales it to the requested output size. Standard/Compact should no longer change whether `2号线` / `10号线` is materialized compared with Poster/Ultra; if it does, treat that as a renderer regression rather than a tuning issue.
-
+- 2026-06-06 real export city-name fix: `RealMetroJsonExporter` now populates `city.name` from `Game.City.CityConfigurationSystem` (`cityName`, `overrideCityName`, then `m_LoadedCityName`). Diagnostics record each candidate. Manual next step: deploy the latest mod, restart CS2, export real metro JSON, and confirm `D:\CS2MetroDiagram\metro-export.json` plus the timestamped snapshot use the real in-game city name instead of `CS2 Metro Export` / `UnnamedCity`.
+- 2026-06-06 Paradox Mods first upload completed. Published mod id is `146643`, currently `Unlisted`. `CS2 Metro\Properties\PublishConfiguration.xml` stores the id; future uploads should use `PublishNewVersion`, while metadata-only edits should use `UpdatePublishedConfiguration`.
+- 2026-06-07 schematic-v2 terminal-tail straightening added after a Zhaoqing export showed the 8号线 southern terminal tail as a zigzag. The fix is renderer-only, applies only to short terminal tails with high detour ratio, and regenerated `artifacts\schematic-v2-diagnostics\latest-zhaoqing-schematic-v2.svg` with `terminal tail straightening: 1`.
+- 2026-06-11 lightweight project review added workflow guardrails:
+  - `scripts\validate-local.ps1` for the normal local build/test validation flow,
+  - `scripts\publish-mod.ps1` for guarded existing-listing Paradox Mods updates,
+  - `docs\PROJECT_REVIEW_NOTES.md` for broad review findings and refactor backlog.
+  Keep broad renderer refactors out of alpha validation unless a repeated city bundle shows the need.
+- 2026-06-11 schematic rebuild S2 added `CanonicalSchematicNetworkBuilder`. It builds a render-only graph with station nodes, service families, variants, canonical routes, adjacency edges, interchange groups, exact shared-edge hints, and pathPoints geometry corridor hints.
+- 2026-06-11 schematic rebuild S3/S4 initial wiring is complete. Schematic-v2 now builds the canonical network before layout, uses canonical adjacency and canonical service-family routes for the layout skeleton, and marks exact/materialized shared corridor overlays with `data-schematic-v2-canonical-corridor="true"`.
+- This is not the final schematic-map solver. Next schematic work should continue toward S5/S6: official-map styling and validation bundles, or a later full skeleton solver if repeated real-city cases show the need. Keep exporter, schema, geographic output, raw stops, and raw pathPoints unchanged unless the user explicitly changes direction.
+- 2026-06-11 S4 product-candidate validation was generated from `D:\CS2MetroDiagram\exports\metro-export-肇庆-20260607-112942.json`.
+  - Bundle: `artifacts\alpha-validation\20260611-232357-zhaoqing-s4-product-candidate`
+  - Bundle zip: `artifacts\alpha-validation\alpha-validation-20260611-232357-zhaoqing-s4-product-candidate.zip`
+  - Transit-map schematic candidate: `artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.svg`
+  - Transit-map schematic PNG: `artifacts\schematic-v2-diagnostics\zhaoqing-product-transit-map-schematic-v2.full.png`
+  - Release package refreshed: `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
+  - `scripts\generate-alpha-validation-bundle.ps1` now supports empty validation-warning arrays under PowerShell 7.
+  - Release Viewer exe launched successfully in a smoke test.
+- 2026-06-13 added `scripts\generate-product-candidate-map.ps1` for the current best human-review output. It renders one focused product candidate, captures a full-size PNG with the correct preset viewport, copies the source export JSON, and writes notes.
+  - Latest generated candidate: `artifacts\product-candidate\20260613-225609-zhaoqing-schematic-v2-transit-map`
+  - SVG: `artifacts\product-candidate\20260613-225609-zhaoqing-schematic-v2-transit-map\product-candidate.svg`
+  - PNG: `artifacts\product-candidate\20260613-225609-zhaoqing-schematic-v2-transit-map\product-candidate.full.png`
+  - Verified with `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\validate-local.ps1`.
+- Viewer label option follow-up: the old negative `Hide generic station labels` checkbox is now a positive `Show default / non-important station labels` checkbox. It still writes the existing `hideGenericStationLabels` setting internally, so old settings remain compatible.
+- 2026-06-14 short-term alpha.2 pass refreshed the validation bundle, product-candidate map, self-contained Viewer, and alpha.2 release package. Start manual smoke from `docs\ALPHA2_SHORT_TERM_CHECKLIST.md`.
+  - Validation bundle: `artifacts\alpha-validation\20260614-002122-zhaoqing-alpha2-short-term`
+  - Validation zip: `artifacts\alpha-validation\alpha-validation-20260614-002122-zhaoqing-alpha2-short-term.zip`
+  - Product candidate: `artifacts\product-candidate\20260614-002504-zhaoqing-alpha2-short-term`
+  - Release zip: `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
+- 2026-06-14 cleanup pass removed obsolete local artifacts, build outputs, `docs\archive`, and tracked `CS2 Metro\Library\ilpp.pid`. Regenerate deleted diagnostics/comparison outputs with the scripts in `scripts\` if needed.

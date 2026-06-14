@@ -105,9 +105,9 @@ The Viewer opens the map inside the app after JSON load; saving SVG is only need
 Inside the viewer:
 
 1. Click `Open JSON` or `Open Default Export`.
-2. Switch `Layout` between `geographic`, `schematic-lite`, and experimental `schematic-v2`.
+2. Switch `Layout` between `geographic` and experimental `schematic-v2`.
 3. Adjust width, height, legend width, padding, line width, station radius, label font size, or grid size.
-4. Use label options to hide generic station names or crowded low-priority labels while keeping interchanges and terminals visible.
+4. Use label options to show or hide default/non-important station names, hide crowded low-priority labels, and keep interchanges and terminals visible.
 5. Use `Use exported path geometry` to draw geographic routes from exported `pathPoints` when available.
 6. Choose a size preset (`Compact`, `Standard`, `Poster`, `Ultra`) or keep `Custom` width and height.
 7. Use `Simplify path geometry` and path tolerance to remove duplicate, very short, or nearly-collinear path points in the preview.
@@ -171,6 +171,8 @@ Layout modes:
 - `geographic`: default Phase 3B behavior using normalized source coordinates.
 - `schematic-lite`: render-time layout that snaps stations to a grid, lightly separates stations that snap too close together, and tries to make route segments horizontal, vertical, or 45-degree diagonal. It does not change the JSON data.
 - `schematic-v2`: experimental topology-first schematic layout. It prioritizes stop order, adjacency, interchange nodes, and route continuity before geographic accuracy or visual polish.
+
+The Viewer no longer exposes `schematic-lite`; use CLI `--layout schematic-lite` only for historical comparison. Future schematic-map work should build on the topology-first `schematic-v2` path rather than extending the old schematic-lite patch pipeline.
 
 `line.pathPoints` is optional and experimental. Geographic rendering can use it for route polylines when `--use-path-points` or the Viewer `Use exported path geometry` option is enabled. Schematic-lite keeps using station stops by default.
 

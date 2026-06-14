@@ -1,6 +1,6 @@
 # Documentation Index
 
-This folder is organized around the current alpha workflow. Top-level docs should stay useful for active development, release packaging, alpha testing, or handoff. Older phase-specific notes are kept under `archive/` so history is still available without crowding the main docs list.
+This folder is organized around the current alpha workflow. Top-level docs should stay useful for active development, release packaging, alpha testing, or handoff. Older phase-specific notes were consolidated into the current reference docs and remain available through git history.
 
 ## Start Here
 
@@ -31,14 +31,6 @@ This folder is organized around the current alpha workflow. Top-level docs shoul
 - `RELEASE_CHECKLIST.md` - future release checklist.
 - `ROADMAP.md` - concise roadmap.
 
-## Archived Phase Notes
+## Historical Phase Notes
 
-The `archive/` folder keeps documents that were useful for a specific phase but are no longer the best entry point:
-
-- `archive/PHASE_3C_MEMO.md`
-- `archive/VIEWER_MANUAL_TEST.md`
-- `archive/PATH_GEOMETRY_VALIDATION.md`
-- `archive/PATH_GEOMETRY_VALIDATION_RESULTS.md`
-- `archive/METRO_TRACK_GEOMETRY_DISCOVERY.md`
-
-Use the archived files for historical detail. Use the top-level consolidated docs for current work.
+Phase-specific notes that are no longer active have been folded into the top-level docs above. Use git history for old per-phase source material when needed.

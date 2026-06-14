@@ -7,7 +7,8 @@ This roadmap is intentionally lightweight and may change after alpha feedback.
 - Real CS2 metro/subway JSON export.
 - Debug dump for transport data investigation.
 - CLI JSON to SVG generation.
-- `geographic` and `schematic-lite` layouts.
+- `geographic` layout and historical CLI-only `schematic-lite` comparison output.
+- Experimental topology-first `schematic-v2` layout.
 - WPF Viewer with basic render controls.
 - English/Chinese Viewer UI.
 - Label filtering.
@@ -22,7 +23,8 @@ This roadmap is intentionally lightweight and may change after alpha feedback.
 
 ## v0.3: Better Schematic Layout And Manual Overrides
 
-- Improve schematic layout quality.
+- Rebuild schematic layout around a topology/corridor-first model rather than continuing schematic-lite patches.
+- Preserve shared corridors, express-service semantics, stop order, and interchange topology before visual styling.
 - Better label placement and label hiding controls.
 - Manual station/label/layout overrides if feasible.
 - Persist viewer-side layout adjustments without changing raw export data.

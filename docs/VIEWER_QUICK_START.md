@@ -34,8 +34,9 @@ Use `Preview` to choose the in-app preview scale. `100%` shows the SVG at its ac
 Layout modes:
 
 - `geographic`: keeps normalized source coordinate geometry.
-- `schematic-lite`: snaps rendered stations to a grid and makes route segments more regular.
-- `schematic-v2`: experimental topology-first schematic layout for validation.
+- `schematic-v2`: experimental topology-first schematic layout for validation. This replaces the old Viewer-facing `schematic-lite` entry.
+
+The older `schematic-lite` renderer remains available from the CLI for regression comparison, but it is no longer exposed in the Viewer because it is not the target schematic-map direction.
 
 The Viewer has two main tabs:
 
@@ -50,9 +51,9 @@ The Windows executable includes a CS2 Metro Diagram app icon.
 
 Change width, height, legend width, padding, line width, station radius, label font size, or grid size, then click `Refresh Preview`.
 
-Use the label checkboxes to reduce clutter:
+Use the label checkboxes to tune clutter:
 
-- `Hide generic station labels`
+- `Show default / non-important station labels`
 - `Hide crowded labels`
 - `Always show interchanges`
 - `Always show terminals`

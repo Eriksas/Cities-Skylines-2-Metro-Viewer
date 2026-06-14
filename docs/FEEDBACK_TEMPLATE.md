@@ -29,12 +29,12 @@ Please include as much of this information as possible.
 
 ## Viewer Settings
 
-- Layout mode: `geographic` / `schematic-lite`
+- Layout mode: `geographic` / `schematic-v2`
 - Width:
 - Height:
 - Label font size:
 - Grid size:
-- Hide generic station labels: yes/no
+- Show default / non-important station labels: yes/no
 - Hide crowded labels: yes/no
 - Always show interchanges: yes/no
 - Always show terminals: yes/no

@@ -4,8 +4,10 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Build, Publish, Release
 
+- `validate-local.ps1` - runs the normal local validation flow: offline solution build plus offline tests. Add `-IncludeModBuild` to also build the CS2 mod project when the CS2 modding toolchain environment is configured.
 - `publish-viewer-self-contained.ps1` - publishes the Windows Viewer as a self-contained win-x64 package.
 - `publish-viewer-framework-dependent.ps1` - publishes the Windows Viewer as a framework-dependent package.
+- `publish-mod.ps1` - publishes the existing Paradox Mods listing only. Use `-Mode NewVersion` for a binary/version upload or `-Mode UpdateConfiguration` for metadata-only updates. It refuses to run without a configured `ModId` and intentionally does not support `PublishNewMod`. Use `-WhatIf` to verify the target/profile without uploading.
 - `generate-viewer-icon.ps1` - regenerates the Viewer app icon PNG/ICO assets from the deterministic icon drawing script.
 - `package-alpha-release.ps1` - builds/tests, publishes Viewer, copies docs/samples/mod artifacts when available, and creates an alpha release folder/zip.
 
@@ -17,6 +19,7 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 - `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, geographic/schematic outputs, screenshots, notes, and feedback template.
 - `generate-primary-city-baseline.ps1` - refreshes the primary city regression baseline.
+- `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, usually `schematic-v2 + transit-map + ultra`, for human review of the current best map output.
 
 ## Route Geometry And Schematic Diagnostics
 

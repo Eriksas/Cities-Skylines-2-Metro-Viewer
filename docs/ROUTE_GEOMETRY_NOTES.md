@@ -159,10 +159,6 @@ Airport express checks:
 
 Conclusion: CurveElement is the primary source, and express-line fly-lines are considered resolved for the validated export when `--use-path-points` is enabled.
 
-## Archived Source Notes
+## Historical Source Notes
 
-The source phase documents were moved to `archive/`:
-
-- `archive/PATH_GEOMETRY_VALIDATION.md`
-- `archive/PATH_GEOMETRY_VALIDATION_RESULTS.md`
-- `archive/METRO_TRACK_GEOMETRY_DISCOVERY.md`
+This file consolidates the older path geometry validation and metro track geometry discovery phase notes. The original per-phase notes were removed from the working tree during project cleanup; use git history if exact historical wording is needed.

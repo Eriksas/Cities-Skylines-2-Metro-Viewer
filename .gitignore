@@ -4,6 +4,7 @@ obj/
 out/
 artifacts/
 TestResults/
+CS2 Metro/Library/
 
 # Visual Studio
 .vs/
