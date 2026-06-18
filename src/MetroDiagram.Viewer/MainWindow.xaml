@@ -28,6 +28,7 @@
                         <ComboBox x:Name="LayoutComboBox" Width="150" Margin="0,0,12,8" SelectionChanged="LayoutComboBox_SelectionChanged">
                             <ComboBoxItem Content="geographic" Tag="geographic" IsSelected="True" />
                             <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
+                            <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
                         </ComboBox>
 
                         <TextBlock x:Name="SizePresetLabelTextBlock" Text="Size" VerticalAlignment="Center" Margin="0,0,6,8" />
@@ -93,6 +94,7 @@
 
                     <WrapPanel Margin="0,12,0,0">
                         <CheckBox x:Name="ShowNonImportantStationLabelsCheckBox" Content="Show default / non-important station labels" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                        <CheckBox x:Name="VirtualTransferHintsCheckBox" Content="Show virtual transfer hints" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                         <CheckBox x:Name="HideCrowdedCheckBox" Content="Hide crowded labels" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                         <CheckBox x:Name="AlwaysInterchangesCheckBox" Content="Always show interchanges" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                         <CheckBox x:Name="AlwaysTerminalsCheckBox" Content="Always show terminals" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />

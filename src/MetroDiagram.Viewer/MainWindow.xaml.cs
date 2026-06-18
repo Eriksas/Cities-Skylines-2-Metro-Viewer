@@ -395,6 +395,7 @@ public partial class MainWindow : Window
             LabelFontSize = labelFontSize,
             GridSize = gridSize,
             HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
+            EnableVirtualTransferHints = VirtualTransferHintsCheckBox.IsChecked == true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
@@ -409,6 +410,7 @@ public partial class MainWindow : Window
         string? tag = (LayoutComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
         return tag switch
         {
+            "schematic-map" => SvgLayoutMode.SchematicMap,
             "schematic-v2" => SvgLayoutMode.SchematicV2,
             _ => SvgLayoutMode.Geographic
         };
@@ -487,45 +489,7 @@ public partial class MainWindow : Window
         string svgCss = fitWidth
             ? "svg { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }"
             : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
-        string fitWidthScript = fitWidth
-            ? string.Join(Environment.NewLine,
-            [
-                "  <script>",
-                "    (function () {",
-                $"      var svgWidth = {svgWidthText};",
-                $"      var svgHeight = {svgHeightText};",
-                "      function resizeSvg() {",
-                "        var svg = document.getElementsByTagName('svg')[0];",
-                "        var frame = document.getElementById('preview-frame');",
-                "        if (!svg || !frame || svgWidth <= 0 || svgHeight <= 0) { return; }",
-                "        var availableWidth = Math.max(320, frame.clientWidth - 32);",
-                "        var scale = availableWidth / svgWidth;",
-                "        svg.style.width = availableWidth + 'px';",
-                "        svg.style.height = Math.max(1, svgHeight * scale) + 'px';",
-                "      }",
-                "      if (window.attachEvent) {",
-                "        window.attachEvent('onload', resizeSvg);",
-                "        window.attachEvent('onresize', resizeSvg);",
-                "      } else {",
-                "        window.addEventListener('load', resizeSvg, false);",
-                "        window.addEventListener('resize', resizeSvg, false);",
-                "      }",
-                "    }());",
-                "  </script>"
-            ])
-            : string.Join(Environment.NewLine,
-            [
-                "  <script>",
-                "    (function () {",
-                "      function resetPreviewScroll() {",
-                "        window.scrollTo(0, 0);",
-                "        window.setTimeout(function () { window.scrollTo(0, 0); }, 0);",
-                "      }",
-                "      if (window.attachEvent) { window.attachEvent('onload', resetPreviewScroll); }",
-                "      else { window.addEventListener('load', resetPreviewScroll, false); }",
-                "    }());",
-                "  </script>"
-            ]);
+        string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText);
 
         return string.Join(Environment.NewLine,
         [
@@ -540,7 +504,7 @@ public partial class MainWindow : Window
             "    .preview-frame { min-width: 100%; overflow: visible; }",
             $"    {svgCss}",
             "  </style>",
-            fitWidthScript,
+            previewScript,
             "</head>",
             "<body>",
             "<div id=\"preview-frame\" class=\"preview-frame\">",
@@ -548,6 +512,95 @@ public partial class MainWindow : Window
             "</div>",
             "</body>",
             "</html>"
+        ]);
+    }
+
+    private static string BuildPreviewFocusScript(bool fitWidth, int zoomPercent, string svgWidthText, string svgHeightText)
+    {
+        string fitWidthText = fitWidth ? "true" : "false";
+        string zoomScaleText = (zoomPercent / 100.0).ToString("0.###", CultureInfo.InvariantCulture);
+
+        return string.Join(Environment.NewLine,
+        [
+            "  <script>",
+            "    (function () {",
+            $"      var fitWidth = {fitWidthText};",
+            $"      var zoomScale = {zoomScaleText};",
+            $"      var fallbackSvgWidth = {svgWidthText};",
+            $"      var fallbackSvgHeight = {svgHeightText};",
+            "      var focusBounds = null;",
+            "      function addBox(box, state) {",
+            "        if (!box || box.width <= 0 || box.height <= 0) { return; }",
+            "        if (!state.hasBox) {",
+            "          state.left = box.x;",
+            "          state.top = box.y;",
+            "          state.right = box.x + box.width;",
+            "          state.bottom = box.y + box.height;",
+            "          state.hasBox = true;",
+            "          return;",
+            "        }",
+            "        state.left = Math.min(state.left, box.x);",
+            "        state.top = Math.min(state.top, box.y);",
+            "        state.right = Math.max(state.right, box.x + box.width);",
+            "        state.bottom = Math.max(state.bottom, box.y + box.height);",
+            "      }",
+            "      function readContentBounds(svg) {",
+            "        var ids = ['routes', 'route-badges', 'stations', 'labels', 'virtual-transfer-hints'];",
+            "        var state = { hasBox: false, left: 0, top: 0, right: 0, bottom: 0 };",
+            "        for (var i = 0; i < ids.length; i++) {",
+            "          var element = document.getElementById(ids[i]);",
+            "          if (!element || !element.getBBox) { continue; }",
+            "          try { addBox(element.getBBox(), state); } catch (e) { }",
+            "        }",
+            "        var legend = document.getElementById('legend');",
+            "        if (legend && legend.getBBox && legend.getAttribute('data-legend-placement') !== 'bottom') {",
+            "          try { addBox(legend.getBBox(), state); } catch (e) { }",
+            "        }",
+            "        if (!state.hasBox) { return null; }",
+            "        var width = Math.max(1, state.right - state.left);",
+            "        var height = Math.max(1, state.bottom - state.top);",
+            "        var padding = Math.max(72, Math.min(220, Math.max(width, height) * 0.06));",
+            "        var viewLeft = Math.max(0, state.left - padding);",
+            "        var viewTop = Math.max(0, state.top - padding);",
+            "        var viewRight = Math.min(Math.max(1, fallbackSvgWidth), state.right + padding);",
+            "        var viewBottom = Math.min(Math.max(1, fallbackSvgHeight), state.bottom + padding);",
+            "        return { left: viewLeft, top: viewTop, width: Math.max(1, viewRight - viewLeft), height: Math.max(1, viewBottom - viewTop) };",
+            "      }",
+            "      function applyPreviewFocus() {",
+            "        var svg = document.getElementsByTagName('svg')[0];",
+            "        var frame = document.getElementById('preview-frame');",
+            "        if (!svg || !frame) { return; }",
+            "        if (!focusBounds) { focusBounds = readContentBounds(svg); }",
+            "        var width = fallbackSvgWidth;",
+            "        var height = fallbackSvgHeight;",
+            "        if (focusBounds) {",
+            "          svg.setAttribute('viewBox', focusBounds.left + ' ' + focusBounds.top + ' ' + focusBounds.width + ' ' + focusBounds.height);",
+            "          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');",
+            "          svg.setAttribute('data-viewer-preview-focus', 'content-bounds');",
+            "          width = focusBounds.width;",
+            "          height = focusBounds.height;",
+            "        }",
+            "        if (fitWidth) {",
+            "          var availableWidth = Math.max(320, frame.clientWidth - 32);",
+            "          var scale = availableWidth / Math.max(1, width);",
+            "          svg.style.width = availableWidth + 'px';",
+            "          svg.style.height = Math.max(1, height * scale) + 'px';",
+            "        } else {",
+            "          svg.style.width = Math.max(1, width * zoomScale) + 'px';",
+            "          svg.style.height = Math.max(1, height * zoomScale) + 'px';",
+            "        }",
+            "        window.scrollTo(0, 0);",
+            "        window.setTimeout(function () { window.scrollTo(0, 0); }, 0);",
+            "      }",
+            "      if (window.attachEvent) {",
+            "        window.attachEvent('onload', applyPreviewFocus);",
+            "        window.attachEvent('onresize', applyPreviewFocus);",
+            "      } else {",
+            "        window.addEventListener('load', applyPreviewFocus, false);",
+            "        window.addEventListener('resize', applyPreviewFocus, false);",
+            "      }",
+            "    }());",
+            "  </script>"
         ]);
     }
 
@@ -694,6 +747,7 @@ public partial class MainWindow : Window
         {
             SvgLayoutMode.SchematicLite => "schematic-lite",
             SvgLayoutMode.SchematicV2 => "schematic-v2",
+            SvgLayoutMode.SchematicMap => "schematic-map",
             _ => "geographic"
         };
     }
@@ -822,6 +876,7 @@ public partial class MainWindow : Window
             LabelFontSizeTextBox.Text = settings.LabelFontSize.ToString(CultureInfo.InvariantCulture);
             GridSizeTextBox.Text = settings.GridSize.ToString(CultureInfo.InvariantCulture);
             ShowNonImportantStationLabelsCheckBox.IsChecked = !settings.HideGenericStationLabels;
+            VirtualTransferHintsCheckBox.IsChecked = settings.EnableVirtualTransferHints;
             HideCrowdedCheckBox.IsChecked = settings.HideCrowdedLabels;
             AlwaysInterchangesCheckBox.IsChecked = settings.AlwaysShowInterchanges;
             AlwaysTerminalsCheckBox.IsChecked = settings.AlwaysShowTerminals;
@@ -865,6 +920,7 @@ public partial class MainWindow : Window
         LabelFontLabelTextBlock.Text = T("Label");
         GridLabelTextBlock.Text = T("Grid");
         ShowNonImportantStationLabelsCheckBox.Content = T("ShowNonImportantLabels");
+        VirtualTransferHintsCheckBox.Content = T("VirtualTransferHints");
         HideCrowdedCheckBox.Content = T("HideCrowded");
         AlwaysInterchangesCheckBox.Content = T("AlwaysInterchanges");
         AlwaysTerminalsCheckBox.Content = T("AlwaysTerminals");
@@ -926,6 +982,7 @@ public partial class MainWindow : Window
             LabelFontSize = ReadDoubleOrDefault(LabelFontSizeTextBox, _settings.LabelFontSize),
             GridSize = ReadDoubleOrDefault(GridSizeTextBox, _settings.GridSize),
             HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
+            EnableVirtualTransferHints = VirtualTransferHintsCheckBox.IsChecked == true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
@@ -973,6 +1030,7 @@ public partial class MainWindow : Window
         {
             "schematic-lite" => "schematic-v2",
             "schematic-v2" => "schematic-v2",
+            "schematic-map" => "schematic-map",
             _ => "geographic"
         };
     }

@@ -37,9 +37,24 @@ function Get-StationName {
     return $StationId
 }
 
+function Get-ObjectPropertyValue {
+    param($Object, [string] $Name)
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+
+    return $property.Value
+}
+
 function Get-ValidStops {
     param($Line, $StationsById)
-    return @($Line.stops) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and $StationsById.ContainsKey($_) }
+    return @(Get-ObjectPropertyValue $Line 'stops') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and $StationsById.ContainsKey($_) }
 }
 
 function Get-StationEdgeKey {
@@ -71,7 +86,7 @@ function Get-LinePathPoints {
     param($Line)
 
     $points = New-Object System.Collections.ArrayList
-    foreach ($point in @($Line.pathPoints)) {
+    foreach ($point in @(Get-ObjectPropertyValue $Line 'pathPoints')) {
         if ($null -eq $point) {
             continue
         }

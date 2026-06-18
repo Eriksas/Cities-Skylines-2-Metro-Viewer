@@ -3,8 +3,8 @@ param(
     [string] $InputJson = 'D:\CS2MetroDiagram\metro-export.json',
     [string] $CaseName = 'product-candidate',
     [string] $OutputRoot,
-    [ValidateSet('geographic', 'schematic-v2')]
-    [string] $Layout = 'schematic-v2',
+    [ValidateSet('geographic', 'schematic-v2', 'schematic-map')]
+    [string] $Layout = 'schematic-map',
     [ValidateSet('compact', 'standard', 'poster', 'ultra')]
     [string] $Size = 'ultra',
     [ValidateSet('standard', 'transit-map')]

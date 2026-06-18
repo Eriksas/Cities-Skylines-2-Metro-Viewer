@@ -48,6 +48,9 @@ public sealed class ViewerSettings
     [JsonPropertyName("hideGenericStationLabels")]
     public bool HideGenericStationLabels { get; set; } = true;
 
+    [JsonPropertyName("enableVirtualTransferHints")]
+    public bool EnableVirtualTransferHints { get; set; }
+
     [JsonPropertyName("hideCrowdedLabels")]
     public bool HideCrowdedLabels { get; set; } = true;
 
