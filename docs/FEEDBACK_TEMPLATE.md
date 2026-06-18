@@ -22,14 +22,18 @@ Please include as much of this information as possible.
 - `metro-export.json`
 - `metro-export-diagnostics.txt`
 - Alpha validation bundle from `artifacts\alpha-validation\<timestamp>-<caseName>`, if available
+- `manifest.json` from the alpha validation bundle, if available
 - Timestamped snapshot JSON and diagnostics from the `exports` subdirectory, if relevant
+- `baseline-geographic.full.png`
+- `schematic-map.full.png`
+- `schematic-v2.full.png`, if schematic behavior is part of the issue
 - Exported SVG, or a screenshot of the Viewer/SVG
 - Viewer settings from `Documents\CS2MetroDiagram\viewer-settings.json`
 - Relevant game/mod log excerpt if export failed
 
 ## Viewer Settings
 
-- Layout mode: `geographic` / `schematic-v2`
+- Layout mode: `geographic` / `schematic-v2` / `schematic-map`
 - Width:
 - Height:
 - Label font size:

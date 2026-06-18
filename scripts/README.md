@@ -17,9 +17,10 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Alpha Validation
 
-- `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, geographic/schematic outputs, screenshots, notes, and feedback template.
+- `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, geographic/schematic outputs, `schematic-map` product candidate output, screenshots, `manifest.json`, notes, and feedback template.
+- `summarize-alpha-validation-bundles.ps1` - scans generated alpha validation bundles and writes `artifacts\alpha-validation\index.md` plus `index.csv` so multi-city review status is visible in one place.
 - `generate-primary-city-baseline.ps1` - refreshes the primary city regression baseline.
-- `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, usually `schematic-v2 + transit-map + ultra`, for human review of the current best map output.
+- `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, usually `schematic-map + ultra`, for human review of the current best map output.
 
 ## Route Geometry And Schematic Diagnostics
 

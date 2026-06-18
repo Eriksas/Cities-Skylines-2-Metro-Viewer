@@ -4,7 +4,8 @@ public enum SvgLayoutMode
 {
     Geographic,
     SchematicLite,
-    SchematicV2
+    SchematicV2,
+    SchematicMap
 }
 
 public enum SvgRenderSizePreset
@@ -77,6 +78,8 @@ public sealed class SvgRenderOptions
 
     public bool HideGenericStationLabels { get; init; }
 
+    public bool EnableVirtualTransferHints { get; init; }
+
     public bool HideCrowdedLabels { get; init; }
 
     public bool AlwaysShowInterchanges { get; init; } = true;
@@ -116,6 +119,20 @@ public sealed class SvgRenderOptions
     public double SchematicShortOverlapSegmentThreshold { get; init; }
 
     public double SchematicMinimumStationSpacing { get; init; }
+
+    internal bool CompactTransitMapFrame { get; set; }
+
+    internal bool EnableSchematicMapOctilinearNormalization { get; set; }
+
+    internal double SchematicMapOctilinearSnapAngleDegrees { get; set; } = 14;
+
+    internal bool EnableSchematicMapSimpleRunLinearization { get; set; }
+
+    internal double SchematicMapPreferredStationSpacing { get; set; }
+
+    internal bool EnableSchematicMapLocalClearance { get; set; }
+
+    internal double SchematicMapLocalClearanceDistance { get; set; }
 
     internal int EffectivePadding => Padding != 72 ? Padding : Margin;
 }

@@ -34,7 +34,8 @@ Use `Preview` to choose the in-app preview scale. `100%` shows the SVG at its ac
 Layout modes:
 
 - `geographic`: keeps normalized source coordinate geometry.
-- `schematic-v2`: experimental topology-first schematic layout for validation. This replaces the old Viewer-facing `schematic-lite` entry.
+- `schematic-v2`: experimental topology-first schematic layout for validation and diagnostics.
+- `schematic-map`: product-facing official-map style schematic output built on `schematic-v2`, with transit-map framing and service/express visual defaults.
 
 The older `schematic-lite` renderer remains available from the CLI for regression comparison, but it is no longer exposed in the Viewer because it is not the target schematic-map direction.
 

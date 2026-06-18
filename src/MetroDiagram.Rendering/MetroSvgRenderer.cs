@@ -11,6 +11,7 @@ public sealed class MetroSvgRenderer
     public SvgRenderResult Render(MetroExportDocument document, SvgRenderOptions? options = null)
     {
         options ??= new SvgRenderOptions();
+        options = ApplyLayoutPresentationDefaults(options);
         List<string> warnings = [];
 
         MetroNetwork network = document.Network ?? new MetroNetwork();
@@ -21,7 +22,8 @@ public sealed class MetroSvgRenderer
             .GroupBy(station => station.Id!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         List<DisplayLineFamily> displayFamilies = DisplayLineFamilyResolver.Resolve(lines, stationsById, options.EnableServiceFamilyMerge);
-        CanonicalSchematicNetwork? canonicalNetwork = options.LayoutMode == SvgLayoutMode.SchematicV2
+        options = ApplyNetworkPresentationDefaults(options, displayFamilies, stations.Count);
+        CanonicalSchematicNetwork? canonicalNetwork = IsSchematicV2FamilyLayout(options.LayoutMode)
             ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
             : null;
 
@@ -35,7 +37,8 @@ public sealed class MetroSvgRenderer
         AppendHeader(svg, document, options);
         AppendEmptyNotice(svg, stations, lines, options);
         AppendRoutes(svg, stations, displayFamilies, stationsById, stationPoints, terminalStationIds, geometry, options, hasLegend, warnings);
-        AppendStations(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, options);
+        AppendVirtualTransferHints(svg, stations, stationPoints, options);
+        AppendStations(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, geometry.SchematicV2DenseStationPairs, options);
         AppendLabels(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, terminalStationIds, options, hasLegend);
         AppendLegend(svg, SortFamiliesForLegend(displayFamilies), options, hasLegend);
         AppendFooter(svg, options);
@@ -72,7 +75,7 @@ public sealed class MetroSvgRenderer
         CoordinateProjector? projector = CoordinateProjector.Create(sourceCoordinates, options, reserveLegendSpace);
         if (projector is null)
         {
-            return new RenderGeometry([], null, [], null, null);
+            return new RenderGeometry([], null, [], [], null, null);
         }
 
         Dictionary<string, SvgPoint> points = new(StringComparer.Ordinal);
@@ -89,10 +92,10 @@ public sealed class MetroSvgRenderer
         if (options.LayoutMode == SvgLayoutMode.SchematicLite)
         {
             SchematicLayoutResult schematicLayout = ApplySchematicLiteLayout(points, lines, stationsById, options, reserveLegendSpace, warnings);
-            return new RenderGeometry(schematicLayout.Points, projector, schematicLayout.Adjustments, null, null);
+            return new RenderGeometry(schematicLayout.Points, projector, schematicLayout.Adjustments, [], null, null);
         }
 
-        if (options.LayoutMode == SvgLayoutMode.SchematicV2)
+        if (IsSchematicV2FamilyLayout(options.LayoutMode))
         {
             SvgRenderOptions canonicalOptions = CreateSchematicV2CanonicalOptions(options);
             CoordinateProjector canonicalProjector = CoordinateProjector.Create(sourceCoordinates, canonicalOptions, reserveLegendSpace) ?? projector;
@@ -119,10 +122,94 @@ public sealed class MetroSvgRenderer
                 reserveLegendSpace,
                 warnings);
             SchematicLayoutResult targetLayout = ScaleSchematicV2LayoutToTarget(canonicalLayout, canonicalOptions, options, reserveLegendSpace);
-            return new RenderGeometry(targetLayout.Points, projector, targetLayout.Adjustments, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
+            return new RenderGeometry(targetLayout.Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
         }
 
-        return new RenderGeometry(points, projector, [], null, null);
+        return new RenderGeometry(points, projector, [], [], null, null);
+    }
+
+    private static SvgRenderOptions ApplyLayoutPresentationDefaults(SvgRenderOptions options)
+    {
+        if (options.LayoutMode != SvgLayoutMode.SchematicMap)
+        {
+            return options;
+        }
+
+        return new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.SchematicMap,
+            MapStyle = SvgMapStyle.TransitMap,
+            Width = options.Width,
+            Height = options.Height,
+            Padding = options.Padding,
+            Margin = options.Margin,
+            LegendWidth = options.LegendWidth,
+            LegendGap = options.LegendGap,
+            LineWidth = options.LineWidth,
+            StationRadius = Math.Max(options.StationRadius, 6.4),
+            InterchangeStationRadius = Math.Max(options.InterchangeStationRadius, 10.6),
+            LabelFontSize = Math.Max(options.LabelFontSize, 13),
+            LegendLabelFontSize = Math.Max(options.LegendLabelFontSize, 18),
+            LabelGap = Math.Max(options.LabelGap, 15),
+            EnableCenterExpansion = options.EnableCenterExpansion,
+            CenterExpansionStrength = options.CenterExpansionStrength,
+            GridSize = options.GridSize,
+            HideGenericStationLabels = options.HideGenericStationLabels,
+            EnableVirtualTransferHints = options.EnableVirtualTransferHints,
+            HideCrowdedLabels = options.HideCrowdedLabels,
+            AlwaysShowInterchanges = options.AlwaysShowInterchanges,
+            AlwaysShowTerminals = options.AlwaysShowTerminals,
+            UsePathPoints = true,
+            PathPointSimplificationEnabled = options.PathPointSimplificationEnabled,
+            PathPointSimplificationTolerance = options.PathPointSimplificationTolerance,
+            MinPathSegmentLength = options.MinPathSegmentLength,
+            AdaptivePathPointSimplificationEnabled = options.AdaptivePathPointSimplificationEnabled,
+            EnableParallelCorridorOffset = options.EnableParallelCorridorOffset,
+            EnableServiceFamilyMerge = true,
+            EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
+            EnableExpressCenterStripe = true,
+            EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
+            StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
+            StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,
+            EnableSchematicSegmentOverlapResolver = options.EnableSchematicSegmentOverlapResolver,
+            SchematicSegmentOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance,
+            SchematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim,
+            SchematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold,
+            SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing,
+            CompactTransitMapFrame = options.CompactTransitMapFrame,
+            EnableSchematicMapOctilinearNormalization = true,
+            SchematicMapOctilinearSnapAngleDegrees = options.SchematicMapOctilinearSnapAngleDegrees,
+            EnableSchematicMapSimpleRunLinearization = true,
+            SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
+            EnableSchematicMapLocalClearance = true,
+            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance
+        };
+    }
+
+    private static SvgRenderOptions ApplyNetworkPresentationDefaults(
+        SvgRenderOptions options,
+        IReadOnlyList<DisplayLineFamily> displayFamilies,
+        int stationCount)
+    {
+        if (!IsSchematicMapLayout(options))
+        {
+            return options;
+        }
+
+        options.CompactTransitMapFrame = ShouldUseCompactTransitMapFrame(displayFamilies, stationCount);
+        return options;
+    }
+
+    private static bool ShouldUseCompactTransitMapFrame(IReadOnlyList<DisplayLineFamily> displayFamilies, int stationCount)
+    {
+        return displayFamilies.Count is > 0 and <= 4
+            && stationCount <= 40
+            && !displayFamilies.Any(family => family.Variants.Count > 1);
+    }
+
+    private static bool IsSchematicV2FamilyLayout(SvgLayoutMode layoutMode)
+    {
+        return layoutMode is SvgLayoutMode.SchematicV2 or SvgLayoutMode.SchematicMap;
     }
 
     private static StationRouteAnchorMap ResolveStationRouteAnchors(
@@ -481,6 +568,7 @@ public sealed class MetroSvgRenderer
             return new SchematicLayoutResult(
                 adjusted,
                 [],
+                [],
                 new Dictionary<string, List<string>>(StringComparer.Ordinal),
                 new Dictionary<string, SchematicV2RouteGuideMetadata>(StringComparer.Ordinal));
         }
@@ -558,6 +646,7 @@ public sealed class MetroSvgRenderer
         return new SchematicLayoutResult(
             adjusted,
             adjustments,
+            [],
             new Dictionary<string, List<string>>(StringComparer.Ordinal),
             new Dictionary<string, SchematicV2RouteGuideMetadata>(StringComparer.Ordinal));
     }
@@ -672,13 +761,13 @@ public sealed class MetroSvgRenderer
 
     private static int CountSchematicSpacingConflicts(Dictionary<string, SvgPoint> stationPoints, double minimumSpacing)
     {
-        List<SvgPoint> points = stationPoints.Values.ToList();
+        List<string> stationIds = stationPoints.Keys.OrderBy(id => id, StringComparer.Ordinal).ToList();
         int conflicts = 0;
-        for (int i = 0; i < points.Count; i++)
+        for (int i = 0; i < stationIds.Count; i++)
         {
-            for (int j = i + 1; j < points.Count; j++)
+            for (int j = i + 1; j < stationIds.Count; j++)
             {
-                double distance = Distance(points[i], points[j]);
+                double distance = Distance(stationPoints[stationIds[i]], stationPoints[stationIds[j]]);
                 if (distance < minimumSpacing)
                 {
                     conflicts++;
@@ -687,6 +776,123 @@ public sealed class MetroSvgRenderer
         }
 
         return conflicts;
+    }
+
+    private static List<SchematicV2DenseStationPair> FindSchematicV2DenseStationPairs(
+        Dictionary<string, SvgPoint> stationPoints,
+        Dictionary<string, HashSet<string>> adjacency,
+        HashSet<string> interchangeStationIds,
+        Dictionary<string, MetroStation> stationsById,
+        double minimumSpacing)
+    {
+        List<SchematicV2DenseStationPair> pairs = [];
+        List<string> stationIds = stationPoints.Keys.OrderBy(id => id, StringComparer.Ordinal).ToList();
+        for (int i = 0; i < stationIds.Count; i++)
+        {
+            string firstId = stationIds[i];
+            for (int j = i + 1; j < stationIds.Count; j++)
+            {
+                string secondId = stationIds[j];
+                double distance = Distance(stationPoints[firstId], stationPoints[secondId]);
+                if (distance >= minimumSpacing)
+                {
+                    continue;
+                }
+
+                bool adjacent = adjacency.TryGetValue(firstId, out HashSet<string>? neighbors) && neighbors.Contains(secondId);
+                bool sameNameCluster = HaveSameStationDisplayName(firstId, secondId, stationsById);
+                bool sameNameAssetDefaultCluster = sameNameCluster && HaveSameStationNameKind(firstId, secondId, stationsById, StationNameKind.KnownAssetDefault);
+                bool sameNameLikelyUserCluster = sameNameCluster && HaveSameStationNameKind(firstId, secondId, stationsById, StationNameKind.UserNamed);
+                pairs.Add(new SchematicV2DenseStationPair(
+                    firstId,
+                    secondId,
+                    distance,
+                    minimumSpacing,
+                    adjacent,
+                    sameNameCluster,
+                    sameNameAssetDefaultCluster,
+                    sameNameLikelyUserCluster,
+                    interchangeStationIds.Contains(firstId),
+                    interchangeStationIds.Contains(secondId)));
+            }
+        }
+
+        return pairs
+            .OrderBy(pair => pair.Distance)
+            .ThenBy(pair => pair.FirstStationId, StringComparer.Ordinal)
+            .ThenBy(pair => pair.SecondStationId, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string FormatSchematicV2DensePairDetails(
+        List<SchematicV2DenseStationPair> pairs,
+        Dictionary<string, MetroStation> stationsById)
+    {
+        if (pairs.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        IEnumerable<string> details = pairs.Take(6).Select(pair =>
+        {
+            string firstName = GetStationDebugName(pair.FirstStationId, stationsById);
+            string secondName = GetStationDebugName(pair.SecondStationId, stationsById);
+            string adjacent = pair.Adjacent ? "adjacent" : "non-adjacent";
+            string sameName = pair.SameNameCluster ? ", same-name cluster" : string.Empty;
+            string sameNameKind = pair.SameNameAssetDefaultCluster
+                ? ", asset-default name"
+                : pair.SameNameLikelyUserCluster
+                    ? ", likely user-named"
+                    : string.Empty;
+            return $"{firstName} <-> {secondName} ({Format(pair.Distance)}/{Format(pair.MinimumSpacing)}, {adjacent}{sameName}{sameNameKind})";
+        });
+        string suffix = pairs.Count > 6 ? $"; +{pairs.Count - 6} more" : string.Empty;
+        return $"; remaining dense station pair details: {string.Join("; ", details)}{suffix}";
+    }
+
+    private static string GetStationDebugName(string stationId, Dictionary<string, MetroStation> stationsById)
+    {
+        if (stationsById.TryGetValue(stationId, out MetroStation? station)
+            && !string.IsNullOrWhiteSpace(station.Name))
+        {
+            return $"{station.Name} [{stationId}]";
+        }
+
+        return stationId;
+    }
+
+    private static bool HaveSameStationDisplayName(
+        string firstStationId,
+        string secondStationId,
+        Dictionary<string, MetroStation> stationsById)
+    {
+        if (!stationsById.TryGetValue(firstStationId, out MetroStation? first)
+            || !stationsById.TryGetValue(secondStationId, out MetroStation? second)
+            || string.IsNullOrWhiteSpace(first.Name)
+            || string.IsNullOrWhiteSpace(second.Name))
+        {
+            return false;
+        }
+
+        return string.Equals(first.Name.Trim(), second.Name.Trim(), StringComparison.CurrentCulture);
+    }
+
+    private static bool HaveSameStationNameKind(
+        string firstStationId,
+        string secondStationId,
+        Dictionary<string, MetroStation> stationsById,
+        StationNameKind kind)
+    {
+        if (!stationsById.TryGetValue(firstStationId, out MetroStation? first)
+            || !stationsById.TryGetValue(secondStationId, out MetroStation? second)
+            || string.IsNullOrWhiteSpace(first.Name)
+            || string.IsNullOrWhiteSpace(second.Name))
+        {
+            return false;
+        }
+
+        return StationLabelClassifier.Classify(first.Name, first.Id) == kind
+            && StationLabelClassifier.Classify(second.Name, second.Id) == kind;
     }
 
     private static SchematicLayoutResult ApplySchematicV2Layout(
@@ -790,6 +996,16 @@ public sealed class MetroSvgRenderer
 
         List<SchematicV2GeometryCorridorConstraint> geometryCorridors = DetectSchematicV2GeometryCorridors(displayFamilies, stationsById, corridorDetectionPoints, corridorDetectionProjector, options);
         SchematicV2RouteGuideResult routeGuideResult = BuildSchematicV2RouteGuideByFamily(displayFamilies, canonicalNetwork, stationsById, points, geometryCorridors);
+        int abstractLinearizedStations = ApplySchematicMapSimpleRunLinearization(
+            points,
+            original,
+            familyPaths,
+            routeGuideResult.RouteGuideByFamily,
+            bounds,
+            halfGrid,
+            degreeByStation,
+            interchangeStationIds,
+            options);
         int straightenedTerminalTails = StraightenSchematicV2TerminalTails(
             points,
             routeGuideResult.RouteGuideByFamily.Values,
@@ -801,20 +1017,49 @@ public sealed class MetroSvgRenderer
             familyPaths.Select(path => (IReadOnlyList<string>)path.Stops).Concat(routeGuideResult.RouteGuideByFamily.Values),
             bounds,
             halfGrid);
+        int octilinearNormalizedStations = NormalizeSchematicMapOctilinearSegments(
+            points,
+            original,
+            familyPaths.Select(path => (IReadOnlyList<string>)path.Stops).Concat(routeGuideResult.RouteGuideByFamily.Values),
+            bounds,
+            halfGrid,
+            degreeByStation,
+            interchangeStationIds,
+            options);
+        int localClearanceStations = ApplySchematicMapLocalClearance(
+            points,
+            original,
+            familyPaths,
+            routeGuideResult.RouteGuideByFamily,
+            bounds,
+            halfGrid,
+            degreeByStation,
+            interchangeStationIds,
+            options);
         string adjustmentReason = straightenedTerminalTails > 0
             ? "topology-spacing-terminal-tail-straightening"
             : relaxedSharpAngles > 0
                 ? "topology-spacing-sharp-angle-relaxation"
-                : "topology-spacing";
+                : localClearanceStations > 0
+                    ? "schematic-map-local-clearance"
+                    : octilinearNormalizedStations > 0
+                        ? "schematic-map-octilinear-normalization"
+                        : abstractLinearizedStations > 0
+                            ? "schematic-map-simple-run-linearization"
+                            : "topology-spacing";
         Dictionary<string, SchematicStationAdjustment> adjustments = BuildSchematicStationAdjustments(original, points, adjustmentReason);
-        int remainingDensePairs = CountSchematicSpacingConflicts(points, minimumSpacing);
+        List<SchematicV2DenseStationPair> remainingDensePairs = FindSchematicV2DenseStationPairs(points, adjacency, interchangeStationIds, stationsById, minimumSpacing);
         int remainingShortEdges = CountShortSchematicEdges(points, adjacency, minimumSpacing);
         double maxAdjustment = adjustments.Values.Select(adjustment => adjustment.Distance).DefaultIfEmpty(0).Max();
         string canonicalNetworkText = canonicalNetwork is null
             ? "none"
             : $"stations={canonicalNetwork.Stations.Count}, families={canonicalNetwork.Families.Count}, edges={canonicalNetwork.AdjacencyEdges.Count}, corridor hints={canonicalNetwork.CorridorHints.Count}";
-        warnings.Add($"Schematic-v2 topology diagnostics: initial dense station pairs: {initialDensePairs}; remaining dense station pairs: {remainingDensePairs}; initial short adjacency edges: {initialShortEdges}; remaining short adjacency edges: {remainingShortEdges}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; sharp angle relaxations: {relaxedSharpAngles}; terminal tail straightening: {straightenedTerminalTails}; geometry shared corridors: {geometryCorridors.Count}; canonical network: {canonicalNetworkText}.");
-        return new SchematicLayoutResult(points, adjustments, routeGuideResult.RouteGuideByFamily, routeGuideResult.MetadataByFamily);
+        string densePairDetails = FormatSchematicV2DensePairDetails(remainingDensePairs, stationsById);
+        int sameNameDenseClusters = remainingDensePairs.Count(pair => pair.SameNameCluster);
+        int assetDefaultSameNameDenseClusters = remainingDensePairs.Count(pair => pair.SameNameAssetDefaultCluster);
+        int likelyUserSameNameDenseClusters = remainingDensePairs.Count(pair => pair.SameNameLikelyUserCluster);
+        warnings.Add($"Schematic-v2 topology diagnostics: initial dense station pairs: {initialDensePairs}; remaining dense station pairs: {remainingDensePairs.Count}; same-name dense clusters: {sameNameDenseClusters}; same-name asset-default clusters: {assetDefaultSameNameDenseClusters}; same-name likely-user clusters: {likelyUserSameNameDenseClusters}; initial short adjacency edges: {initialShortEdges}; remaining short adjacency edges: {remainingShortEdges}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; sharp angle relaxations: {relaxedSharpAngles}; terminal tail straightening: {straightenedTerminalTails}; schematic-map linearized stations: {abstractLinearizedStations}; schematic-map octilinear stations: {octilinearNormalizedStations}; schematic-map clearance stations: {localClearanceStations}; geometry shared corridors: {geometryCorridors.Count}; canonical network: {canonicalNetworkText}{densePairDetails}.");
+        return new SchematicLayoutResult(points, adjustments, remainingDensePairs, routeGuideResult.RouteGuideByFamily, routeGuideResult.MetadataByFamily);
     }
 
     private static SvgRenderOptions CreateSchematicV2CanonicalOptions(SvgRenderOptions options)
@@ -840,6 +1085,7 @@ public sealed class MetroSvgRenderer
             CenterExpansionStrength = options.CenterExpansionStrength,
             GridSize = options.GridSize,
             HideGenericStationLabels = options.HideGenericStationLabels,
+            EnableVirtualTransferHints = options.EnableVirtualTransferHints,
             HideCrowdedLabels = options.HideCrowdedLabels,
             AlwaysShowInterchanges = options.AlwaysShowInterchanges,
             AlwaysShowTerminals = options.AlwaysShowTerminals,
@@ -859,7 +1105,14 @@ public sealed class MetroSvgRenderer
             SchematicSegmentOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance,
             SchematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim,
             SchematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold,
-            SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing
+            SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing,
+            CompactTransitMapFrame = options.CompactTransitMapFrame,
+            EnableSchematicMapOctilinearNormalization = options.EnableSchematicMapOctilinearNormalization,
+            SchematicMapOctilinearSnapAngleDegrees = options.SchematicMapOctilinearSnapAngleDegrees,
+            EnableSchematicMapSimpleRunLinearization = options.EnableSchematicMapSimpleRunLinearization,
+            SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
+            EnableSchematicMapLocalClearance = options.EnableSchematicMapLocalClearance,
+            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance
         };
     }
 
@@ -904,7 +1157,800 @@ public sealed class MetroSvgRenderer
             },
             StringComparer.Ordinal);
 
-        return new SchematicLayoutResult(scaledPoints, scaledAdjustments, layout.RouteGuideByFamily, layout.RouteGuideMetadataByFamily);
+        double minScale = Math.Min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+        List<SchematicV2DenseStationPair> scaledDensePairs = layout.DenseStationPairs
+            .Select(pair =>
+            {
+                double distance = scaledPoints.TryGetValue(pair.FirstStationId, out SvgPoint first)
+                    && scaledPoints.TryGetValue(pair.SecondStationId, out SvgPoint second)
+                        ? Distance(first, second)
+                        : pair.Distance * minScale;
+                return pair with
+                {
+                    Distance = distance,
+                    MinimumSpacing = pair.MinimumSpacing * minScale
+                };
+            })
+            .ToList();
+
+        return new SchematicLayoutResult(scaledPoints, scaledAdjustments, scaledDensePairs, layout.RouteGuideByFamily, layout.RouteGuideMetadataByFamily);
+    }
+
+    private static int ApplySchematicMapSimpleRunLinearization(
+        Dictionary<string, SvgPoint> points,
+        Dictionary<string, SvgPoint> original,
+        List<SchematicV2FamilyPath> familyPaths,
+        Dictionary<string, List<string>> routeGuideByFamily,
+        SvgRect bounds,
+        double gridSize,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        SvgRenderOptions options)
+    {
+        if (options.LayoutMode != SvgLayoutMode.SchematicMap || !options.EnableSchematicMapSimpleRunLinearization)
+        {
+            return 0;
+        }
+
+        List<SchematicV2FamilyPath> allPaths = BuildSchematicMapAllFamilyPaths(familyPaths, routeGuideByFamily);
+        if (allPaths.Count == 0)
+        {
+            return 0;
+        }
+
+        Dictionary<string, HashSet<string>> stationFamilies = BuildSchematicMapStationFamilies(allPaths);
+        Dictionary<string, List<SvgPoint>> proposals = new(StringComparer.Ordinal);
+        double preferredSpacing = options.SchematicMapPreferredStationSpacing > 0
+            ? options.SchematicMapPreferredStationSpacing
+            : Math.Max(options.GridSize * 5.0, options.LineWidth * 9.0);
+        double minSpacing = Math.Max(options.GridSize * 3.0, options.LineWidth * 6.0);
+        double maxOrdinarySpacing = Math.Max(preferredSpacing * 1.45, options.GridSize * 7.5);
+
+        foreach (SchematicV2FamilyPath path in allPaths)
+        {
+            List<string> stops = RemoveConsecutiveDuplicateStops(path.Stops);
+            if (stops.Count < 3)
+            {
+                continue;
+            }
+
+            List<int> boundaries = [0];
+            for (int i = 1; i < stops.Count - 1; i++)
+            {
+                if (IsSchematicMapSimpleRunAnchor(stops[i], degreeByStation, interchangeStationIds, stationFamilies))
+                {
+                    boundaries.Add(i);
+                }
+            }
+
+            boundaries.Add(stops.Count - 1);
+
+            for (int boundaryIndex = 1; boundaryIndex < boundaries.Count; boundaryIndex++)
+            {
+                int startIndex = boundaries[boundaryIndex - 1];
+                int endIndex = boundaries[boundaryIndex];
+                if (endIndex - startIndex < 2)
+                {
+                    continue;
+                }
+
+                AddSchematicMapLinearRunProposals(
+                    points,
+                    original,
+                    stops,
+                    startIndex,
+                    endIndex,
+                    proposals,
+                    bounds,
+                    gridSize,
+                    preferredSpacing,
+                    minSpacing,
+                    maxOrdinarySpacing,
+                    degreeByStation,
+                    interchangeStationIds,
+                    stationFamilies);
+            }
+        }
+
+        HashSet<string> adjustedStations = new(StringComparer.Ordinal);
+        foreach ((string stationId, List<SvgPoint> stationProposals) in proposals)
+        {
+            if (stationProposals.Count == 0)
+            {
+                continue;
+            }
+
+            SvgPoint average = new(
+                stationProposals.Average(point => point.X),
+                stationProposals.Average(point => point.Y));
+            SvgPoint snapped = SnapPointToGrid(average, gridSize, bounds);
+            snapped = new SvgPoint(
+                Math.Clamp(snapped.X, bounds.Left, bounds.Right),
+                Math.Clamp(snapped.Y, bounds.Top, bounds.Bottom));
+
+            if (!points.TryGetValue(stationId, out SvgPoint current) || Distance(current, snapped) <= 0.001)
+            {
+                continue;
+            }
+
+            points[stationId] = snapped;
+            adjustedStations.Add(stationId);
+        }
+
+        return adjustedStations.Count;
+    }
+
+    private static void AddSchematicMapLinearRunProposals(
+        Dictionary<string, SvgPoint> points,
+        Dictionary<string, SvgPoint> original,
+        List<string> stops,
+        int startIndex,
+        int endIndex,
+        Dictionary<string, List<SvgPoint>> proposals,
+        SvgRect bounds,
+        double gridSize,
+        double preferredSpacing,
+        double minSpacing,
+        double maxOrdinarySpacing,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        Dictionary<string, HashSet<string>> stationFamilies)
+    {
+        string startId = stops[startIndex];
+        string endId = stops[endIndex];
+        if (!points.TryGetValue(startId, out SvgPoint start)
+            || !points.TryGetValue(endId, out SvgPoint end))
+        {
+            return;
+        }
+
+        int count = endIndex - startIndex + 1;
+        if (count < 3)
+        {
+            return;
+        }
+
+        bool startAnchor = IsSchematicMapSimpleRunAnchor(startId, degreeByStation, interchangeStationIds, stationFamilies);
+        bool endAnchor = IsSchematicMapSimpleRunAnchor(endId, degreeByStation, interchangeStationIds, stationFamilies);
+        double pathLength = 0;
+        for (int i = startIndex + 1; i <= endIndex; i++)
+        {
+            if (points.TryGetValue(stops[i - 1], out SvgPoint previous) && points.TryGetValue(stops[i], out SvgPoint current))
+            {
+                pathLength += Distance(previous, current);
+            }
+        }
+
+        if (pathLength <= 0.001)
+        {
+            return;
+        }
+
+        SvgPoint endpointVector = new(end.X - start.X, end.Y - start.Y);
+        SvgPoint direction = QuantizeSchematicDirection(endpointVector, new SvgPoint(1, 0));
+        double spacing = ResolveSchematicMapLinearSpacing(pathLength / Math.Max(1, count - 1), preferredSpacing, minSpacing, maxOrdinarySpacing);
+        double[] segmentSpacings = ResolveSchematicMapSegmentSpacings(
+            points,
+            stops,
+            startIndex,
+            endIndex,
+            spacing,
+            preferredSpacing,
+            minSpacing,
+            maxOrdinarySpacing);
+
+        if (startAnchor && endAnchor)
+        {
+            AddSchematicMapFixedEndpointRunProposals(
+                points,
+                original,
+                stops,
+                startIndex,
+                endIndex,
+                segmentSpacings,
+                proposals,
+                bounds,
+                gridSize);
+            return;
+        }
+
+        int anchorIndex = startAnchor || !endAnchor ? startIndex : endIndex;
+        string anchorId = stops[anchorIndex];
+        if (!points.TryGetValue(anchorId, out SvgPoint anchor))
+        {
+            return;
+        }
+
+        SvgPoint anchorDirection = anchorIndex == startIndex
+            ? direction
+            : new SvgPoint(-direction.X, -direction.Y);
+        double maxMove = Math.Max(Math.Max(preferredSpacing * 6.0, gridSize * 18), pathLength * 0.9);
+
+        for (int i = startIndex; i <= endIndex; i++)
+        {
+            string stationId = stops[i];
+            if (i == anchorIndex || IsSchematicMapSimpleRunAnchor(stationId, degreeByStation, interchangeStationIds, stationFamilies))
+            {
+                continue;
+            }
+
+            if (!original.TryGetValue(stationId, out SvgPoint originalPoint))
+            {
+                continue;
+            }
+
+            int offset = Math.Abs(i - anchorIndex);
+            double distanceFromAnchor = anchorIndex == startIndex
+                ? SumSchematicMapSegmentSpacings(segmentSpacings, 0, offset)
+                : SumSchematicMapSegmentSpacings(segmentSpacings, offset, segmentSpacings.Length);
+            SvgPoint proposed = new(
+                anchor.X + anchorDirection.X * distanceFromAnchor,
+                anchor.Y + anchorDirection.Y * distanceFromAnchor);
+            proposed = SnapPointToGrid(proposed, gridSize, bounds);
+            proposed = new SvgPoint(
+                Math.Clamp(proposed.X, bounds.Left, bounds.Right),
+                Math.Clamp(proposed.Y, bounds.Top, bounds.Bottom));
+
+            if (Distance(originalPoint, proposed) > maxMove)
+            {
+                continue;
+            }
+
+            AddSchematicMapProposal(proposals, stationId, proposed);
+        }
+    }
+
+    private static void AddSchematicMapFixedEndpointRunProposals(
+        Dictionary<string, SvgPoint> points,
+        Dictionary<string, SvgPoint> original,
+        List<string> stops,
+        int startIndex,
+        int endIndex,
+        double[] segmentSpacings,
+        Dictionary<string, List<SvgPoint>> proposals,
+        SvgRect bounds,
+        double gridSize)
+    {
+        SvgPoint start = points[stops[startIndex]];
+        SvgPoint end = points[stops[endIndex]];
+        int count = endIndex - startIndex + 1;
+        double totalSpacing = Math.Max(0.001, segmentSpacings.Sum());
+        for (int i = startIndex + 1; i < endIndex; i++)
+        {
+            string stationId = stops[i];
+            if (!original.TryGetValue(stationId, out SvgPoint originalPoint))
+            {
+                continue;
+            }
+
+            double distanceAlongRun = SumSchematicMapSegmentSpacings(segmentSpacings, 0, i - startIndex);
+            double t = distanceAlongRun / totalSpacing;
+            SvgPoint proposed = new(
+                start.X + (end.X - start.X) * t,
+                start.Y + (end.Y - start.Y) * t);
+            proposed = SnapPointToGrid(proposed, gridSize, bounds);
+            proposed = new SvgPoint(
+                Math.Clamp(proposed.X, bounds.Left, bounds.Right),
+                Math.Clamp(proposed.Y, bounds.Top, bounds.Bottom));
+
+            if (Distance(originalPoint, proposed) > Math.Max(gridSize * 8, Distance(start, end) * 0.45))
+            {
+                continue;
+            }
+
+            AddSchematicMapProposal(proposals, stationId, proposed);
+        }
+    }
+
+    private static double ResolveSchematicMapLinearSpacing(
+        double averageSpacing,
+        double preferredSpacing,
+        double minSpacing,
+        double maxOrdinarySpacing)
+    {
+        if (averageSpacing > preferredSpacing * 2.6)
+        {
+            return Math.Clamp(averageSpacing, preferredSpacing, maxOrdinarySpacing * 1.55);
+        }
+
+        return Math.Clamp(preferredSpacing, minSpacing, maxOrdinarySpacing);
+    }
+
+    private static double[] ResolveSchematicMapSegmentSpacings(
+        Dictionary<string, SvgPoint> points,
+        List<string> stops,
+        int startIndex,
+        int endIndex,
+        double ordinarySpacing,
+        double preferredSpacing,
+        double minSpacing,
+        double maxOrdinarySpacing)
+    {
+        int segmentCount = Math.Max(0, endIndex - startIndex);
+        if (segmentCount == 0)
+        {
+            return [];
+        }
+
+        double[] sourceLengths = new double[segmentCount];
+        for (int i = 0; i < segmentCount; i++)
+        {
+            string firstId = stops[startIndex + i];
+            string secondId = stops[startIndex + i + 1];
+            sourceLengths[i] = points.TryGetValue(firstId, out SvgPoint first)
+                && points.TryGetValue(secondId, out SvgPoint second)
+                    ? Distance(first, second)
+                    : ordinarySpacing;
+        }
+
+        double medianLength = MedianPositive(sourceLengths);
+        if (medianLength <= 0.001)
+        {
+            return Enumerable.Repeat(ordinarySpacing, segmentCount).ToArray();
+        }
+
+        double longSegmentThreshold = Math.Max(medianLength * 2.15, preferredSpacing * 1.9);
+        double longestSpacing = Math.Max(maxOrdinarySpacing * 1.65, ordinarySpacing * 1.9);
+        double[] spacings = new double[segmentCount];
+        for (int i = 0; i < segmentCount; i++)
+        {
+            double sourceLength = sourceLengths[i];
+            if (sourceLength >= longSegmentThreshold)
+            {
+                double longFactor = Math.Clamp(sourceLength / medianLength, 1.0, 2.15);
+                spacings[i] = Math.Clamp(ordinarySpacing * longFactor, minSpacing, longestSpacing);
+            }
+            else
+            {
+                spacings[i] = ordinarySpacing;
+            }
+        }
+
+        return spacings;
+    }
+
+    private static double MedianPositive(IEnumerable<double> values)
+    {
+        List<double> positives = values
+            .Where(value => value > 0.001)
+            .OrderBy(value => value)
+            .ToList();
+        if (positives.Count == 0)
+        {
+            return 0;
+        }
+
+        int midpoint = positives.Count / 2;
+        return positives.Count % 2 == 1
+            ? positives[midpoint]
+            : (positives[midpoint - 1] + positives[midpoint]) / 2.0;
+    }
+
+    private static double SumSchematicMapSegmentSpacings(double[] segmentSpacings, int start, int end)
+    {
+        double total = 0;
+        int clampedStart = Math.Clamp(start, 0, segmentSpacings.Length);
+        int clampedEnd = Math.Clamp(end, clampedStart, segmentSpacings.Length);
+        for (int i = clampedStart; i < clampedEnd; i++)
+        {
+            total += segmentSpacings[i];
+        }
+
+        return total;
+    }
+
+    private static void AddSchematicMapProposal(
+        Dictionary<string, List<SvgPoint>> proposals,
+        string stationId,
+        SvgPoint proposed)
+    {
+        if (!proposals.TryGetValue(stationId, out List<SvgPoint>? stationProposals))
+        {
+            stationProposals = [];
+            proposals[stationId] = stationProposals;
+        }
+
+        stationProposals.Add(proposed);
+    }
+
+    private static List<SchematicV2FamilyPath> BuildSchematicMapAllFamilyPaths(
+        List<SchematicV2FamilyPath> familyPaths,
+        Dictionary<string, List<string>> routeGuideByFamily)
+    {
+        List<SchematicV2FamilyPath> allPaths = familyPaths.ToList();
+        foreach ((string familyKey, List<string> guideStops) in routeGuideByFamily)
+        {
+            List<string> stops = RemoveConsecutiveDuplicateStops(guideStops);
+            if (stops.Count >= 2)
+            {
+                allPaths.Add(new SchematicV2FamilyPath(familyKey, stops, new SvgPoint(1, 0)));
+            }
+        }
+
+        return allPaths;
+    }
+
+    private static Dictionary<string, HashSet<string>> BuildSchematicMapStationFamilies(List<SchematicV2FamilyPath> allPaths)
+    {
+        Dictionary<string, HashSet<string>> stationFamilies = new(StringComparer.Ordinal);
+        foreach (SchematicV2FamilyPath path in allPaths)
+        {
+            foreach (string stationId in path.Stops)
+            {
+                if (!stationFamilies.TryGetValue(stationId, out HashSet<string>? families))
+                {
+                    families = new HashSet<string>(StringComparer.Ordinal);
+                    stationFamilies[stationId] = families;
+                }
+
+                families.Add(path.FamilyKey);
+            }
+        }
+
+        return stationFamilies;
+    }
+
+    private static bool IsSchematicMapSimpleRunAnchor(
+        string stationId,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        Dictionary<string, HashSet<string>> stationFamilies)
+    {
+        int degree = GetSchematicV2NodeDegree(stationId, degreeByStation);
+        return interchangeStationIds.Contains(stationId)
+            || degree >= 3
+            || (stationFamilies.TryGetValue(stationId, out HashSet<string>? families) && families.Count > 1);
+    }
+
+    private static int ApplySchematicMapLocalClearance(
+        Dictionary<string, SvgPoint> points,
+        Dictionary<string, SvgPoint> original,
+        List<SchematicV2FamilyPath> familyPaths,
+        Dictionary<string, List<string>> routeGuideByFamily,
+        SvgRect bounds,
+        double gridSize,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        SvgRenderOptions options)
+    {
+        if (options.LayoutMode != SvgLayoutMode.SchematicMap || !options.EnableSchematicMapLocalClearance)
+        {
+            return 0;
+        }
+
+        List<SchematicV2FamilyPath> allPaths = familyPaths.ToList();
+        foreach ((string familyKey, List<string> guideStops) in routeGuideByFamily)
+        {
+            List<string> stops = RemoveConsecutiveDuplicateStops(guideStops);
+            if (stops.Count >= 2)
+            {
+                allPaths.Add(new SchematicV2FamilyPath(familyKey, stops, new SvgPoint(1, 0)));
+            }
+        }
+
+        if (allPaths.Count < 2)
+        {
+            return 0;
+        }
+
+        Dictionary<string, HashSet<string>> stationFamilies = BuildSchematicMapStationFamilies(allPaths);
+
+        double clearance = options.SchematicMapLocalClearanceDistance > 0
+            ? options.SchematicMapLocalClearanceDistance
+            : Math.Max(options.GridSize * 2.25, options.LineWidth * 5.0);
+        double maxStep = Math.Max(gridSize * 1.5, options.LineWidth * 3.0);
+        double maxTotalMove = Math.Max(clearance * 1.5, gridSize * 5.0);
+        HashSet<string> adjustedStations = new(StringComparer.Ordinal);
+
+        for (int pass = 0; pass < 3; pass++)
+        {
+            Dictionary<string, List<SvgPoint>> proposals = new(StringComparer.Ordinal);
+            foreach ((string stationId, SvgPoint point) in points.ToList())
+            {
+                if (IsSchematicMapLocalClearanceAnchor(stationId, degreeByStation, interchangeStationIds)
+                    || !original.TryGetValue(stationId, out SvgPoint originalPoint)
+                    || !stationFamilies.TryGetValue(stationId, out HashSet<string>? ownFamilies))
+                {
+                    continue;
+                }
+
+                foreach (SchematicV2FamilyPath path in allPaths)
+                {
+                    if (ownFamilies.Contains(path.FamilyKey))
+                    {
+                        continue;
+                    }
+
+                    for (int i = 1; i < path.Stops.Count; i++)
+                    {
+                        string startId = path.Stops[i - 1];
+                        string endId = path.Stops[i];
+                        if (string.Equals(startId, endId, StringComparison.Ordinal)
+                            || string.Equals(startId, stationId, StringComparison.Ordinal)
+                            || string.Equals(endId, stationId, StringComparison.Ordinal)
+                            || !points.TryGetValue(startId, out SvgPoint start)
+                            || !points.TryGetValue(endId, out SvgPoint end))
+                        {
+                            continue;
+                        }
+
+                        double segmentLength = Distance(start, end);
+                        if (segmentLength <= 0.001)
+                        {
+                            continue;
+                        }
+
+                        SvgPoint projected = ProjectPointToSegment(point, start, end);
+                        double distance = Distance(point, projected);
+                        if (distance >= clearance)
+                        {
+                            continue;
+                        }
+
+                        SvgPoint pushDirection;
+                        if (distance > 0.001)
+                        {
+                            pushDirection = Normalize(new SvgPoint(point.X - projected.X, point.Y - projected.Y));
+                        }
+                        else
+                        {
+                            SvgPoint segmentDirection = Normalize(new SvgPoint(end.X - start.X, end.Y - start.Y));
+                            pushDirection = new SvgPoint(-segmentDirection.Y, segmentDirection.X);
+                            if (GetStableSign(stationId, path.FamilyKey) < 0)
+                            {
+                                pushDirection = new SvgPoint(-pushDirection.X, -pushDirection.Y);
+                            }
+                        }
+
+                        double step = Math.Min(maxStep, (clearance - distance) * 0.55);
+                        if (step <= 0.001)
+                        {
+                            continue;
+                        }
+
+                        SvgPoint proposed = new(point.X + pushDirection.X * step, point.Y + pushDirection.Y * step);
+                        proposed = SnapPointToGrid(proposed, gridSize, bounds);
+                        proposed = new SvgPoint(
+                            Math.Clamp(proposed.X, bounds.Left, bounds.Right),
+                            Math.Clamp(proposed.Y, bounds.Top, bounds.Bottom));
+
+                        if (Distance(originalPoint, proposed) > maxTotalMove || Distance(point, proposed) <= 0.001)
+                        {
+                            continue;
+                        }
+
+                        if (!proposals.TryGetValue(stationId, out List<SvgPoint>? stationProposals))
+                        {
+                            stationProposals = [];
+                            proposals[stationId] = stationProposals;
+                        }
+
+                        stationProposals.Add(proposed);
+                    }
+                }
+            }
+
+            if (proposals.Count == 0)
+            {
+                break;
+            }
+
+            foreach ((string stationId, List<SvgPoint> stationProposals) in proposals)
+            {
+                SvgPoint average = new(
+                    stationProposals.Average(item => item.X),
+                    stationProposals.Average(item => item.Y));
+                SvgPoint snapped = SnapPointToGrid(average, gridSize, bounds);
+                snapped = new SvgPoint(
+                    Math.Clamp(snapped.X, bounds.Left, bounds.Right),
+                    Math.Clamp(snapped.Y, bounds.Top, bounds.Bottom));
+
+                if (Distance(points[stationId], snapped) <= 0.001)
+                {
+                    continue;
+                }
+
+                points[stationId] = snapped;
+                adjustedStations.Add(stationId);
+            }
+        }
+
+        return adjustedStations.Count;
+    }
+
+    private static int NormalizeSchematicMapOctilinearSegments(
+        Dictionary<string, SvgPoint> points,
+        Dictionary<string, SvgPoint> original,
+        IEnumerable<IReadOnlyList<string>> routeChains,
+        SvgRect bounds,
+        double gridSize,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds,
+        SvgRenderOptions options)
+    {
+        if (options.LayoutMode != SvgLayoutMode.SchematicMap || !options.EnableSchematicMapOctilinearNormalization)
+        {
+            return 0;
+        }
+
+        List<IReadOnlyList<string>> chains = routeChains
+            .Select(chain => RemoveConsecutiveDuplicateStops(chain.ToList()))
+            .Where(chain => chain.Count >= 2)
+            .Cast<IReadOnlyList<string>>()
+            .ToList();
+        if (chains.Count == 0)
+        {
+            return 0;
+        }
+
+        double thresholdRadians = Math.Clamp(options.SchematicMapOctilinearSnapAngleDegrees, 1, 30) * Math.PI / 180.0;
+        HashSet<string> adjustedStations = new(StringComparer.Ordinal);
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            Dictionary<string, List<SvgPoint>> proposals = new(StringComparer.Ordinal);
+            foreach (IReadOnlyList<string> chain in chains)
+            {
+                for (int i = 1; i < chain.Count; i++)
+                {
+                    string firstId = chain[i - 1];
+                    string secondId = chain[i];
+                    if (string.Equals(firstId, secondId, StringComparison.Ordinal)
+                        || !points.TryGetValue(firstId, out SvgPoint first)
+                        || !points.TryGetValue(secondId, out SvgPoint second)
+                        || !TryGetNearbyOctilinearDirection(first, second, thresholdRadians, out SvgPoint direction))
+                    {
+                        continue;
+                    }
+
+                    bool firstLocked = IsSchematicMapOctilinearAnchor(firstId, degreeByStation, interchangeStationIds);
+                    bool secondLocked = IsSchematicMapOctilinearAnchor(secondId, degreeByStation, interchangeStationIds);
+                    if (firstLocked && secondLocked)
+                    {
+                        continue;
+                    }
+
+                    string movableId;
+                    SvgPoint anchor;
+                    SvgPoint movable;
+                    SvgPoint vectorDirection;
+                    if (firstLocked || !secondLocked)
+                    {
+                        movableId = secondId;
+                        anchor = first;
+                        movable = second;
+                        vectorDirection = direction;
+                    }
+                    else
+                    {
+                        movableId = firstId;
+                        anchor = second;
+                        movable = first;
+                        vectorDirection = new SvgPoint(-direction.X, -direction.Y);
+                    }
+
+                    if (IsSchematicMapOctilinearAnchor(movableId, degreeByStation, interchangeStationIds))
+                    {
+                        continue;
+                    }
+
+                    double length = Distance(anchor, movable);
+                    if (length <= 0.001 || !original.ContainsKey(movableId))
+                    {
+                        continue;
+                    }
+
+                    SvgPoint proposed = new(anchor.X + vectorDirection.X * length, anchor.Y + vectorDirection.Y * length);
+                    double proposalMove = Distance(movable, proposed);
+                    double maxProposalMove = Math.Max(gridSize * 8.0, length * 0.28);
+                    if (proposalMove <= 0.001 || proposalMove > maxProposalMove)
+                    {
+                        continue;
+                    }
+
+                    proposed = SnapPointToGrid(proposed, gridSize, bounds);
+                    proposed = new SvgPoint(
+                        Math.Clamp(proposed.X, bounds.Left, bounds.Right),
+                        Math.Clamp(proposed.Y, bounds.Top, bounds.Bottom));
+
+                    if (Distance(points[movableId], proposed) <= 0.001)
+                    {
+                        continue;
+                    }
+
+                    if (!proposals.TryGetValue(movableId, out List<SvgPoint>? stationProposals))
+                    {
+                        stationProposals = [];
+                        proposals[movableId] = stationProposals;
+                    }
+
+                    stationProposals.Add(proposed);
+                }
+            }
+
+            if (proposals.Count == 0)
+            {
+                break;
+            }
+
+            foreach ((string stationId, List<SvgPoint> stationProposals) in proposals)
+            {
+                SvgPoint average = new(
+                    stationProposals.Average(point => point.X),
+                    stationProposals.Average(point => point.Y));
+                SvgPoint snapped = SnapPointToGrid(average, gridSize, bounds);
+                snapped = new SvgPoint(
+                    Math.Clamp(snapped.X, bounds.Left, bounds.Right),
+                    Math.Clamp(snapped.Y, bounds.Top, bounds.Bottom));
+                if (Distance(points[stationId], snapped) <= 0.001)
+                {
+                    continue;
+                }
+
+                points[stationId] = snapped;
+                adjustedStations.Add(stationId);
+            }
+        }
+
+        return adjustedStations.Count;
+    }
+
+    private static bool IsSchematicMapOctilinearAnchor(
+        string stationId,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds)
+    {
+        int degree = GetSchematicV2NodeDegree(stationId, degreeByStation);
+        return interchangeStationIds.Contains(stationId) || degree >= 3;
+    }
+
+    private static bool IsSchematicMapLocalClearanceAnchor(
+        string stationId,
+        Dictionary<string, int> degreeByStation,
+        HashSet<string> interchangeStationIds)
+    {
+        int degree = GetSchematicV2NodeDegree(stationId, degreeByStation);
+        return interchangeStationIds.Contains(stationId) || degree >= 3;
+    }
+
+    private static int GetStableSign(string first, string second)
+    {
+        unchecked
+        {
+            int hash = 17;
+            foreach (char character in first)
+            {
+                hash = (hash * 31) + character;
+            }
+
+            foreach (char character in second)
+            {
+                hash = (hash * 31) + character;
+            }
+
+            return (hash & 1) == 0 ? 1 : -1;
+        }
+    }
+
+    private static bool TryGetNearbyOctilinearDirection(
+        SvgPoint first,
+        SvgPoint second,
+        double thresholdRadians,
+        out SvgPoint direction)
+    {
+        SvgPoint vector = new(second.X - first.X, second.Y - first.Y);
+        double length = Math.Sqrt(vector.X * vector.X + vector.Y * vector.Y);
+        if (length <= 0.001)
+        {
+            direction = new SvgPoint(1, 0);
+            return false;
+        }
+
+        direction = QuantizeSchematicDirection(vector, new SvgPoint(1, 0));
+        double dot = (vector.X / length * direction.X) + (vector.Y / length * direction.Y);
+        dot = Math.Clamp(dot, -1, 1);
+        double angle = Math.Acos(dot);
+        return angle <= thresholdRadians;
     }
 
     private static int RelaxSchematicV2SharpAngles(
@@ -2715,8 +3761,8 @@ public sealed class MetroSvgRenderer
     {
         int padding = options.EffectivePadding;
         bool transitMapStyle = IsTransitMapStyle(options);
-        double topReserve = transitMapStyle ? GetTransitMapHeaderHeight(options) + padding * 0.55 : padding;
-        double bottomReserve = transitMapStyle ? GetTransitMapFooterHeight(options) + padding * 0.45 : padding;
+        double topReserve = transitMapStyle ? GetTransitMapHeaderHeight(options) + padding * (options.CompactTransitMapFrame ? 0.28 : 0.55) : padding;
+        double bottomReserve = transitMapStyle ? GetTransitMapFooterHeight(options) + padding * (options.CompactTransitMapFrame ? 0.22 : 0.45) : padding;
         double rightReserve = padding + (!transitMapStyle && reserveLegendSpace ? options.LegendWidth + options.LegendGap : 0);
         return new SvgRect(
             padding,
@@ -2777,7 +3823,7 @@ public sealed class MetroSvgRenderer
         double legendVariantFontSize = Math.Max(12, options.LegendLabelFontSize * 0.84);
         double legendTitleFontSize = Math.Max(16, options.LegendLabelFontSize + 1);
 
-        svg.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" width="{options.Width}" height="{options.Height}" viewBox="0 0 {options.Width} {options.Height}" role="img" aria-label="{Escape(title)}" data-map-style="{GetMapStyleName(options.MapStyle)}">""");
+        svg.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" width="{options.Width}" height="{options.Height}" viewBox="0 0 {options.Width} {options.Height}" role="img" aria-label="{Escape(title)}" data-map-style="{GetMapStyleName(options.MapStyle)}" data-transit-map-frame="{GetTransitMapFrameName(options)}">""");
         svg.AppendLine($"""<title>{Escape(title)}</title>""");
         svg.AppendLine("<defs>");
         svg.AppendLine("<style>");
@@ -2794,19 +3840,20 @@ public sealed class MetroSvgRenderer
         svg.AppendLine("            .station-interchange-inner { fill: none; stroke: #1f2933; stroke-width: 1.25; pointer-events: none; }");
         svg.AppendLine($"            .station-label {{ font: 600 {Format(options.LabelFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
         svg.AppendLine($"            .station-label-halo {{ stroke: #ffffff; stroke-width: {Format(labelHaloWidth)}; paint-order: stroke; stroke-linejoin: round; }}");
+        svg.AppendLine("            .virtual-transfer-hint { fill: none; stroke: #6b7280; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 8 6; opacity: 0.72; }");
         svg.AppendLine("            .empty-notice { font: 600 16px Arial, sans-serif; fill: #52616f; }");
         svg.AppendLine($"            .legend-label {{ font: 600 {Format(options.LegendLabelFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
         svg.AppendLine($"            .legend-variant {{ font: 500 {Format(legendVariantFontSize)}px Arial, sans-serif; fill: #52616f; }}");
         svg.AppendLine($"            .legend-title {{ font: 700 {Format(legendTitleFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
         svg.AppendLine("            .transit-footer-label { font: 700 13px Arial, sans-serif; fill: #374151; }");
         svg.AppendLine("            .transit-footer-note { font: 500 12px Arial, sans-serif; fill: #6b7280; }");
-        svg.AppendLine("            .route-badge-label { font: 800 13px Arial, sans-serif; fill: #ffffff; }");
+        svg.AppendLine($"            .route-badge-label {{ font: 800 {Format(GetRouteBadgeFontSize(options))}px Arial, sans-serif; fill: #ffffff; }}");
         svg.AppendLine("</style>");
         svg.AppendLine("</defs>");
         svg.AppendLine($"""<rect class="background" x="0" y="0" width="{options.Width}" height="{options.Height}" />""");
         if (transitMapStyle)
         {
-            AppendTransitMapHeader(svg, title, options);
+            AppendTransitMapHeader(svg, document.City?.Name, title, options);
         }
         else
         {
@@ -2814,17 +3861,18 @@ public sealed class MetroSvgRenderer
         }
     }
 
-    private static void AppendTransitMapHeader(StringBuilder svg, string title, SvgRenderOptions options)
+    private static void AppendTransitMapHeader(StringBuilder svg, string? rawCityName, string title, SvgRenderOptions options)
     {
         double headerHeight = GetTransitMapHeaderHeight(options);
-        double bandHeight = Math.Max(52, headerHeight * 0.64);
+        double bandHeight = Math.Max(options.CompactTransitMapFrame ? 60 : 52, headerHeight * (options.CompactTransitMapFrame ? 0.66 : 0.64));
         double capsuleX = Math.Max(44, options.Width * 0.035);
-        double capsuleY = Math.Max(20, headerHeight * 0.18);
+        double capsuleY = Math.Max(options.CompactTransitMapFrame ? 18 : 20, headerHeight * (options.CompactTransitMapFrame ? 0.16 : 0.18));
         double capsuleWidth = Math.Max(200, options.Width - capsuleX * 2);
-        double capsuleHeight = Math.Max(56, headerHeight * 0.52);
+        double capsuleHeight = Math.Max(options.CompactTransitMapFrame ? 62 : 56, headerHeight * (options.CompactTransitMapFrame ? 0.56 : 0.52));
         double centerX = options.Width / 2.0;
         double infoX = Math.Min(options.Width - capsuleX - 78, centerX + capsuleWidth * 0.32);
         double infoY = capsuleY + capsuleHeight / 2.0;
+        string mainTitle = BuildTransitMapMainTitle(rawCityName);
 
         svg.AppendLine($"""<g id="transit-map-header" data-map-style="transit-map">""");
         svg.AppendLine($"""<rect x="0" y="0" width="{options.Width}" height="{Format(bandHeight)}" fill="#dfe83a" />""");
@@ -2834,12 +3882,38 @@ public sealed class MetroSvgRenderer
         svg.AppendLine($"""<polygon points="{Format(options.Width * 0.68)},0 {Format(options.Width * 0.88)},0 {Format(options.Width * 0.91)},{Format(bandHeight)} {Format(options.Width * 0.74)},{Format(bandHeight)}" fill="#1f7db3" />""");
         svg.AppendLine($"""<polygon points="{Format(options.Width * 0.88)},0 {options.Width},0 {options.Width},{Format(bandHeight)} {Format(options.Width * 0.91)},{Format(bandHeight)}" fill="#18aa88" />""");
         svg.AppendLine($"""<rect x="{Format(capsuleX)}" y="{Format(capsuleY)}" width="{Format(capsuleWidth)}" height="{Format(capsuleHeight)}" rx="{Format(capsuleHeight * 0.34)}" fill="#ffffff" />""");
-        svg.AppendLine($"""<text class="transit-title-cn" x="{Format(centerX)}" y="{Format(capsuleY + capsuleHeight * 0.46)}" text-anchor="middle">{"\u7ebf\u7f51\u793a\u610f\u56fe"}</text>""");
+        svg.AppendLine($"""<text class="transit-title-cn" x="{Format(centerX)}" y="{Format(capsuleY + capsuleHeight * 0.46)}" text-anchor="middle">{Escape(mainTitle)}</text>""");
         svg.AppendLine($"""<text class="transit-title-en" x="{Format(centerX)}" y="{Format(capsuleY + capsuleHeight * 0.73)}" text-anchor="middle">Transport System Map</text>""");
         svg.AppendLine($"""<circle cx="{Format(infoX)}" cy="{Format(infoY)}" r="{Format(capsuleHeight * 0.33)}" fill="#17a979" />""");
         svg.AppendLine($"""<text class="transit-info-icon" x="{Format(infoX)}" y="{Format(infoY + capsuleHeight * 0.22)}" text-anchor="middle">i</text>""");
-        svg.AppendLine($"""<text class="transit-city" x="{Format(capsuleX + 26)}" y="{Format(capsuleY + capsuleHeight + 28)}">{Escape(title)}</text>""");
+        if (!IsSchematicMapLayout(options))
+        {
+            svg.AppendLine($"""<text class="transit-city" x="{Format(capsuleX + 26)}" y="{Format(capsuleY + capsuleHeight + 28)}">{Escape(title)}</text>""");
+        }
         svg.AppendLine("</g>");
+    }
+
+    private static string BuildTransitMapMainTitle(string? rawCityName)
+    {
+        if (string.IsNullOrWhiteSpace(rawCityName))
+        {
+            return "\u7ebf\u7f51\u793a\u610f\u56fe";
+        }
+
+        string cityName = rawCityName.Trim();
+        if (IsExportPlaceholderCityName(cityName))
+        {
+            return "\u7ebf\u7f51\u793a\u610f\u56fe";
+        }
+
+        return ContainsCjk(cityName)
+            ? $"{cityName}\u7ebf\u7f51\u793a\u610f\u56fe"
+            : $"{cityName} Metro Diagram";
+    }
+
+    private static bool ContainsCjk(string value)
+    {
+        return value.Any(character => character is >= '\u3400' and <= '\u9fff');
     }
 
     private static string BuildDiagramTitle(string? rawCityName)
@@ -2888,7 +3962,7 @@ public sealed class MetroSvgRenderer
         List<RenderRoute> renderRoutes = [];
         foreach (DisplayLineFamily family in families)
         {
-            MetroLine line = options.LayoutMode == SvgLayoutMode.SchematicV2
+            MetroLine line = IsSchematicV2FamilyLayout(options.LayoutMode)
                 ? CreateSchematicV2TopologyLine(family, stationsById, geometry.StationPoints)
                 : family.PrimaryLine;
             RoutePointSet routePointSet = CreateRoutePoints(family, line, stationsById, geometry, options, warnings);
@@ -2994,13 +4068,178 @@ public sealed class MetroSvgRenderer
             }
         }
 
-        if (options.LayoutMode == SvgLayoutMode.SchematicV2)
+        if (IsSchematicV2FamilyLayout(options.LayoutMode))
         {
             AppendSchematicV2ParallelCorridorOverlays(svg, renderRoutes, geometry, options);
         }
 
+        if (IsSchematicMapLayout(options))
+        {
+            List<SchematicMapRouteCrossing> crossings = DetectSchematicMapRouteCrossings(renderRoutes, stationPoints, options);
+            if (crossings.Count > 0)
+            {
+                warnings.Add($"Schematic-map crossing audit: non-station crossings: {crossings.Count}; rendered as direct pass-through.");
+            }
+        }
+
         AppendTransitMapRouteBadges(svg, renderRoutes, stations, stationPoints, terminalStationIds, options, hasLegend);
         svg.AppendLine("</g>");
+    }
+
+    private static List<SchematicMapRouteCrossing> DetectSchematicMapRouteCrossings(
+        List<RenderRoute> renderRoutes,
+        Dictionary<string, SvgPoint> stationPoints,
+        SvgRenderOptions options)
+    {
+        List<SchematicMapRouteSegment> segments = [];
+        for (int routeIndex = 0; routeIndex < renderRoutes.Count; routeIndex++)
+        {
+            RenderRoute renderRoute = renderRoutes[routeIndex];
+            for (int polylineIndex = 0; polylineIndex < renderRoute.RoutePointSet.Polylines.Count; polylineIndex++)
+            {
+                List<SvgPoint> points = renderRoute.RoutePointSet.Polylines[polylineIndex].Points;
+                for (int segmentIndex = 1; segmentIndex < points.Count; segmentIndex++)
+                {
+                    SvgPoint start = points[segmentIndex - 1];
+                    SvgPoint end = points[segmentIndex];
+                    double length = Distance(start, end);
+                    double minimumSegmentLength = Math.Max(options.LineWidth * 2.5, 18);
+                    if (length <= minimumSegmentLength)
+                    {
+                        continue;
+                    }
+
+                    SvgPoint direction = new((end.X - start.X) / length, (end.Y - start.Y) / length);
+                    string segmentColor = renderRoute.Family.Color
+                        ?? renderRoute.Line.Color
+                        ?? "#4b5563";
+                    segments.Add(new SchematicMapRouteSegment(
+                        routeIndex,
+                        polylineIndex,
+                        segmentIndex - 1,
+                        renderRoute.Family.FamilyKey,
+                        renderRoute.Family.DisplayName,
+                        segmentColor,
+                        start,
+                        end,
+                        length,
+                        direction));
+                }
+            }
+        }
+
+        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
+        double stationTolerance = Math.Max(visualStyle.InterchangeMarkerRadius * 1.7, visualStyle.BaseRouteWidth * 2.0);
+        double endpointTolerance = Math.Max(visualStyle.BaseRouteWidth * 0.95, 10);
+        double crossingMergeTolerance = Math.Max(visualStyle.BaseRouteWidth * 0.45, 6);
+        List<SvgPoint> stationPointList = stationPoints.Values.ToList();
+        List<SchematicMapRouteCrossing> crossings = [];
+
+        for (int i = 0; i < segments.Count; i++)
+        {
+            for (int j = i + 1; j < segments.Count; j++)
+            {
+                SchematicMapRouteSegment first = segments[i];
+                SchematicMapRouteSegment second = segments[j];
+                if (string.Equals(first.FamilyKey, second.FamilyKey, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!TryFindSegmentIntersection(first.Start, first.End, second.Start, second.End, out SvgPoint point, out double firstFraction, out double secondFraction))
+                {
+                    continue;
+                }
+
+                if (IsNearSegmentEndpoint(firstFraction, first.Length, endpointTolerance)
+                    || IsNearSegmentEndpoint(secondFraction, second.Length, endpointTolerance))
+                {
+                    continue;
+                }
+
+                if (stationPointList.Any(stationPoint => Distance(stationPoint, point) <= stationTolerance))
+                {
+                    continue;
+                }
+
+                double angleDegrees = SegmentAngleDegrees(first.Direction, second.Direction);
+                if (angleDegrees < 25)
+                {
+                    continue;
+                }
+
+                string pairKey = CreateFamilyPairKey(first.FamilyKey, second.FamilyKey);
+                if (crossings.Any(crossing => crossing.FamilyPairKey == pairKey && Distance(crossing.Point, point) <= crossingMergeTolerance))
+                {
+                    continue;
+                }
+
+                SchematicMapRouteSegment topSegment = first.RouteIndex >= second.RouteIndex ? first : second;
+                SchematicMapRouteSegment bottomSegment = first.RouteIndex >= second.RouteIndex ? second : first;
+                crossings.Add(new SchematicMapRouteCrossing(
+                    crossings.Count,
+                    point,
+                    topSegment,
+                    bottomSegment,
+                    angleDegrees,
+                    pairKey));
+            }
+        }
+
+        return crossings;
+    }
+
+    private static bool TryFindSegmentIntersection(
+        SvgPoint a,
+        SvgPoint b,
+        SvgPoint c,
+        SvgPoint d,
+        out SvgPoint point,
+        out double firstFraction,
+        out double secondFraction)
+    {
+        point = new SvgPoint(0, 0);
+        firstFraction = 0;
+        secondFraction = 0;
+        double rx = b.X - a.X;
+        double ry = b.Y - a.Y;
+        double sx = d.X - c.X;
+        double sy = d.Y - c.Y;
+        double denominator = Cross(rx, ry, sx, sy);
+        if (Math.Abs(denominator) < 0.000001)
+        {
+            return false;
+        }
+
+        double qpx = c.X - a.X;
+        double qpy = c.Y - a.Y;
+        firstFraction = Cross(qpx, qpy, sx, sy) / denominator;
+        secondFraction = Cross(qpx, qpy, rx, ry) / denominator;
+        if (firstFraction <= 0 || firstFraction >= 1 || secondFraction <= 0 || secondFraction >= 1)
+        {
+            return false;
+        }
+
+        point = new SvgPoint(a.X + rx * firstFraction, a.Y + ry * firstFraction);
+        return true;
+    }
+
+    private static double Cross(double ax, double ay, double bx, double by)
+    {
+        return ax * by - ay * bx;
+    }
+
+    private static bool IsNearSegmentEndpoint(double fraction, double segmentLength, double endpointTolerance)
+    {
+        return fraction * segmentLength <= endpointTolerance
+            || (1 - fraction) * segmentLength <= endpointTolerance;
+    }
+
+    private static double SegmentAngleDegrees(SvgPoint firstDirection, SvgPoint secondDirection)
+    {
+        double dot = Math.Abs(firstDirection.X * secondDirection.X + firstDirection.Y * secondDirection.Y);
+        dot = Math.Clamp(dot, 0, 1);
+        return Math.Acos(dot) * 180.0 / Math.PI;
     }
 
     private static string BuildSchematicV2RouteGuideAttributes(DisplayLineFamily family, RenderGeometry geometry)
@@ -3016,7 +4255,7 @@ public sealed class MetroSvgRenderer
 
     private static string BuildSchematicV2ServiceFamilyAttributes(DisplayLineFamily family, MetroLine line, SvgRenderOptions options)
     {
-        if (options.LayoutMode != SvgLayoutMode.SchematicV2)
+        if (!IsSchematicV2FamilyLayout(options.LayoutMode))
         {
             return string.Empty;
         }
@@ -3069,11 +4308,11 @@ public sealed class MetroSvgRenderer
             }
 
             RoutePolyline primaryPolyline = candidatePolylines[0];
-            List<RouteBadgePlacement> placements = CreateRouteBadgePlacements(primaryPolyline.Points, badgeText, occupiedBoxes, bounds);
+            List<RouteBadgePlacement> placements = CreateRouteBadgePlacements(primaryPolyline.Points, badgeText, occupiedBoxes, bounds, options);
             for (int i = 0; i < placements.Count; i++)
             {
                 RouteBadgePlacement placement = placements[i];
-                AppendRouteBadge(svg, placement, renderRoute.Family, i, placements.Count);
+                AppendRouteBadge(svg, placement, renderRoute.Family, i, placements.Count, options);
                 occupiedBoxes.Add(placement.Box);
             }
         }
@@ -3090,14 +4329,17 @@ public sealed class MetroSvgRenderer
     {
         List<SvgRect> occupied = [];
         double markerRadius = SvgVisualStyle.From(options).StationMarkerOuterRadius;
+        double markerBufferMultiplier = IsSchematicMapLayout(options) ? 6.2 : 5.0;
         foreach ((string _, SvgPoint point) in stationPoints)
         {
-            occupied.Add(SvgRect.FromCenter(point.X, point.Y, markerRadius * 5.0, markerRadius * 5.0));
+            occupied.Add(SvgRect.FromCenter(point.X, point.Y, markerRadius * markerBufferMultiplier, markerRadius * markerBufferMultiplier));
         }
 
         foreach (PlacedLabel label in BuildPlacedLabels(stations, stationPoints, terminalStationIds, options, hasLegend))
         {
-            occupied.Add(label.Box.Inflate(8, 6));
+            double inflateX = IsSchematicMapLayout(options) ? 12 : 8;
+            double inflateY = IsSchematicMapLayout(options) ? 8 : 6;
+            occupied.Add(label.Box.Inflate(inflateX, inflateY));
         }
 
         return occupied;
@@ -3105,44 +4347,34 @@ public sealed class MetroSvgRenderer
 
     private static string GetRouteBadgeText(string? displayName)
     {
-        int? lineNumber = ExtractLineNumber(displayName);
-        if (lineNumber.HasValue)
-        {
-            return lineNumber.Value.ToString(CultureInfo.InvariantCulture);
-        }
-
-        if (string.IsNullOrWhiteSpace(displayName))
-        {
-            return string.Empty;
-        }
-
-        string trimmed = displayName.Trim();
-        return trimmed.Length <= 4 ? trimmed : trimmed[..4];
+        return VisibleLaneResolver.GetBadgeText(displayName);
     }
 
     private static List<RouteBadgePlacement> CreateRouteBadgePlacements(
         List<SvgPoint> points,
         string text,
         List<SvgRect> occupiedBoxes,
-        SvgRect bounds)
+        SvgRect bounds,
+        SvgRenderOptions options)
     {
         if (points.Count < 2)
         {
             return [];
         }
 
-        double badgeWidth = Math.Max(28, EstimateTextWidth(text, 13) + 14);
-        double badgeHeight = 22;
+        double badgeFontSize = GetRouteBadgeFontSize(options);
+        double badgeWidth = Math.Max(28, EstimateTextWidth(text, badgeFontSize) + (IsSchematicMapLayout(options) ? 18 : 14));
+        double badgeHeight = IsSchematicMapLayout(options) ? 25 : 22;
         const double severeCollisionScore = 5000;
         List<RouteBadgePlacement> placements = [];
-        RouteBadgePlacement start = CreateRouteBadgePlacement(points[0], points[1], text, badgeWidth, badgeHeight, occupiedBoxes, bounds);
+        RouteBadgePlacement start = CreateRouteBadgePlacement(points[0], points[1], text, badgeWidth, badgeHeight, occupiedBoxes, bounds, options);
         if (start.Score < severeCollisionScore)
         {
             placements.Add(start);
             occupiedBoxes.Add(start.Box);
         }
 
-        RouteBadgePlacement end = CreateRouteBadgePlacement(points[^1], points[^2], text, badgeWidth, badgeHeight, occupiedBoxes, bounds);
+        RouteBadgePlacement end = CreateRouteBadgePlacement(points[^1], points[^2], text, badgeWidth, badgeHeight, occupiedBoxes, bounds, options);
         bool farEnoughFromExisting = placements.Count == 0
             || placements.All(placement => Distance(new SvgPoint(placement.X, placement.Y), new SvgPoint(end.X, end.Y)) > 180);
         if (farEnoughFromExisting && end.Score < severeCollisionScore)
@@ -3160,7 +4392,8 @@ public sealed class MetroSvgRenderer
         double width,
         double height,
         List<SvgRect> occupiedBoxes,
-        SvgRect bounds)
+        SvgRect bounds,
+        SvgRenderOptions options)
     {
         SvgPoint direction = Normalize(new SvgPoint(endpoint.X - neighbor.X, endpoint.Y - neighbor.Y));
         if (Distance(direction, new SvgPoint(0, 0)) <= 0.001)
@@ -3169,17 +4402,27 @@ public sealed class MetroSvgRenderer
         }
 
         SvgPoint normal = new(-direction.Y, direction.X);
-        (double Forward, double Lateral)[] candidates =
-        [
-            (34, 0),
-            (46, 24),
-            (46, -24),
-            (62, 0),
-            (24, 34),
-            (24, -34),
-            (74, 28),
-            (74, -28)
-        ];
+        (double Forward, double Lateral)[] candidates = IsSchematicMapLayout(options)
+            ? [
+                (44, 0),
+                (58, 30),
+                (58, -30),
+                (76, 0),
+                (36, 42),
+                (36, -42),
+                (94, 34),
+                (94, -34)
+            ]
+            : [
+                (34, 0),
+                (46, 24),
+                (46, -24),
+                (62, 0),
+                (24, 34),
+                (24, -34),
+                (74, 28),
+                (74, -28)
+            ];
 
         RouteBadgePlacement? best = null;
         double bestScore = double.MaxValue;
@@ -3208,13 +4451,15 @@ public sealed class MetroSvgRenderer
         RouteBadgePlacement placement,
         DisplayLineFamily family,
         int index,
-        int count)
+        int count,
+        SvgRenderOptions options)
     {
         double x = placement.X - placement.Width / 2;
         double y = placement.Y - placement.Height / 2;
+        double textBaselineOffset = GetRouteBadgeFontSize(options) * 0.37;
         svg.AppendLine($"""<g class="route-badge" data-display-family-key="{Escape(family.FamilyKey)}" data-route-badge-index="{index}" data-route-badge-count="{count}" data-route-badge-placement-score="{Format(placement.Score)}">""");
-        svg.AppendLine($"""<rect x="{Format(x)}" y="{Format(y)}" width="{Format(placement.Width)}" height="{Format(placement.Height)}" rx="5" fill="{Escape(family.Color)}" stroke="#ffffff" stroke-width="2" />""");
-        svg.AppendLine($"""<text class="route-badge-label" x="{Format(placement.X)}" y="{Format(placement.Y + 4.8)}" text-anchor="middle">{Escape(placement.Text)}</text>""");
+        svg.AppendLine($"""<rect x="{Format(x)}" y="{Format(y)}" width="{Format(placement.Width)}" height="{Format(placement.Height)}" rx="{Format(IsSchematicMapLayout(options) ? 6 : 5)}" fill="{Escape(family.Color)}" stroke="#ffffff" stroke-width="2" />""");
+        svg.AppendLine($"""<text class="route-badge-label" x="{Format(placement.X)}" y="{Format(placement.Y + textBaselineOffset)}" text-anchor="middle">{Escape(placement.Text)}</text>""");
         svg.AppendLine("</g>");
     }
 
@@ -3244,8 +4489,6 @@ public sealed class MetroSvgRenderer
         Dictionary<string, RenderRoute> routesByFamily = renderRoutes
             .GroupBy(route => route.Family.FamilyKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        double spacing = Math.Max(options.LineWidth * 0.75, options.GridSize * 0.10);
-        double strokeWidth = Math.Max(options.LineWidth * 0.62, options.LineWidth - spacing);
         svg.AppendLine("<g id=\"schematic-v2-parallel-corridors\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\">");
 
         foreach (SchematicV2SharedCorridorRun run in runs)
@@ -3259,24 +4502,118 @@ public sealed class MetroSvgRenderer
                 continue;
             }
 
-            double center = (runRoutes.Count - 1) / 2.0;
-            for (int i = 0; i < runRoutes.Count; i++)
+            List<SchematicV2ParallelCorridorLane> lanes = CreateSchematicV2ParallelCorridorLanes(run, runRoutes);
+            if (lanes.Count == 0)
             {
-                AppendSchematicV2ParallelCorridorOverlay(svg, run, runRoutes[i], (i - center) * spacing, strokeWidth, options);
+                continue;
+            }
+
+            double spacing = GetSchematicV2ParallelCorridorSpacing(run, options);
+            double strokeWidth = GetSchematicV2ParallelCorridorStrokeWidth(run, options, spacing);
+            if (run.Source == "exact-shared-platform")
+            {
+                AppendSchematicV2ParallelCorridorKnockout(svg, run, lanes.Count, spacing, strokeWidth, options);
+            }
+
+            double center = (lanes.Count - 1) / 2.0;
+            for (int i = 0; i < lanes.Count; i++)
+            {
+                AppendSchematicV2ParallelCorridorOverlay(svg, run, lanes[i], (i - center) * spacing, strokeWidth, options);
             }
         }
 
         svg.AppendLine("</g>");
     }
 
+    private static List<SchematicV2ParallelCorridorLane> CreateSchematicV2ParallelCorridorLanes(
+        SchematicV2SharedCorridorRun run,
+        List<RenderRoute> runRoutes)
+    {
+        if (run.Source != "exact-shared-platform")
+        {
+            return runRoutes
+                .Select(route => new SchematicV2ParallelCorridorLane(
+                    VisibleLaneResolver.CreateKey(route.Family),
+                    [route],
+                    route))
+                .ToList();
+        }
+
+        return runRoutes
+            .Select(route => new { Route = route, LaneKey = VisibleLaneResolver.CreateKey(route.Family) })
+            .GroupBy(item => item.LaneKey.Key, StringComparer.Ordinal)
+            .Select(group =>
+            {
+                List<RenderRoute> routes = group.Select(item => item.Route).ToList();
+                RenderRoute primary = routes
+                    .OrderBy(route => route.Family, Comparer<DisplayLineFamily>.Create(VisibleLaneResolver.ComparePrimaryFamily))
+                    .First();
+                return new SchematicV2ParallelCorridorLane(group.First().LaneKey, routes, primary);
+            })
+            .OrderBy(lane => run.FamilyKeys.FindIndex(familyKey => lane.Routes.Any(route => string.Equals(route.Family.FamilyKey, familyKey, StringComparison.Ordinal))))
+            .ToList();
+    }
+
+    private static double GetSchematicV2ParallelCorridorSpacing(
+        SchematicV2SharedCorridorRun run,
+        SvgRenderOptions options)
+    {
+        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
+        if (run.Source == "exact-shared-platform")
+        {
+            return Math.Max(visualStyle.BaseRouteWidth * 0.95, options.GridSize * 0.14);
+        }
+
+        return Math.Max(options.LineWidth * 0.75, options.GridSize * 0.10);
+    }
+
+    private static double GetSchematicV2ParallelCorridorStrokeWidth(
+        SchematicV2SharedCorridorRun run,
+        SvgRenderOptions options,
+        double spacing)
+    {
+        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
+        if (run.Source == "exact-shared-platform")
+        {
+            return Math.Clamp(visualStyle.BaseRouteWidth * 0.78, 7.5, Math.Min(visualStyle.BaseRouteWidth, spacing - 2));
+        }
+
+        return Math.Max(options.LineWidth * 0.62, options.LineWidth - spacing);
+    }
+
+    private static void AppendSchematicV2ParallelCorridorKnockout(
+        StringBuilder svg,
+        SchematicV2SharedCorridorRun run,
+        int familyCount,
+        double spacing,
+        double strokeWidth,
+        SvgRenderOptions options)
+    {
+        if (run.Points.Count < 2)
+        {
+            return;
+        }
+
+        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
+        double center = (familyCount - 1) / 2.0;
+        double maxOffset = center * spacing;
+        double knockoutWidth = Math.Max(
+            visualStyle.BaseRouteWidth + maxOffset * 2 + 6,
+            strokeWidth + maxOffset * 2 + visualStyle.StationMarkerStrokeWidth * 2);
+        string pointList = string.Join(" ", run.Points.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
+        string familyKeys = string.Join("|", run.FamilyKeys);
+        svg.AppendLine($"""<polyline class="schematic-v2-parallel-corridor-knockout" data-schematic-v2-parallel-corridor-knockout="true" data-schematic-v2-shared-corridor-run-id="{Escape(run.RunId)}" data-schematic-v2-parallel-corridor-source="{Escape(run.Source)}" data-schematic-v2-shared-corridor-family-count="{run.FamilyKeys.Count}" data-schematic-v2-shared-corridor-families="{Escape(familyKeys)}" data-schematic-v2-knockout-width="{Format(knockoutWidth)}" points="{pointList}" stroke="#ffffff" stroke-linecap="butt" stroke-linejoin="round" style="stroke-width: {Format(knockoutWidth)};" />""");
+    }
+
     private static void AppendSchematicV2ParallelCorridorOverlay(
         StringBuilder svg,
         SchematicV2SharedCorridorRun run,
-        RenderRoute renderRoute,
+        SchematicV2ParallelCorridorLane lane,
         double offset,
         double strokeWidth,
         SvgRenderOptions options)
     {
+        RenderRoute renderRoute = lane.PrimaryRoute;
         List<SvgPoint> points = OffsetPolyline(run.Points, offset);
         if (points.Count < 2)
         {
@@ -3289,10 +4626,11 @@ public sealed class MetroSvgRenderer
             ? " data-schematic-v2-route-guide-materialized=\"true\""
             : " data-schematic-v2-parallel-platform=\"true\"";
         string familyKeys = string.Join("|", run.FamilyKeys);
-        string attributes = $"class=\"schematic-v2-parallel-corridor\" data-line-id=\"{Escape(renderRoute.Line.Id)}\" data-display-family-key=\"{Escape(renderRoute.Family.FamilyKey)}\" data-schematic-v2-canonical-corridor=\"true\" data-schematic-v2-shared-corridor-run=\"true\" data-schematic-v2-shared-corridor-run-id=\"{Escape(run.RunId)}\" data-schematic-v2-shared-corridor-family-a=\"{Escape(run.FamilyAKey)}\" data-schematic-v2-shared-corridor-family-b=\"{Escape(run.FamilyBKey)}\" data-schematic-v2-shared-corridor-family-count=\"{run.FamilyKeys.Count}\" data-schematic-v2-shared-corridor-families=\"{Escape(familyKeys)}\" data-schematic-v2-parallel-corridor=\"true\" data-schematic-v2-parallel-corridor-source=\"{Escape(run.Source)}\" data-schematic-v2-parallel-offset=\"{Format(offset)}\"{routeGuideAttribute} data-schematic-v2-pass-through-stations=\"{Escape(stationIds)}\" data-schematic-v2-shared-corridor-point-count=\"{run.Points.Count}\" points=\"{pointList}\"";
+        string laneFamilies = string.Join("|", lane.Routes.Select(route => route.Family.FamilyKey));
+        string attributes = $"class=\"schematic-v2-parallel-corridor\" data-line-id=\"{Escape(renderRoute.Line.Id)}\" data-display-family-key=\"{Escape(renderRoute.Family.FamilyKey)}\" data-schematic-v2-canonical-corridor=\"true\" data-schematic-v2-shared-corridor-run=\"true\" data-schematic-v2-shared-corridor-run-id=\"{Escape(run.RunId)}\" data-schematic-v2-shared-corridor-family-a=\"{Escape(run.FamilyAKey)}\" data-schematic-v2-shared-corridor-family-b=\"{Escape(run.FamilyBKey)}\" data-schematic-v2-shared-corridor-family-count=\"{run.FamilyKeys.Count}\" data-schematic-v2-shared-corridor-families=\"{Escape(familyKeys)}\" data-schematic-v2-visible-lane-key=\"{Escape(lane.LaneKey.Key)}\" data-schematic-v2-visible-lane-token=\"{Escape(lane.LaneKey.DisplayToken)}\" data-schematic-v2-visible-lane-reason=\"{Escape(lane.LaneKey.Reason)}\" data-schematic-v2-visible-lane-family-count=\"{lane.Routes.Count}\" data-schematic-v2-visible-lane-families=\"{Escape(laneFamilies)}\" data-schematic-v2-parallel-corridor=\"true\" data-schematic-v2-parallel-corridor-source=\"{Escape(run.Source)}\" data-schematic-v2-parallel-offset=\"{Format(offset)}\" data-schematic-v2-parallel-stroke-width=\"{Format(strokeWidth)}\"{routeGuideAttribute} data-schematic-v2-pass-through-stations=\"{Escape(stationIds)}\" data-schematic-v2-shared-corridor-point-count=\"{run.Points.Count}\" points=\"{pointList}\"";
         svg.AppendLine($"""<polyline {attributes} stroke="{Escape(renderRoute.Family.Color)}" style="stroke-width: {Format(strokeWidth)};" />""");
 
-        if (!ShouldRenderExpressCenterStripe(options, renderRoute.Family))
+        if (!lane.Routes.Any(route => ShouldRenderExpressCenterStripe(options, route.Family)))
         {
             return;
         }
@@ -4100,7 +5438,7 @@ public sealed class MetroSvgRenderer
             StrokeWidth = GetExpressCenterStripeWidth(options),
             ExtraAttributes = baseCommand.ExtraAttributes
                 + $" data-express-marker=\"white-center-stripe\" data-express-family=\"{Escape(baseCommand.RenderRoute.Family.FamilyKey)}\""
-                + (options.LayoutMode == SvgLayoutMode.SchematicV2 ? " data-schematic-v2-express-marker=\"white-center-stripe\"" : string.Empty)
+                + (IsSchematicV2FamilyLayout(options.LayoutMode) ? " data-schematic-v2-express-marker=\"white-center-stripe\"" : string.Empty)
         });
     }
 
@@ -4174,7 +5512,7 @@ public sealed class MetroSvgRenderer
     private static bool ShouldRenderExpressCenterStripe(SvgRenderOptions options, DisplayLineFamily family)
     {
         return HasExpressServiceVariant(family)
-            && (options.EnableExpressCenterStripe || options.LayoutMode == SvgLayoutMode.SchematicV2);
+            && (options.EnableExpressCenterStripe || IsSchematicV2FamilyLayout(options.LayoutMode));
     }
 
     private static string GetCorridorDrawLayerName(CorridorDrawLayer layer)
@@ -4212,7 +5550,7 @@ public sealed class MetroSvgRenderer
             stripeStyle += $" {routeStyle}";
         }
 
-        string schematicV2MarkerAttribute = options.LayoutMode == SvgLayoutMode.SchematicV2
+        string schematicV2MarkerAttribute = IsSchematicV2FamilyLayout(options.LayoutMode)
             ? " data-schematic-v2-express-marker=\"white-center-stripe\""
             : string.Empty;
         string stripeAttributes = commonAttributes.Replace("class=\"route\"", "class=\"express-decoration\"", StringComparison.Ordinal);
@@ -5206,7 +6544,7 @@ public sealed class MetroSvgRenderer
         }
 
         IEnumerable<string> routeStopIds = line.Stops ?? [];
-        if (options.LayoutMode == SvgLayoutMode.SchematicV2
+        if (IsSchematicV2FamilyLayout(options.LayoutMode)
             && geometry.SchematicV2RouteGuideByFamily is not null
             && geometry.SchematicV2RouteGuideByFamily.TryGetValue(family.FamilyKey, out List<string>? routeGuide)
             && routeGuide.Count >= 2)
@@ -5826,9 +7164,109 @@ public sealed class MetroSvgRenderer
         return layoutMode switch
         {
             SvgLayoutMode.SchematicV2 => "schematic-v2",
+            SvgLayoutMode.SchematicMap => "schematic-map",
             SvgLayoutMode.SchematicLite => "schematic-lite",
             _ => "geographic"
         };
+    }
+
+    private static void AppendVirtualTransferHints(
+        StringBuilder svg,
+        List<MetroStation> stations,
+        Dictionary<string, SvgPoint> stationPoints,
+        SvgRenderOptions options)
+    {
+        if (!options.EnableVirtualTransferHints)
+        {
+            return;
+        }
+
+        List<VirtualTransferHint> hints = BuildVirtualTransferHints(stations, stationPoints, options);
+        if (hints.Count == 0)
+        {
+            return;
+        }
+
+        svg.AppendLine("""<g id="virtual-transfer-hints">""");
+        foreach (VirtualTransferHint hint in hints)
+        {
+            svg.AppendLine($"""<line class="virtual-transfer-hint" data-virtual-transfer-hint="true" data-station-name="{Escape(hint.StationName)}" data-station-a="{Escape(hint.FirstStationId)}" data-station-b="{Escape(hint.SecondStationId)}" data-distance="{Format(hint.Distance)}" x1="{Format(hint.FirstPoint.X)}" y1="{Format(hint.FirstPoint.Y)}" x2="{Format(hint.SecondPoint.X)}" y2="{Format(hint.SecondPoint.Y)}" />""");
+        }
+
+        svg.AppendLine("</g>");
+    }
+
+    private static List<VirtualTransferHint> BuildVirtualTransferHints(
+        List<MetroStation> stations,
+        Dictionary<string, SvgPoint> stationPoints,
+        SvgRenderOptions options)
+    {
+        double maxConnectorDistance = Math.Max(options.GridSize * 8, SvgVisualStyle.From(options).InterchangeMarkerRadius * 8);
+        return stations
+            .Where(station => !string.IsNullOrWhiteSpace(station.Id)
+                && !string.IsNullOrWhiteSpace(station.Name)
+                && stationPoints.ContainsKey(station.Id!)
+                && StationLabelClassifier.Classify(station.Name, station.Id) == StationNameKind.UserNamed)
+            .GroupBy(station => NormalizeStationDisplayName(station.Name!), StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => BuildVirtualTransferHintsForGroup(group.ToList(), stationPoints, maxConnectorDistance))
+            .OrderBy(hint => hint.StationName, StringComparer.Ordinal)
+            .ThenBy(hint => hint.Distance)
+            .ToList();
+    }
+
+    private static IEnumerable<VirtualTransferHint> BuildVirtualTransferHintsForGroup(
+        List<MetroStation> group,
+        Dictionary<string, SvgPoint> stationPoints,
+        double maxConnectorDistance)
+    {
+        List<MetroStation> remaining = group
+            .Where(station => !string.IsNullOrWhiteSpace(station.Id) && stationPoints.ContainsKey(station.Id!))
+            .OrderBy(station => station.Id, StringComparer.Ordinal)
+            .ToList();
+        if (remaining.Count < 2)
+        {
+            yield break;
+        }
+
+        HashSet<string> connected = [remaining[0].Id!];
+        HashSet<string> unused = remaining.Skip(1).Select(station => station.Id!).ToHashSet(StringComparer.Ordinal);
+        while (unused.Count > 0)
+        {
+            (string? firstId, string? secondId, double distance) best = (null, null, double.MaxValue);
+            foreach (string firstId in connected)
+            {
+                foreach (string secondId in unused)
+                {
+                    double distance = Distance(stationPoints[firstId], stationPoints[secondId]);
+                    if (distance < best.distance)
+                    {
+                        best = (firstId, secondId, distance);
+                    }
+                }
+            }
+
+            if (best.firstId is null || best.secondId is null || best.distance > maxConnectorDistance)
+            {
+                yield break;
+            }
+
+            connected.Add(best.secondId);
+            unused.Remove(best.secondId);
+            MetroStation first = remaining.First(station => string.Equals(station.Id, best.firstId, StringComparison.Ordinal));
+            yield return new VirtualTransferHint(
+                NormalizeStationDisplayName(first.Name!),
+                best.firstId,
+                best.secondId,
+                stationPoints[best.firstId],
+                stationPoints[best.secondId],
+                best.distance);
+        }
+    }
+
+    private static string NormalizeStationDisplayName(string name)
+    {
+        return string.Join(" ", name.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static void AppendStations(
@@ -5837,6 +7275,7 @@ public sealed class MetroSvgRenderer
         Dictionary<string, SvgPoint> stationPoints,
         Dictionary<string, StationRenderAnchor> stationAnchors,
         Dictionary<string, SchematicStationAdjustment> schematicStationAdjustments,
+        List<SchematicV2DenseStationPair> schematicV2DenseStationPairs,
         SvgRenderOptions options)
     {
         svg.AppendLine("""<g id="stations">""");
@@ -5854,7 +7293,8 @@ public sealed class MetroSvgRenderer
             double strokeWidth = isInterchange ? visualStyle.InterchangeMarkerStrokeWidth : visualStyle.StationMarkerStrokeWidth;
             string anchorAttributes = BuildStationAnchorAttributes(station.Id!, stationAnchors);
             string schematicAdjustmentAttributes = BuildSchematicStationAdjustmentAttributes(station.Id!, schematicStationAdjustments);
-            svg.AppendLine($"""<circle class="{stationClass}" data-station-id="{Escape(station.Id)}"{anchorAttributes}{schematicAdjustmentAttributes} data-marker-stroke-width="{Format(strokeWidth)}" cx="{Format(point.X)}" cy="{Format(point.Y)}" r="{Format(radius)}" />""");
+            string schematicV2DenseAttributes = BuildSchematicV2DenseStationAttributes(station.Id!, schematicV2DenseStationPairs);
+            svg.AppendLine($"""<circle class="{stationClass}" data-station-id="{Escape(station.Id)}"{anchorAttributes}{schematicAdjustmentAttributes}{schematicV2DenseAttributes} data-marker-stroke-width="{Format(strokeWidth)}" cx="{Format(point.X)}" cy="{Format(point.Y)}" r="{Format(radius)}" />""");
             if (IsTransitMapStyle(options) && isInterchange)
             {
                 double innerRadius = Math.Max(2.5, radius - 4.2);
@@ -5962,6 +7402,34 @@ public sealed class MetroSvgRenderer
         }
 
         return $" data-schematic-station-adjusted=\"true\" data-schematic-station-adjustment-distance=\"{Format(adjustment.Distance)}\" data-schematic-station-adjustment-reason=\"{Escape(adjustment.Reason)}\" data-schematic-station-original-x=\"{Format(adjustment.OriginalPoint.X)}\" data-schematic-station-original-y=\"{Format(adjustment.OriginalPoint.Y)}\"";
+    }
+
+    private static string BuildSchematicV2DenseStationAttributes(
+        string stationId,
+        List<SchematicV2DenseStationPair> densePairs)
+    {
+        List<SchematicV2DenseStationPair> stationPairs = densePairs
+            .Where(pair => string.Equals(pair.FirstStationId, stationId, StringComparison.Ordinal)
+                || string.Equals(pair.SecondStationId, stationId, StringComparison.Ordinal))
+            .OrderBy(pair => pair.Distance)
+            .ToList();
+
+        if (stationPairs.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        string pairedStationIds = string.Join(",", stationPairs.Select(pair =>
+            string.Equals(pair.FirstStationId, stationId, StringComparison.Ordinal)
+                ? pair.SecondStationId
+                : pair.FirstStationId));
+        double minimumDistance = stationPairs.Min(pair => pair.Distance);
+        bool hasAdjacentPair = stationPairs.Any(pair => pair.Adjacent);
+        bool sameNameCluster = stationPairs.Any(pair => pair.SameNameCluster);
+        bool sameNameAssetDefaultCluster = stationPairs.Any(pair => pair.SameNameAssetDefaultCluster);
+        bool sameNameLikelyUserCluster = stationPairs.Any(pair => pair.SameNameLikelyUserCluster);
+
+        return $" data-schematic-v2-dense-station=\"true\" data-schematic-v2-dense-pair-count=\"{stationPairs.Count}\" data-schematic-v2-dense-paired-stations=\"{Escape(pairedStationIds)}\" data-schematic-v2-dense-min-distance=\"{Format(minimumDistance)}\" data-schematic-v2-dense-has-adjacent-pair=\"{(hasAdjacentPair ? "true" : "false")}\" data-schematic-v2-dense-same-name-cluster=\"{(sameNameCluster ? "true" : "false")}\" data-schematic-v2-dense-same-name-asset-default-cluster=\"{(sameNameAssetDefaultCluster ? "true" : "false")}\" data-schematic-v2-dense-same-name-likely-user-cluster=\"{(sameNameLikelyUserCluster ? "true" : "false")}\"";
     }
 
     private static string BuildStationAnchorAttributes(string stationId, Dictionary<string, StationRenderAnchor> stationAnchors)
@@ -6080,13 +7548,13 @@ public sealed class MetroSvgRenderer
         int padding = options.EffectivePadding;
         double left = Math.Max(4, padding * 0.25);
         double top = IsTransitMapStyle(options)
-            ? GetTransitMapHeaderHeight(options) + Math.Max(8, padding * 0.15)
+            ? GetTransitMapHeaderHeight(options) + Math.Max(8, padding * (options.CompactTransitMapFrame ? 0.08 : 0.15))
             : Math.Max(4, padding * 0.35);
         double right = hasLegend && !IsTransitMapStyle(options)
             ? options.Width - padding - options.LegendWidth - 12
             : options.Width - Math.Max(4, padding * 0.25);
         double bottom = IsTransitMapStyle(options)
-            ? options.Height - GetTransitMapFooterHeight(options) - Math.Max(8, padding * 0.15)
+            ? options.Height - GetTransitMapFooterHeight(options) - Math.Max(8, padding * (options.CompactTransitMapFrame ? 0.08 : 0.15))
             : options.Height - Math.Max(4, padding * 0.25);
 
         if (right <= left + 100)
@@ -6150,7 +7618,7 @@ public sealed class MetroSvgRenderer
         double panelX = padding;
         double panelY = options.Height - footerHeight + Math.Max(18, footerHeight * 0.14);
         double panelWidth = Math.Max(240, options.Width - padding * 2);
-        double panelHeight = Math.Max(72, footerHeight - Math.Max(28, footerHeight * 0.22));
+        double panelHeight = Math.Max(options.CompactTransitMapFrame ? 54 : 72, footerHeight - Math.Max(28, footerHeight * 0.22));
         bool hasExpressLegend = families.Any(HasExpressServiceVariant);
         double titleWidth = hasExpressLegend
             ? Math.Min(250, panelWidth * 0.24)
@@ -6160,9 +7628,15 @@ public sealed class MetroSvgRenderer
         int columns = Math.Clamp((int)Math.Floor(itemAreaWidth / 280), 2, 6);
         int rows = Math.Max(1, (int)Math.Ceiling(families.Count / (double)columns));
         double columnWidth = itemAreaWidth / columns;
-        double rowHeight = Math.Max(30, Math.Min(40, panelHeight / Math.Max(1, rows + 0.8)));
+        double rowHeight = Math.Max(options.CompactTransitMapFrame ? 24 : 30, Math.Min(options.CompactTransitMapFrame ? 34 : 40, panelHeight / Math.Max(1, rows + 0.8)));
         double sampleLength = Math.Min(54, Math.Max(34, columnWidth * 0.22));
         double lineWidth = Math.Max(5, options.LineWidth * 0.55);
+        double symbolX = panelX + panelWidth - Math.Min(245, panelWidth * 0.22);
+        double symbolY = panelY + panelHeight - 25;
+        List<DisplayLineFamily> serviceFamilies = families
+            .Where(family => family.Variants.Count > 1)
+            .Take(3)
+            .ToList();
 
         svg.AppendLine("""<g id="legend" data-legend-placement="bottom" data-map-style="transit-map">""");
         svg.AppendLine($"""<rect x="{Format(panelX)}" y="{Format(panelY)}" width="{Format(panelWidth)}" height="{Format(panelHeight)}" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.2" />""");
@@ -6191,8 +7665,25 @@ public sealed class MetroSvgRenderer
             }
         }
 
-        double symbolX = panelX + panelWidth - Math.Min(245, panelWidth * 0.22);
-        double symbolY = panelY + panelHeight - 25;
+        if (serviceFamilies.Count > 0 && panelHeight >= 104)
+        {
+            double serviceX = itemAreaX;
+            double serviceY = panelY + 31 + rows * rowHeight + 14;
+            double serviceLineHeight = Math.Max(14, options.LegendLabelFontSize * 0.78);
+            double maxServiceWidth = Math.Max(160, symbolX - serviceX - 24);
+            svg.AppendLine($"""<text class="transit-footer-note" x="{Format(serviceX)}" y="{Format(serviceY)}" data-legend-service-title="true">Service variants</text>""");
+            serviceY += serviceLineHeight;
+            foreach (DisplayLineFamily family in serviceFamilies)
+            {
+                foreach (DisplayServiceVariant variant in family.Variants.Take(3))
+                {
+                    string variantText = $"{family.DisplayName}: {FormatTransitMapServiceVariantLegendText(variant)}";
+                    svg.AppendLine($"""<text class="legend-variant" x="{Format(serviceX)}" y="{Format(serviceY)}" data-legend-service-variant="true">{Escape(TruncateLegendText(variantText, maxServiceWidth, Math.Max(12, options.LegendLabelFontSize * 0.72)))}</text>""");
+                    serviceY += serviceLineHeight;
+                }
+            }
+        }
+
         svg.AppendLine($"""<circle class="station" cx="{Format(symbolX)}" cy="{Format(symbolY)}" r="{Format(SvgVisualStyle.From(options).StationMarkerOuterRadius)}" />""");
         svg.AppendLine($"""<text class="transit-footer-note" x="{Format(symbolX + 18)}" y="{Format(symbolY + 5)}">Station</text>""");
         svg.AppendLine($"""<circle class="station interchange" cx="{Format(symbolX + 92)}" cy="{Format(symbolY)}" r="{Format(SvgVisualStyle.From(options).InterchangeMarkerRadius)}" />""");
@@ -6210,6 +7701,34 @@ public sealed class MetroSvgRenderer
         }
 
         return prefix;
+    }
+
+    private static string FormatTransitMapServiceVariantLegendText(DisplayServiceVariant variant)
+    {
+        string prefix = $"{variant.VariantName}: {variant.StopCount} stops";
+        if (!string.IsNullOrWhiteSpace(variant.StartStationName) && !string.IsNullOrWhiteSpace(variant.EndStationName))
+        {
+            return $"{prefix}, {variant.StartStationName} -> {variant.EndStationName}";
+        }
+
+        return prefix;
+    }
+
+    private static string TruncateLegendText(string text, double maxWidth, double fontSize)
+    {
+        if (EstimateTextWidth(text, fontSize) <= maxWidth)
+        {
+            return text;
+        }
+
+        const string ellipsis = "...";
+        int keep = text.Length;
+        while (keep > 4 && EstimateTextWidth(text[..keep] + ellipsis, fontSize) > maxWidth)
+        {
+            keep--;
+        }
+
+        return keep > 4 ? text[..keep] + ellipsis : text;
     }
 
     private static bool HasExpressServiceVariant(DisplayLineFamily family)
@@ -6368,6 +7887,16 @@ public sealed class MetroSvgRenderer
         return options.MapStyle == SvgMapStyle.TransitMap;
     }
 
+    private static bool IsSchematicMapLayout(SvgRenderOptions options)
+    {
+        return options.LayoutMode == SvgLayoutMode.SchematicMap;
+    }
+
+    private static double GetRouteBadgeFontSize(SvgRenderOptions options)
+    {
+        return IsSchematicMapLayout(options) ? 14 : 13;
+    }
+
     private static string GetMapStyleName(SvgMapStyle mapStyle)
     {
         return mapStyle switch
@@ -6379,12 +7908,34 @@ public sealed class MetroSvgRenderer
 
     private static double GetTransitMapHeaderHeight(SvgRenderOptions options)
     {
+        if (options.CompactTransitMapFrame)
+        {
+            return Math.Clamp(options.Height * 0.065, 92, 132);
+        }
+
         return Math.Clamp(options.Height * 0.09, 104, 150);
     }
 
     private static double GetTransitMapFooterHeight(SvgRenderOptions options)
     {
-        return Math.Clamp(options.Height * 0.12, 128, 210);
+        if (options.CompactTransitMapFrame)
+        {
+            return Math.Clamp(options.Height * 0.075, 86, 140);
+        }
+
+        return IsSchematicMapLayout(options)
+            ? Math.Clamp(options.Height * 0.135, 150, 240)
+            : Math.Clamp(options.Height * 0.12, 128, 210);
+    }
+
+    private static string GetTransitMapFrameName(SvgRenderOptions options)
+    {
+        if (!IsTransitMapStyle(options))
+        {
+            return "none";
+        }
+
+        return options.CompactTransitMapFrame ? "compact" : "standard";
     }
 
     private static string Escape(string? value)
@@ -6624,12 +8175,14 @@ public sealed class MetroSvgRenderer
         Dictionary<string, SvgPoint> StationPoints,
         CoordinateProjector? Projector,
         Dictionary<string, SchematicStationAdjustment> SchematicStationAdjustments,
+        List<SchematicV2DenseStationPair> SchematicV2DenseStationPairs,
         Dictionary<string, List<string>>? SchematicV2RouteGuideByFamily,
         Dictionary<string, SchematicV2RouteGuideMetadata>? SchematicV2RouteGuideMetadataByFamily);
 
     private readonly record struct SchematicLayoutResult(
         Dictionary<string, SvgPoint> Points,
         Dictionary<string, SchematicStationAdjustment> Adjustments,
+        List<SchematicV2DenseStationPair> DenseStationPairs,
         Dictionary<string, List<string>> RouteGuideByFamily,
         Dictionary<string, SchematicV2RouteGuideMetadata> RouteGuideMetadataByFamily);
 
@@ -6639,6 +8192,26 @@ public sealed class MetroSvgRenderer
         SvgPoint AdjustedPoint,
         double Distance,
         string Reason);
+
+    private readonly record struct SchematicV2DenseStationPair(
+        string FirstStationId,
+        string SecondStationId,
+        double Distance,
+        double MinimumSpacing,
+        bool Adjacent,
+        bool SameNameCluster,
+        bool SameNameAssetDefaultCluster,
+        bool SameNameLikelyUserCluster,
+        bool FirstInterchange,
+        bool SecondInterchange);
+
+    private readonly record struct VirtualTransferHint(
+        string StationName,
+        string FirstStationId,
+        string SecondStationId,
+        SvgPoint FirstPoint,
+        SvgPoint SecondPoint,
+        double Distance);
 
     private readonly record struct SchematicV2FamilyPath(
         string FamilyKey,
@@ -6702,6 +8275,11 @@ public sealed class MetroSvgRenderer
         public string FamilyBKey => FamilyKeys.Count > 1 ? FamilyKeys[1] : string.Empty;
     }
 
+    private sealed record SchematicV2ParallelCorridorLane(
+        VisibleLaneKey LaneKey,
+        List<RenderRoute> Routes,
+        RenderRoute PrimaryRoute);
+
     private readonly record struct SchematicV2ProjectedLine(
         DisplayLineFamily Family,
         MetroLine Line,
@@ -6760,6 +8338,26 @@ public sealed class MetroSvgRenderer
     private readonly record struct StationRouteAnchorCandidate(string FamilyKey, SvgPoint Point, double Distance);
 
     private readonly record struct RenderRoute(DisplayLineFamily Family, MetroLine Line, RoutePointSet RoutePointSet);
+
+    private readonly record struct SchematicMapRouteSegment(
+        int RouteIndex,
+        int PolylineIndex,
+        int SegmentIndex,
+        string FamilyKey,
+        string DisplayName,
+        string Color,
+        SvgPoint Start,
+        SvgPoint End,
+        double Length,
+        SvgPoint Direction);
+
+    private readonly record struct SchematicMapRouteCrossing(
+        int Index,
+        SvgPoint Point,
+        SchematicMapRouteSegment TopSegment,
+        SchematicMapRouteSegment BottomSegment,
+        double AngleDegrees,
+        string FamilyPairKey);
 
     private sealed record CorridorRenderPlan(
         List<CorridorDrawCommand> NormalBase,

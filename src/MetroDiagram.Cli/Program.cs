@@ -5,7 +5,7 @@ using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-lite|schematic-v2] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-lite|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -74,6 +74,7 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
     double? minPathSegmentLength = null;
     bool centerExpansion = false;
     bool hideGenericLabels = false;
+    bool enableVirtualTransferHints = false;
     bool hideCrowdedLabels = false;
     bool alwaysShowInterchanges = false;
     bool alwaysShowTerminals = false;
@@ -130,6 +131,9 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
                 break;
             case "--hide-generic-labels":
                 hideGenericLabels = true;
+                break;
+            case "--enable-virtual-transfer-hints":
+                enableVirtualTransferHints = true;
                 break;
             case "--hide-crowded-labels":
                 hideCrowdedLabels = true;
@@ -205,6 +209,7 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
         CenterExpansionStrength = defaults.CenterExpansionStrength,
         GridSize = gridSize ?? defaults.GridSize,
         HideGenericStationLabels = hideGenericLabels,
+        EnableVirtualTransferHints = enableVirtualTransferHints,
         HideCrowdedLabels = hideCrowdedLabels,
         AlwaysShowInterchanges = alwaysShowInterchanges || defaults.AlwaysShowInterchanges,
         AlwaysShowTerminals = alwaysShowTerminals || defaults.AlwaysShowTerminals,
@@ -229,7 +234,8 @@ static SvgLayoutMode ReadLayoutMode(string[] args, ref int index, string option)
         "geographic" => SvgLayoutMode.Geographic,
         "schematic-lite" => SvgLayoutMode.SchematicLite,
         "schematic-v2" => SvgLayoutMode.SchematicV2,
-        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-lite', or 'schematic-v2'.")
+        "schematic-map" => SvgLayoutMode.SchematicMap,
+        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-lite', 'schematic-v2', or 'schematic-map'.")
     };
 }
 

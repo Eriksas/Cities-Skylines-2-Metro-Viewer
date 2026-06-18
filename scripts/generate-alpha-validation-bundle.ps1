@@ -14,6 +14,20 @@ function Get-FullPath {
     return [System.IO.Path]::GetFullPath($Path)
 }
 
+function Get-PowerShellRunner {
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($null -ne $pwsh -and -not [string]::IsNullOrWhiteSpace($pwsh.Source)) {
+        return $pwsh.Source
+    }
+
+    $powershell = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($null -ne $powershell -and -not [string]::IsNullOrWhiteSpace($powershell.Source)) {
+        return $powershell.Source
+    }
+
+    throw 'Neither pwsh nor powershell was found. Install PowerShell 7 or Windows PowerShell before generating validation bundles.'
+}
+
 function Convert-ToSafeName {
     param([string] $Value)
 
@@ -177,7 +191,8 @@ function Invoke-Capture {
         [Parameter(Mandatory = $true)][string] $OutputPng
     )
 
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $CaptureScript -InputSvg $InputSvg -OutputPng $OutputPng -Width 3200 -Height 2000
+    $powerShellRunner = Get-PowerShellRunner
+    & $powerShellRunner -NoProfile -ExecutionPolicy Bypass -File $CaptureScript -InputSvg $InputSvg -OutputPng $OutputPng -Width 3200 -Height 2000
     if ($LASTEXITCODE -ne 0) {
         throw "Screenshot generation failed for '$InputSvg' with exit code $LASTEXITCODE."
     }
@@ -225,7 +240,9 @@ $warningText
 - Size preset: poster
 - Label filters: hide generic labels, hide crowded labels
 - Comparison layouts: schematic-lite, schematic-v2
+- Product candidate layout: schematic-map
 - Schematic-v2 status: experimental
+- Schematic-map status: product-facing experimental candidate
 
 ## Visual Review
 - Geographic baseline acceptable: yes/no
@@ -251,7 +268,10 @@ $warningText
 - schematic-lite.full.png
 - schematic-v2.svg
 - schematic-v2.full.png
+- schematic-map.svg
+- schematic-map.full.png
 - schematic-v2-diagnostics\
+- manifest.json
 - feedback-template-filled.md
 "@ | Set-Content -LiteralPath $Path -Encoding UTF8
 }
@@ -297,7 +317,10 @@ $warningText
 - baseline-geographic.full.png
 - schematic-v2.svg
 - schematic-v2.full.png
+- schematic-map.svg
+- schematic-map.full.png
 - schematic-v2-diagnostics\shared-corridors.txt
+- manifest.json
 - Viewer settings from Documents\CS2MetroDiagram\viewer-settings.json, if available
 - Relevant game/mod log excerpt if export failed
 
@@ -320,6 +343,83 @@ $warningText
 - Steps to reproduce:
 - Any error text shown in the Viewer or game log:
 "@ | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+function Write-BundleManifest {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $BundleName,
+        [Parameter(Mandatory = $true)][string] $InputPath,
+        [Parameter(Mandatory = $true)][string] $DiagnosticsPath,
+        [Parameter(Mandatory = $true)][string] $GeneratedAt,
+        [Parameter(Mandatory = $true)] $Metadata,
+        [Parameter(Mandatory = $true)][string] $CurrentAppVersion,
+        [string[]] $ValidationWarnings = @()
+    )
+
+    $manifest = [ordered]@{
+        bundleName = $BundleName
+        generatedAt = $GeneratedAt
+        source = [ordered]@{
+            inputJson = $InputPath
+            diagnostics = $DiagnosticsPath
+        }
+        export = [ordered]@{
+            cityName = $Metadata.CityName
+            exportedAtUtc = $Metadata.ExportedAtUtc
+            generatorVersion = $Metadata.GeneratorVersion
+            schemaVersion = $Metadata.SchemaVersion
+            lineCount = $Metadata.LineCount
+            stationCount = $Metadata.StationCount
+        }
+        tool = [ordered]@{
+            version = $CurrentAppVersion
+        }
+        recommendedReviewOrder = @(
+            'baseline-geographic.full.png',
+            'schematic-map.full.png',
+            'schematic-v2.full.png',
+            'schematic-lite.full.png',
+            'visual-continuity-summary.txt',
+            'schematic-v2-diagnostics\topology-summary.txt',
+            'notes.md'
+        )
+        files = [ordered]@{
+            exportJson = 'metro-export.json'
+            exportDiagnostics = 'metro-export-diagnostics.txt'
+            geographicSvg = 'baseline-geographic.svg'
+            geographicPng = 'baseline-geographic.full.png'
+            schematicLiteSvg = 'schematic-lite.svg'
+            schematicLitePng = 'schematic-lite.full.png'
+            schematicV2Svg = 'schematic-v2.svg'
+            schematicV2Png = 'schematic-v2.full.png'
+            schematicMapSvg = 'schematic-map.svg'
+            schematicMapPng = 'schematic-map.full.png'
+            visualContinuityReport = 'visual-continuity-summary.txt'
+            visualContinuityDebugSvg = 'visual-continuity-debug.svg'
+            schematicV2Diagnostics = 'schematic-v2-diagnostics'
+            notes = 'notes.md'
+            feedbackTemplate = 'feedback-template-filled.md'
+        }
+        renderSettings = [ordered]@{
+            alphaBaseline = [ordered]@{
+                layout = 'geographic'
+                size = 'poster'
+                usePathPoints = $true
+                hideGenericLabels = $true
+                hideCrowdedLabels = $true
+            }
+            productCandidate = [ordered]@{
+                layout = 'schematic-map'
+                size = 'poster'
+                status = 'product-facing experimental candidate'
+            }
+            comparisons = @('schematic-lite', 'schematic-v2')
+        }
+        validationWarnings = $ValidationWarnings
+    }
+
+    $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
 $scriptRoot = Split-Path -Parent $PSCommandPath
@@ -390,18 +490,23 @@ try {
     $schematicLitePng = Join-Path $tempBundlePath 'schematic-lite.full.png'
     $schematicV2Svg = Join-Path $tempBundlePath 'schematic-v2.svg'
     $schematicV2Png = Join-Path $tempBundlePath 'schematic-v2.full.png'
+    $schematicMapSvg = Join-Path $tempBundlePath 'schematic-map.svg'
+    $schematicMapPng = Join-Path $tempBundlePath 'schematic-map.full.png'
     $visualReport = Join-Path $tempBundlePath 'visual-continuity-summary.txt'
     $visualDebugSvg = Join-Path $tempBundlePath 'visual-continuity-debug.svg'
 
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $baselineSvg -Layout 'geographic' -UsePathPoints
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicLiteSvg -Layout 'schematic-lite'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicV2Svg -Layout 'schematic-v2'
+    Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicMapSvg -Layout 'schematic-map' -UsePathPoints
 
     Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
     Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicLiteSvg -OutputPng $schematicLitePng
     Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
+    Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
 
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $visualScript -InputSvg $baselineSvg -OutputReport $visualReport -OutputDebugSvg $visualDebugSvg
+    $powerShellRunner = Get-PowerShellRunner
+    & $powerShellRunner -NoProfile -ExecutionPolicy Bypass -File $visualScript -InputSvg $baselineSvg -OutputReport $visualReport -OutputDebugSvg $visualDebugSvg
     if ($LASTEXITCODE -ne 0) {
         throw "Visual continuity analysis failed with exit code $LASTEXITCODE."
     }
@@ -413,10 +518,20 @@ try {
 
     $finalBundleJson = Join-Path $bundlePath 'metro-export.json'
     $finalDiagnosticsOutput = Join-Path $bundlePath 'schematic-v2-diagnostics'
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $schematicDiagnosticsScript -InputJson $finalBundleJson -OutputDir $finalDiagnosticsOutput
+    & $powerShellRunner -NoProfile -ExecutionPolicy Bypass -File $schematicDiagnosticsScript -InputJson $finalBundleJson -OutputDir $finalDiagnosticsOutput
     if ($LASTEXITCODE -ne 0) {
         throw "Schematic-v2 diagnostics failed with exit code $LASTEXITCODE."
     }
+
+    Write-BundleManifest `
+        -Path (Join-Path $bundlePath 'manifest.json') `
+        -BundleName $bundleName `
+        -InputPath $inputPath `
+        -DiagnosticsPath $diagnosticsInputPath `
+        -GeneratedAt (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') `
+        -Metadata $metadata `
+        -CurrentAppVersion $currentAppVersion `
+        -ValidationWarnings $validationWarnings
 
     if (-not $SkipZip) {
         if (Test-Path -LiteralPath $zipPath -PathType Leaf) {
