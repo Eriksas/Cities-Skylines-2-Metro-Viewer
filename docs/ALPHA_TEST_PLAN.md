@@ -49,6 +49,42 @@ artifacts\alpha-validation\index.md
 artifacts\alpha-validation\index.csv
 ```
 
+## Run The Schematic Regression Gate
+
+Use this before accepting schematic-map renderer changes:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
+```
+
+Useful faster smoke mode:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1 -LatestExports 0 -SkipPng
+```
+
+The gate writes:
+
+```text
+artifacts\schematic-regression\<timestamp>\index.md
+artifacts\schematic-regression\<timestamp>\regression-summary.csv
+artifacts\schematic-regression\<timestamp>\cases\...\geographic-baseline.svg
+artifacts\schematic-regression\<timestamp>\cases\...\schematic-map.svg
+artifacts\schematic-regression\<timestamp>\cases\...\schematic-map-score.csv
+```
+
+When PNG generation is enabled, each case also includes:
+
+```text
+geographic-baseline.full.png
+schematic-map.full.png
+schematic-map-debug.full.png
+```
+
+Treat `pass` as "cleared current automated safety checks", not as a substitute
+for visual review. Treat `needs-review` as a prompt to inspect the generated PNGs
+and debug overlay.
+
 ## Bundle Contents To Check
 
 Each current bundle should contain:
@@ -100,12 +136,29 @@ Collect cases across these shapes:
 
 - Lines mostly use horizontal, vertical, and 45-degree directions.
 - Obvious straight corridors do not become awkward zigzags.
+- Synthetic bends are off by default; if an experiment enables them, check whether the full map looks better, not only whether `schematic-map-audit.txt` warning counts decrease.
 - True route crossings are marked or visually understandable.
 - Interchanges are preserved.
 - Shared/parallel corridors do not hide one line behind another.
 - Route badges do not collide badly with labels.
 - Small cities are not buried in excessive blank space.
 - The output feels closer to an official metro map than raw geography.
+
+When reviewing a product candidate folder, also check:
+
+- `schematic-map-score.csv`
+- `schematic-map-crossings.csv`
+- `schematic-map-turns.csv`
+
+Use these files to find recurring issues and compare versions. Do not accept a worse-looking map only because the numeric score is higher.
+
+To compare recent product candidates side by side:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
+```
+
+Open the generated `comparison.html` or `comparison.full.png` before deciding whether a layout change is visually better.
 
 ## Schematic-v2 Review Checklist
 

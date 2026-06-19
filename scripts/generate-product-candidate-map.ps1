@@ -118,6 +118,7 @@ New-Item -ItemType Directory -Force -Path $tempOutputPath | Out-Null
 $metadata = Read-ExportMetadata -JsonPath $inputPath
 $cliProject = Join-Path $repoRoot 'src\MetroDiagram.Cli\MetroDiagram.Cli.csproj'
 $captureScript = Join-Path $repoRoot 'scripts\capture-svg-screenshot.ps1'
+$auditScript = Join-Path $repoRoot 'scripts\analyze-schematic-map-svg.ps1'
 $candidateSvg = Join-Path $tempOutputPath 'product-candidate.svg'
 $candidatePng = Join-Path $tempOutputPath 'product-candidate.full.png'
 $renderLog = Join-Path $tempOutputPath 'render-log.txt'
@@ -163,6 +164,24 @@ if (-not $SkipPng) {
     }
 }
 
+if (Test-Path -LiteralPath $auditScript -PathType Leaf) {
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $candidateSvg -InputJson $inputPath -OutputDir $tempOutputPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Product candidate audit failed with exit code $LASTEXITCODE."
+    }
+}
+
+$scoreSummaryMarkdown = '- Layout score: not available'
+$scoreCsvPath = Join-Path $tempOutputPath 'schematic-map-score.csv'
+if (Test-Path -LiteralPath $scoreCsvPath -PathType Leaf) {
+    $scoreRows = @(Import-Csv -LiteralPath $scoreCsvPath)
+    if ($scoreRows.Count -gt 0) {
+        $scoreSummaryMarkdown = ($scoreRows | ForEach-Object {
+            "- $($_.Category): score=$($_.Score), penalty=$($_.Penalty), count=$($_.Count)"
+        }) -join "`n"
+    }
+}
+
 @"
 # Product Candidate Map
 
@@ -188,11 +207,29 @@ if (-not $SkipPng) {
 - product-candidate.full.png
 - render-log.txt
 - metro-export.json
+- schematic-map-audit.txt
+- schematic-map-route-segments.csv
+- schematic-map-layout-conflicts.csv
+- schematic-map-style-widths.csv
+- schematic-map-parallel-corridors.csv
+- schematic-map-crossings.csv
+- schematic-map-turns.csv
+- schematic-map-score.csv
+- schematic-map-debug.svg
+- schematic-map-debug.full.png
+
+## Audit Score
+$scoreSummaryMarkdown
 
 ## Review Notes
 - Overall visual quality:
 - Topology/corridor readability:
+- Direction fidelity:
+- Interior crossings:
+- Octilinear grammar:
 - Label readability:
+- Route badge conflicts:
+- Shared/parallel corridor readability:
 - Legend/key readability:
 - Known issues:
 - Accept as current product candidate: yes/no
@@ -200,8 +237,26 @@ if (-not $SkipPng) {
 
 Move-Item -LiteralPath $tempOutputPath -Destination $outputPath
 
+if (Test-Path -LiteralPath $auditScript -PathType Leaf) {
+    $finalSvg = Join-Path $outputPath 'product-candidate.svg'
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $finalSvg -InputJson $inputPath -OutputDir $outputPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Final product candidate audit refresh failed with exit code $LASTEXITCODE."
+    }
+
+    $debugSvg = Join-Path $outputPath 'schematic-map-debug.svg'
+    $debugPng = Join-Path $outputPath 'schematic-map-debug.full.png'
+    if (-not $SkipPng -and (Test-Path -LiteralPath $debugSvg -PathType Leaf)) {
+        & pwsh -NoProfile -ExecutionPolicy Bypass -File $captureScript -InputSvg $debugSvg -OutputPng $debugPng -Width $captureSize.Width -Height $captureSize.Height
+        if ($LASTEXITCODE -ne 0) {
+            throw "Schematic map debug screenshot failed with exit code $LASTEXITCODE."
+        }
+    }
+}
+
 Write-Host "Product candidate written to: $outputPath"
 Write-Host "SVG: $(Join-Path $outputPath 'product-candidate.svg')"
 if (-not $SkipPng) {
     Write-Host "PNG: $(Join-Path $outputPath 'product-candidate.full.png')"
+    Write-Host "Debug PNG: $(Join-Path $outputPath 'schematic-map-debug.full.png')"
 }

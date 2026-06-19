@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "generator": {
+    "name": "CS2 Metro Diagram Regression Sample",
+    "version": "v0.1.0-alpha.2-candidate"
+  },
+  "game": {
+    "name": "Sample",
+    "version": "offline"
+  },
+  "city": {
+    "name": "Regression Simple City",
+    "exportedAtUtc": "2026-06-19T00:00:00Z"
+  },
+  "network": {
+    "type": "metro",
+    "stations": [
+      { "id": "west", "name": "West", "position": { "x": 0, "z": 0 }, "lines": ["blue"], "isInterchange": false },
+      { "id": "central", "name": "Central", "position": { "x": 100, "z": 0 }, "lines": ["blue", "green"], "isInterchange": true },
+      { "id": "east", "name": "East", "position": { "x": 200, "z": 0 }, "lines": ["blue"], "isInterchange": false },
+      { "id": "north", "name": "North", "position": { "x": 100, "z": -100 }, "lines": ["green"], "isInterchange": false },
+      { "id": "south", "name": "South", "position": { "x": 100, "z": 100 }, "lines": ["green", "pink"], "isInterchange": true },
+      { "id": "south_east", "name": "South East", "position": { "x": 200, "z": 160 }, "lines": ["pink"], "isInterchange": false },
+      { "id": "south_west", "name": "South West", "position": { "x": 0, "z": 160 }, "lines": ["pink"], "isInterchange": false }
+    ],
+    "lines": [
+      {
+        "id": "blue",
+        "name": "1号线",
+        "color": "#2F62C9",
+        "mode": "metro",
+        "stops": ["west", "central", "east"]
+      },
+      {
+        "id": "green",
+        "name": "2号线",
+        "color": "#31C74A",
+        "mode": "metro",
+        "stops": ["north", "central", "south"]
+      },
+      {
+        "id": "pink",
+        "name": "3号线",
+        "color": "#E031E8",
+        "mode": "metro",
+        "stops": ["south_west", "south", "south_east"]
+      }
+    ]
+  }
+}

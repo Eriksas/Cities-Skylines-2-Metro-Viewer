@@ -168,6 +168,25 @@ artifacts\alpha-validation\index.csv
 Bundles include JSON, diagnostics, SVG/PNG renders, notes, and a filled feedback
 template.
 
+## Schematic Regression Gate
+
+Before accepting schematic-map renderer changes, run the multi-case regression gate:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
+```
+
+Outputs:
+
+```text
+artifacts\schematic-regression\<timestamp>\index.md
+artifacts\schematic-regression\<timestamp>\regression-summary.csv
+```
+
+The gate renders real exports and regression samples, then records schematic-map
+scores, crossings, badge conflicts, and stroke-width consistency. It is a safety
+check, not a replacement for visual review.
+
 ## Build And Test
 
 Build the offline solution:

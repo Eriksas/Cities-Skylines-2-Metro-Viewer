@@ -2,7 +2,7 @@
 
 ## Start Here
 
-Read these files first:
+Read these first:
 
 ```text
 docs\PROJECT_STATE.md
@@ -11,7 +11,7 @@ docs\DECISION_LOG.md
 docs\ALPHA_TEST_PLAN.md
 ```
 
-For full pre-cleanup history, use:
+Use archived history only when you need phase detail:
 
 ```text
 docs\archive\2026-06-18-doc-consolidation
@@ -24,19 +24,19 @@ docs\archive\historical
 
 ## Current Direction
 
-The project is now focused on alpha validation and schematic-map polish.
+The project is focused on alpha validation and `schematic-map` polish.
 
-Recommended default for alpha testers:
+Recommended alpha tester output:
 
 ```text
 geographic + UsePathPoints + service family merge
 ```
 
-Experimental directions:
+Experimental layouts:
 
 ```text
-schematic-v2
 schematic-map
+schematic-v2
 ```
 
 Retired from Viewer:
@@ -45,72 +45,56 @@ Retired from Viewer:
 schematic-lite
 ```
 
-`schematic-lite` still exists in CLI/scripts only for historical comparison.
-
 ## Important Current Facts
 
-- Real export path:
+- Latest real export:
   - `D:\CS2MetroDiagram\metro-export.json`
   - `D:\CS2MetroDiagram\metro-export-diagnostics.txt`
 - Snapshot exports:
   - `D:\CS2MetroDiagram\exports\`
-- Current alpha validation index:
+- Alpha validation index:
   - `artifacts\alpha-validation\index.md`
   - `artifacts\alpha-validation\index.csv`
-- Recent Sheffield review bundle:
-  - `artifacts\alpha-validation\20260618-122028-sheffield-new-export-review`
-- Recent product candidate:
-  - `artifacts\product-candidate\20260618-121615-sheffield-new-export-review`
-- Recent shared-platform width candidate:
-  - `artifacts\product-candidate\20260618-163119-sheffield-shared-platform-widths`
+- Product candidate comparison helper:
+  - `scripts\compare-product-candidates.ps1`
+- Schematic regression gate:
+  - `scripts\generate-schematic-regression-gate.ps1`
+- Latest notable shared-platform/fringe-fix candidate:
+  - `artifacts\product-candidate\20260619-171203-sheffield-knockout-fringe-fix`
+- Latest real-export regression gate:
+  - `artifacts\schematic-regression\20260619-214528`
+- Latest sample smoke regression gate:
+  - `artifacts\schematic-regression\20260619-215440`
+- Latest alpha.2 candidate release package:
+  - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
+  - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
 
-## What Was Recently Added
+## Current Schematic-map Notes
 
-- Viewer in-app SVG preview and export data inspection.
-- Viewer no longer exposes `schematic-lite`.
-- `schematic-map` layout mode for product-facing official-map style experiments.
-- Product candidate and alpha validation scripts now generate `schematic-map` outputs.
-- Exact shared platform corridors now mask duplicate base route strokes before drawing parallel overlays, which avoids uneven line thickness on close parallel station tracks.
-- Shared platform overlays are assigned by `VisibleLaneResolver`. Same-number same-color branches such as `7号线` / `7号线支线` collapse into one visible lane on exact shared track segments.
-- Alpha validation bundle summarizer:
-
-```text
-scripts\summarize-alpha-validation-bundles.ps1
-```
-
-This writes:
-
-```text
-artifacts\alpha-validation\index.md
-artifacts\alpha-validation\index.csv
-```
+- `schematic-map` is the current product-facing schematic direction.
+- Non-station crossings are currently rendered as direct pass-through route intersections because exports do not include reliable over/under elevation.
+- Exact shared platform corridors mask duplicate base strokes before drawing visible lanes.
+- Same-number branch/shared-service families collapse into one visible lane when they share the exact platform segment and color.
+- Knockout strokes are clamped inside the visible colored lane envelope to avoid white fringes around shared platforms.
+- Synthetic route bends exist as an explicit experiment but are off by default because the first visual result was less natural.
 
 ## Current Priorities
 
-1. Use alpha validation bundles for every new real city export.
-2. Keep improving `schematic-map` through small, evidence-backed changes.
-3. Keep `geographic` stable.
-4. Do not revive old `schematic-lite` patch work.
-5. Do not change exporter/schema for renderer-only polish.
-6. Defer Viewer package-size reduction until alpha.2 validation and packaging
-   are stable.
+Good next tasks:
 
-## Good Next Tasks
+- Manually smoke-test the release Viewer and in-game mod export from the alpha.2 candidate package.
+- Generate and compare product candidates for new city exports.
+- Run `scripts\generate-schematic-regression-gate.ps1` before accepting schematic-map changes.
+- Use `schematic-map-debug.full.png`, `schematic-map-score.csv`, and comparison bundles before changing layout behavior.
+- Continue small, evidence-backed `schematic-map` polish for crossings, labels, route badge placement, and compact framing.
+- Keep docs concise after each accepted behavior change.
 
-- Generate an alpha validation bundle for each new city export.
-- Compare `geographic`, `schematic-v2`, and `schematic-map` PNGs.
-- Record recurring schematic-map issues in the bundle notes.
-- Improve schematic-map only when the same issue appears across real cases.
-- Keep docs short and archive long historical notes.
-- If packaging comes up, keep self-contained Viewer as the alpha path and treat
-  smaller package options as a later investigation.
+Avoid next:
 
-## Avoid Next
-
-- Do not start Phase 6 manual editor yet.
-- Do not add PNG/PDF export unless explicitly requested.
-- Do not change `metro-export.json` schema.
-- Do not change `RealMetroJsonExporter` for layout problems.
+- Do not modify exporter/schema for renderer polish.
+- Do not revive `schematic-lite` patch work.
+- Do not add PNG/PDF product export yet.
+- Do not start a manual drag editor yet.
 - Do not make `schematic-map` the default until more cities pass validation.
 
 ## Standard Verification
@@ -118,4 +102,12 @@ artifacts\alpha-validation\index.csv
 ```powershell
 dotnet build CS2MetroDiagram.slnx --no-restore
 dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+```
+
+For product candidate review:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate-map.ps1 -InputJson "D:\CS2MetroDiagram\metro-export.json" -CaseName review
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1 -LatestExports 2
 ```

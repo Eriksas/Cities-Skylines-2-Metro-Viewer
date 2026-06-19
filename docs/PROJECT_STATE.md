@@ -8,9 +8,9 @@ This is alpha software. It is not a stable release.
 
 ## Current Status
 
-The project is in an alpha validation and schematic-map refinement stage.
+The project is in alpha validation and schematic-map refinement.
 
-The safe default output remains:
+Recommended alpha default:
 
 ```text
 layout = geographic
@@ -20,15 +20,48 @@ shared corridor = disabled
 express stripe = disabled
 ```
 
-`geographic` is still the recommended alpha baseline because it preserves the real exported route geometry most reliably.
+`geographic` remains the safest default because it preserves exported route geometry most reliably.
 
-`schematic-v2` remains an experimental topology/diagnostic schematic layout.
+Current schematic directions:
 
-`schematic-map` is the newer product-facing schematic direction. It builds on schematic-v2 ideas but aims for a cleaner official metro map look: octilinear lines, product-style frame, route badges, compact key, station readability, and more stable preview framing. It is still experimental and should be judged through validation bundles, not promoted as the default until more cities pass review.
+- `schematic-map` - product-facing official-map style experiment; current active polish target.
+- `schematic-v2` - topology/diagnostic schematic base; still experimental.
+- `schematic-lite` - retired from Viewer and kept only for CLI/script historical comparison.
 
-Recent schematic-map crossing review rejected both bridge blobs and underpass-gap markers as too visually noisy without real over/under data. Non-station crossings are now rendered as direct pass-through route intersections, with a warning retained for diagnostics. Current JSON exports do not contain real track elevation or over/under order.
+The latest notable product candidate is:
 
-Recent shared-platform review fixed a schematic-map/schematic-v2 rendering issue where exact shared platform segments could look uneven because normal route strokes and parallel corridor overlays were both visible. Exact shared platform corridors now mask duplicate base strokes before drawing consistent-width parallel overlays, so close parallel tracks such as `5号线` / `7号线` near Terminal City Bank should stay visually balanced. Same-number branch families such as `7号线` / `7号线支线` collapse into one visible lane when they share the same exact platform segment. This logic now lives in `VisibleLaneResolver`.
+```text
+artifacts\product-candidate\20260619-171203-sheffield-knockout-fringe-fix
+```
+
+That candidate keeps the recent shared-platform fixes and clamps white knockout strokes inside the visible colored lane envelope so exact shared platforms do not show white fringes.
+
+Phase 6A.1 adds a schematic-map regression gate so future renderer changes are
+checked across real exports and synthetic regression samples before visual
+acceptance.
+
+Alpha.2 candidate release package has been regenerated and is ready for manual
+release review:
+
+```text
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
+```
+
+The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
+docs, samples, and regression samples.
+
+Latest real-export regression gate:
+
+```text
+artifacts\schematic-regression\20260619-214528
+```
+
+Latest sample smoke regression gate:
+
+```text
+artifacts\schematic-regression\20260619-215440
+```
 
 ## Current Capabilities
 
@@ -42,60 +75,66 @@ Recent shared-platform review fixed a schematic-map/schematic-v2 rendering issue
 - CLI can render SVG from sample or real JSON.
 - Viewer can open latest export or manual snapshot JSON.
 - Viewer supports in-app SVG preview, export data inspection, Chinese/English UI, render settings, and save SVG.
-- Viewer no longer exposes legacy `schematic-lite`; that mode remains CLI-only for historical comparison.
-- Alpha validation bundles can be generated and indexed.
+- Viewer no longer exposes legacy `schematic-lite`.
+- Alpha validation bundles and product-candidate bundles can be generated for repeatable review.
 
 ## Current Validation Workflow
 
 Generate a full alpha validation bundle:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-bundle.ps1 `
-  -InputJson D:\CS2MetroDiagram\metro-export.json `
-  -CaseName primary-city
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-bundle.ps1 -InputJson "D:\CS2MetroDiagram\metro-export.json" -CaseName my-city
 ```
 
-Refresh the validation bundle index:
+Generate a product candidate map:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\summarize-alpha-validation-bundles.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate-map.ps1 -InputJson "D:\CS2MetroDiagram\metro-export.json" -CaseName my-city
 ```
 
-Current bundle index:
+Compare recent product candidates:
 
-```text
-artifacts\alpha-validation\index.md
-artifacts\alpha-validation\index.csv
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
 ```
 
-## Roadmap Focus
+Run the schematic regression gate:
 
-Current short-term focus:
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
+```
 
-- Stabilize the alpha.2 candidate around repeatable validation bundles.
-- Keep the current Viewer preview/open/save workflow reliable.
-- Use `schematic-map` as the experimental product-facing map direction, but do
-  not promote it as the default until more real cities pass review.
-- Fix only clear schematic-map regressions and recurring multi-city issues.
+Important generated artifacts:
 
-Medium-term focus:
+- `artifacts\alpha-validation\index.md`
+- `artifacts\alpha-validation\index.csv`
+- `artifacts\product-candidate\...\product-candidate.full.png`
+- `artifacts\product-candidate\...\schematic-map-debug.full.png`
+- `artifacts\product-candidate\...\schematic-map-score.csv`
+- `artifacts\product-candidate-comparison\...\comparison.html`
+- `artifacts\product-candidate-comparison\...\comparison.full.png`
+- `artifacts\schematic-regression\...\index.md`
+- `artifacts\schematic-regression\...\regression-summary.csv`
 
-- Make `schematic-map` feel more like an official metro diagram through
-  topology-safe octilinear routing, stable visible lane handling, better label
-  placement, and multi-city regression checks.
+## Current Priorities
 
-Long-term focus:
+Short term:
+
+- Keep `geographic` stable as the alpha default.
+- Continue polishing `schematic-map` only through evidence-backed candidate bundles.
+- Run the schematic regression gate before accepting layout/rendering changes.
+- Use debug overlays and scoring reports before layout changes.
+- Preserve the current shared-platform behavior: same-number branch/shared-service lanes collapse when they share the exact same platform segment; distinct colored lanes remain visible and consistent width.
+- Before public release, manually smoke-test the packaged Viewer and in-game mod export from the release folder/zip.
+
+Medium term:
+
+- Make `schematic-map` closer to an official metro diagram through topology-safe octilinear routing, label placement, crossing readability, and multi-city validation.
+
+Long term:
 
 - Reduce Viewer package size after alpha behavior stabilizes.
-- Add image export, style presets, and optional manual overrides only after the
-  core render behavior is trustworthy.
-
-Recent validation examples:
-
-```text
-artifacts\alpha-validation\20260618-122028-sheffield-new-export-review
-artifacts\product-candidate\20260618-121615-sheffield-new-export-review
-```
+- Add image export, style presets, and optional manual overrides only after core rendering is trustworthy.
 
 ## Current Engineering Guardrails
 
@@ -103,8 +142,9 @@ artifacts\product-candidate\20260618-121615-sheffield-new-export-review
 - Do not change `metro-export.json` schema for renderer/viewer polish.
 - Do not mutate raw `line.stops` or `line.pathPoints`.
 - Keep `geographic` safe and stable.
-- Add schematic experiments as opt-in layout behavior.
+- Add schematic experiments as opt-in behavior.
 - Prefer validation bundles over one-off screenshots when reviewing new cities.
+- Do not revive old `schematic-lite` patch work for new product behavior.
 
 ## Known Limitations
 
@@ -112,30 +152,14 @@ artifacts\product-candidate\20260618-121615-sheffield-new-export-review
 - No PNG/PDF export as product features.
 - No manual drag editor.
 - No offline save parsing.
-- Schematic layouts are still experimental.
-- `schematic-map` can still need polish for crossings, label density, and small-network framing.
-- Shared platform corridors are render-only approximations; they use exact shared schematic segments, not exporter-provided platform metadata.
-- Same-number branch/shared-service families are still separate data families, but they are not split into separate visible lanes when they share the same exact track segment and color.
 - Multi-city validation is still limited.
 - City/station names may fall back when CS2 data is unavailable.
+- `schematic-map` still needs polish for crossings, octilinear grammar, labels, small-network framing, and edge cases around parallel platforms.
+- Shared platform corridors are render-only approximations based on exact shared schematic segments, not exporter-provided platform metadata.
 
-## Documentation Cleanup
+## Documentation
 
-On 2026-06-18 the docs were consolidated so future compressed sessions can recover state quickly.
-
-Full pre-cleanup snapshots:
-
-```text
-docs\archive\2026-06-18-doc-consolidation
-```
-
-Older phase-specific planning notes:
-
-```text
-docs\archive\historical
-```
-
-Start new sessions from:
+Start from:
 
 ```text
 docs\README.md
@@ -143,6 +167,13 @@ docs\PROJECT_STATE.md
 docs\NEXT_SESSION_HANDOFF.md
 docs\DEV_NOTES.md
 docs\DECISION_LOG.md
+```
+
+Archived history:
+
+```text
+docs\archive\2026-06-18-doc-consolidation
+docs\archive\historical
 ```
 
 ## Verification

@@ -26,7 +26,7 @@ Alpha notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-alpha.2" />
+	<ModVersion Value="0.1.0-alpha.2-candidate" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -35,7 +35,7 @@ Alpha notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Alpha.2 candidate:
+Alpha.2 candidate build:
 - Real metro JSON export.
 - Export snapshots with timestamped filenames.
 - City name metadata read from the loaded game city.

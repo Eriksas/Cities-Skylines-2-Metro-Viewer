@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "generator": {
+    "name": "CS2 Metro Diagram Regression Sample",
+    "version": "v0.1.0-alpha.2-candidate"
+  },
+  "game": {
+    "name": "Sample",
+    "version": "offline"
+  },
+  "city": {
+    "name": "Regression Shared Platform City",
+    "exportedAtUtc": "2026-06-19T00:00:00Z"
+  },
+  "network": {
+    "type": "metro",
+    "stations": [
+      { "id": "west_terminal", "name": "Terminal City Bank", "position": { "x": 0, "z": 0 }, "lines": ["line_5", "line_7", "line_7_branch"], "isInterchange": true },
+      { "id": "modern", "name": "现代地铁站", "position": { "x": 120, "z": 0 }, "lines": ["line_5", "line_7", "line_7_branch"], "isInterchange": true },
+      { "id": "south", "name": "South", "position": { "x": 120, "z": 120 }, "lines": ["line_5"], "isInterchange": false },
+      { "id": "airport", "name": "机场站", "position": { "x": 260, "z": -80 }, "lines": ["line_7"], "isInterchange": false },
+      { "id": "ground", "name": "地上地铁站", "position": { "x": 190, "z": -20 }, "lines": ["line_7"], "isInterchange": false },
+      { "id": "branch_north", "name": "北岛区", "position": { "x": 120, "z": -110 }, "lines": ["line_7_branch"], "isInterchange": false },
+      { "id": "branch_east", "name": "春谷街", "position": { "x": 200, "z": -110 }, "lines": ["line_7_branch"], "isInterchange": false }
+    ],
+    "lines": [
+      {
+        "id": "line_5",
+        "name": "5号线",
+        "color": "#6A1BC5",
+        "mode": "metro",
+        "stops": ["west_terminal", "modern", "south"]
+      },
+      {
+        "id": "line_7",
+        "name": "7号线",
+        "color": "#20E0D5",
+        "mode": "metro",
+        "stops": ["west_terminal", "modern", "ground", "airport"]
+      },
+      {
+        "id": "line_7_branch",
+        "name": "7号线支线",
+        "color": "#20E0D5",
+        "mode": "metro",
+        "stops": ["west_terminal", "modern", "branch_north", "branch_east"]
+      }
+    ]
+  }
+}
