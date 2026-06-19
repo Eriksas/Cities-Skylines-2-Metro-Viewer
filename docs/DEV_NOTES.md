@@ -121,7 +121,94 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate
   -CaseName product-candidate
 ```
 
-Use this for visual experiments around `schematic-map`.
+Use this for visual experiments around `schematic-map`. The script now also runs
+the schematic-map SVG audit and writes these files beside the candidate SVG/PNG:
+
+```text
+schematic-map-audit.txt
+schematic-map-route-segments.csv
+schematic-map-layout-conflicts.csv
+schematic-map-style-widths.csv
+schematic-map-parallel-corridors.csv
+```
+
+Run the audit directly on an existing SVG:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\analyze-schematic-map-svg.ps1 `
+  -InputSvg artifacts\product-candidate\<case>\product-candidate.svg `
+  -InputJson D:\CS2MetroDiagram\exports\metro-export-城市名-yyyymmdd-hhmmss.json `
+  -OutputDir artifacts\product-candidate\<case>
+```
+
+Use the audit to review:
+
+- route segment angle and octilinear drift;
+- synthetic bend count and which routes needed render-only bend points;
+- direction divergence against exported station positions when comparable;
+- exact shared-platform/parallel corridor overlay consistency;
+- route badge and station-label conflicts;
+- route badge to route badge conflicts;
+- route and corridor stroke-width token consistency.
+
+Recent Sheffield schematic-map candidate after disabling default synthetic bends and tightening route-badge spacing:
+
+```text
+artifacts\product-candidate\20260619-143053-sheffield-badge-spacing
+```
+
+The audit for this candidate reported 0 synthetic bends, 16 remaining non-octilinear segment warnings, 0 direction-divergence warnings, 0 short-segment warnings, and 0 badge conflicts. Manual review preferred this visual family over the synthetic-bend experiment, so synthetic bends should stay opt-in until a better visual scoring rule exists.
+
+## Schematic Regression Gate
+
+Run this before accepting schematic-map renderer changes:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
+```
+
+Fast smoke mode:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1 -LatestExports 0 -SkipPng
+```
+
+The script discovers the latest real export, recent snapshot exports,
+`samples\regression\*.json`, and selected legacy samples. It writes:
+
+```text
+artifacts\schematic-regression\<timestamp>\index.md
+artifacts\schematic-regression\<timestamp>\regression-summary.csv
+artifacts\schematic-regression\<timestamp>\cases\...
+```
+
+Recent real-export gate:
+
+```text
+artifacts\schematic-regression\20260619-214528
+```
+
+Recent sample smoke gate:
+
+```text
+artifacts\schematic-regression\20260619-215440
+```
+
+## Alpha.2 Candidate Package - 2026-06-19
+
+Release package generated:
+
+```text
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
+artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
+```
+
+The CS2 mod was rebuilt with the local modding toolchain before packaging and
+copied into `artifacts\cs2-local-mods\CS2 Metro`. The package script then copied
+that artifact into the release `Mod` folder.
+
+Viewer publish and release package both completed successfully. The package is
+ready for manual smoke testing before public upload.
 
 ## Roadmap Operating Rule
 
@@ -157,6 +244,16 @@ still moving.
 - Product-facing official-map candidate.
 - More abstract and map-like than schematic-v2.
 - Still experimental.
+- Uses a more assertive octilinear snap tolerance than schematic-v2 so product
+  candidates better follow horizontal, vertical, and 45-degree metro map grammar.
+- Has an opt-in render-only synthetic bend experiment for long locked route
+  segments. This does not move station markers, labels, stops, pathPoints, or
+  exported data.
+- Synthetic bends are disabled by default for product candidates after manual
+  review found the initial experiment less visually natural despite fewer audit
+  warnings.
+- Direction polish should be evidence-led through `schematic-map-audit.txt`, not
+  one-off screenshot memory.
 
 `schematic-lite`
 
@@ -179,6 +276,16 @@ still moving.
 - Current `metro-export.json` path points store planar route geometry only, so the renderer cannot yet know real CS2 over/under order.
 - To make over/under order factual later, the exporter would need to capture a stable elevation/layer signal from route segments, lanes, tracks, or sampled curve points.
 
+## Schematic-map Shared Platform Notes
+
+- Exact shared platform corridors are rendered through a dedicated overlay layer after masking duplicate base strokes.
+- `VisibleLaneResolver` collapses same-number/same-color branch families such as `7号线` and `7号线支线` into one visible lane on the exact shared segment.
+- Shared-platform lane ordering is intentionally generic:
+  - collapsed multi-family lanes are placed before single-family lanes,
+  - ties use continuation-side ordering from the adjacent route geometry,
+  - family-name order is only the final fallback.
+- This keeps cases like Terminal City Bank -> 现代地铁站 readable (`7号线`/`7号线支线` above `5号线`) without special-casing station names or line ids.
+
 ## Schematic Shared Platform Notes
 
 - Exact shared platform corridors are renderer-only and are detected from exact shared schematic segments after service-family simplification.
@@ -193,6 +300,117 @@ still moving.
 artifacts\product-candidate\20260618-163119-sheffield-shared-platform-widths
 artifacts\product-candidate\20260618-175734-sheffield-branch-lane-collapse
 artifacts\product-candidate\20260618-182727-sheffield-visible-lane-resolver
+```
+
+## Schematic-map Scoring Audit - 2026-06-19
+
+Phase 6A.0 adds a lightweight SVG scoring audit for `schematic-map` product candidates.
+
+Run:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate-map.ps1 `
+  -InputJson 'D:\CS2MetroDiagram\exports\metro-export-谢菲尔德-20260617-223135.json' `
+  -CaseName sheffield-layout-score-framework
+```
+
+The candidate folder now includes:
+
+```text
+schematic-map-audit.txt
+schematic-map-route-segments.csv
+schematic-map-layout-conflicts.csv
+schematic-map-style-widths.csv
+schematic-map-parallel-corridors.csv
+schematic-map-crossings.csv
+schematic-map-turns.csv
+schematic-map-score.csv
+```
+
+Latest scoring candidate:
+
+```text
+artifacts\product-candidate\20260619-150108-sheffield-layout-score-framework-final
+```
+
+Current score summary:
+
+```text
+overall: 67.46 / 100
+octilinear-grammar: 79.46 / 100
+route-crossings: 88.00 / 100
+badge-layout: 100.00 / 100
+stroke-width-consistency: 100.00 / 100
+```
+
+Use the score to compare candidate versions and prioritize work. Do not optimize the numeric score blindly; manual visual review still wins when a score improvement makes the map feel worse.
+
+## Product Candidate Comparison - 2026-06-19
+
+Use this before and after schematic-map changes:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
+```
+
+The script writes:
+
+```text
+comparison.html
+comparison.md
+comparison.csv
+comparison.full.png
+```
+
+Latest comparison:
+
+```text
+artifacts\product-candidate-comparison\20260619-151758
+```
+
+This is the preferred screenshot-review helper for future large layout work. It does not change rendering output; it only compares existing product candidate folders.
+
+## Schematic-map Debug Overlay - 2026-06-19
+
+`scripts\analyze-schematic-map-svg.ps1` now also writes:
+
+```text
+schematic-map-debug.svg
+schematic-map-debug.full.png
+```
+
+The overlay marks non-octilinear route segments in orange and interior route
+crossings with red target markers. Use it together with
+`schematic-map-score.csv` before changing schematic-map layout behavior. The
+latest Sheffield debug overlay is:
+
+```text
+artifacts\product-candidate\20260619-150108-sheffield-layout-score-framework-final\schematic-map-debug.full.png
+```
+
+Current measurable Sheffield issues remain 16 non-octilinear route segments and
+2 interior crossings. Badge conflicts and normal route stroke-width drift are
+currently clean.
+
+## Shared Platform Knockout Fringe Fix - 2026-06-19
+
+Exact shared platform corridors use a white knockout stroke to hide duplicate
+base route strokes before drawing visible parallel lanes. The previous knockout
+width included an extra outer buffer, which could show as white fringes around
+parallel platform segments and near station markers.
+
+The knockout width is now clamped to the visible colored lane envelope and
+records both values in SVG debug attributes:
+
+```text
+data-schematic-v2-knockout-width
+data-schematic-v2-visible-envelope-width
+```
+
+Recent validation candidate:
+
+```text
+artifacts\product-candidate\20260619-171203-sheffield-knockout-fringe-fix
 ```
 
 ## Documentation Cleanup - 2026-06-18
@@ -210,3 +428,22 @@ Older phase-specific docs:
 ```text
 docs\archive\historical
 ```
+
+## Documentation Maintenance - 2026-06-19
+
+Root docs are the current operational surface:
+
+```text
+docs\README.md
+docs\PROJECT_STATE.md
+docs\NEXT_SESSION_HANDOFF.md
+docs\DEV_NOTES.md
+docs\DECISION_LOG.md
+```
+
+Keep `PROJECT_STATE.md` short and current. Put durable why/why-not decisions in
+`DECISION_LOG.md`, operational commands and paths in `DEV_NOTES.md`, and long
+chronological evidence in validation artifacts or `docs\archive`.
+
+If a root doc starts reading like a transcript, archive the full version and
+replace it with a concise summary plus artifact paths.

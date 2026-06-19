@@ -9,6 +9,13 @@ Use this checklist for future releases.
 - [ ] Update `docs/KNOWN_ISSUES.md`.
 - [ ] Freeze the accepted primary city baseline under `artifacts\primary-city-baseline\history\<timestamp>`.
 - [ ] Confirm the recommended baseline settings are geographic, `UsePathPoints`, service family merge enabled, shared corridor disabled, and express stripe disabled.
+- [ ] Run schematic regression gate:
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
+```
+
+- [ ] Review `artifacts\schematic-regression\<timestamp>\index.md` and confirm no `needs-fix` cases.
 - [ ] Build offline solution:
 
 ```text

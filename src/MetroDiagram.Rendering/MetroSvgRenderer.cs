@@ -182,7 +182,9 @@ public sealed class MetroSvgRenderer
             EnableSchematicMapSimpleRunLinearization = true,
             SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
             EnableSchematicMapLocalClearance = true,
-            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance
+            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance,
+            EnableSchematicMapSyntheticBends = options.EnableSchematicMapSyntheticBends,
+            SchematicMapSyntheticBendMinimumLength = options.SchematicMapSyntheticBendMinimumLength
         };
     }
 
@@ -1112,7 +1114,9 @@ public sealed class MetroSvgRenderer
             EnableSchematicMapSimpleRunLinearization = options.EnableSchematicMapSimpleRunLinearization,
             SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
             EnableSchematicMapLocalClearance = options.EnableSchematicMapLocalClearance,
-            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance
+            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance,
+            EnableSchematicMapSyntheticBends = options.EnableSchematicMapSyntheticBends,
+            SchematicMapSyntheticBendMinimumLength = options.SchematicMapSyntheticBendMinimumLength
         };
     }
 
@@ -4054,9 +4058,12 @@ public sealed class MetroSvgRenderer
                 string sharedSkipAttribute = polyline.SharedCorridorSkipped is null
                     ? string.Empty
                     : $" data-shared-corridor-skipped=\"{Escape(polyline.SharedCorridorSkipped)}\"";
+                string schematicMapBendAttributes = polyline.SyntheticBendCount > 0
+                    ? $" data-schematic-map-synthetic-bends=\"{polyline.SyntheticBendCount}\""
+                    : string.Empty;
                 string schematicV2GuideAttributes = BuildSchematicV2RouteGuideAttributes(family, geometry);
                 string schematicV2ServiceAttributes = BuildSchematicV2ServiceFamilyAttributes(family, line, options);
-                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} points=\"{pointList}\"";
+                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicMapBendAttributes}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} points=\"{pointList}\"";
                 if (polyline.SharedCorridorStroke is not null)
                 {
                     AppendSharedCorridorRoutePolylines(svg, commonAttributes, polyline.SharedCorridorStroke, options);
@@ -4365,7 +4372,7 @@ public sealed class MetroSvgRenderer
         double badgeFontSize = GetRouteBadgeFontSize(options);
         double badgeWidth = Math.Max(28, EstimateTextWidth(text, badgeFontSize) + (IsSchematicMapLayout(options) ? 18 : 14));
         double badgeHeight = IsSchematicMapLayout(options) ? 25 : 22;
-        const double severeCollisionScore = 5000;
+        double severeCollisionScore = IsSchematicMapLayout(options) ? 1200 : 5000;
         List<RouteBadgePlacement> placements = [];
         RouteBadgePlacement start = CreateRouteBadgePlacement(points[0], points[1], text, badgeWidth, badgeHeight, occupiedBoxes, bounds, options);
         if (start.Score < severeCollisionScore)
@@ -4411,7 +4418,11 @@ public sealed class MetroSvgRenderer
                 (36, 42),
                 (36, -42),
                 (94, 34),
-                (94, -34)
+                (94, -34),
+                (116, 0),
+                (116, 48),
+                (116, -48),
+                (142, 0)
             ]
             : [
                 (34, 0),
@@ -4430,9 +4441,12 @@ public sealed class MetroSvgRenderer
         {
             double x = endpoint.X + direction.X * forward + normal.X * lateral;
             double y = endpoint.Y + direction.Y * forward + normal.Y * lateral;
-            SvgRect box = SvgRect.FromCenter(x, y, width + 6, height + 6);
+            double collisionPaddingX = IsSchematicMapLayout(options) ? 18 : 6;
+            double collisionPaddingY = IsSchematicMapLayout(options) ? 14 : 6;
+            SvgRect box = SvgRect.FromCenter(x, y, width + collisionPaddingX, height + collisionPaddingY);
             double overlap = occupiedBoxes.Sum(occupied => box.OverlapArea(occupied));
-            double score = overlap * 120
+            double score = overlap * (IsSchematicMapLayout(options) ? 260 : 120)
+                + (overlap > 0 && IsSchematicMapLayout(options) ? 1500 : 0)
                 + box.OutsideArea(bounds) * 20
                 + Math.Abs(lateral) * 0.8
                 + forward * 0.05;
@@ -4550,8 +4564,99 @@ public sealed class MetroSvgRenderer
                     .First();
                 return new SchematicV2ParallelCorridorLane(group.First().LaneKey, routes, primary);
             })
-            .OrderBy(lane => run.FamilyKeys.FindIndex(familyKey => lane.Routes.Any(route => string.Equals(route.Family.FamilyKey, familyKey, StringComparison.Ordinal))))
+            .OrderByDescending(lane => lane.Routes.Count)
+            .ThenByDescending(lane => CalculateSchematicV2ParallelLaneSideScore(run, lane))
+            .ThenBy(lane => run.FamilyKeys.FindIndex(familyKey => lane.Routes.Any(route => string.Equals(route.Family.FamilyKey, familyKey, StringComparison.Ordinal))))
             .ToList();
+    }
+
+    private static double CalculateSchematicV2ParallelLaneSideScore(
+        SchematicV2SharedCorridorRun run,
+        SchematicV2ParallelCorridorLane lane)
+    {
+        List<double> scores = [];
+        foreach (RenderRoute route in lane.Routes)
+        {
+            foreach (RoutePolyline polyline in route.RoutePointSet.Polylines)
+            {
+                List<SvgPoint> points = polyline.Points;
+                for (int i = 1; i < points.Count; i++)
+                {
+                    SvgPoint start = points[i - 1];
+                    SvgPoint end = points[i];
+                    if (!TryGetRunSegmentDirection(run, start, end, out SvgPoint direction))
+                    {
+                        continue;
+                    }
+
+                    if (i >= 2)
+                    {
+                        AddLaneSideScore(scores, direction, start, points[i - 2]);
+                    }
+
+                    if (i + 1 < points.Count)
+                    {
+                        AddLaneSideScore(scores, direction, end, points[i + 1]);
+                    }
+                }
+            }
+        }
+
+        if (scores.Count == 0)
+        {
+            return 0;
+        }
+
+        return scores.Average();
+    }
+
+    private static bool TryGetRunSegmentDirection(
+        SchematicV2SharedCorridorRun run,
+        SvgPoint start,
+        SvgPoint end,
+        out SvgPoint direction)
+    {
+        for (int i = 1; i < run.Points.Count; i++)
+        {
+            SvgPoint runStart = run.Points[i - 1];
+            SvgPoint runEnd = run.Points[i];
+            bool sameDirection = PointsNearlyEqual(start, runStart) && PointsNearlyEqual(end, runEnd);
+            bool reverseDirection = PointsNearlyEqual(start, runEnd) && PointsNearlyEqual(end, runStart);
+            if (!sameDirection && !reverseDirection)
+            {
+                continue;
+            }
+
+            direction = Normalize(new SvgPoint(runEnd.X - runStart.X, runEnd.Y - runStart.Y));
+            return Math.Abs(direction.X) > 0.001 || Math.Abs(direction.Y) > 0.001;
+        }
+
+        direction = new SvgPoint(0, 0);
+        return false;
+    }
+
+    private static void AddLaneSideScore(List<double> scores, SvgPoint direction, SvgPoint sharedPoint, SvgPoint externalPoint)
+    {
+        SvgPoint vector = new(externalPoint.X - sharedPoint.X, externalPoint.Y - sharedPoint.Y);
+        double length = Math.Sqrt(vector.X * vector.X + vector.Y * vector.Y);
+        if (length < 0.001)
+        {
+            return;
+        }
+
+        SvgPoint normalized = new(vector.X / length, vector.Y / length);
+        double side = Cross(direction.X, direction.Y, normalized.X, normalized.Y);
+        if (Math.Abs(side) < 0.08)
+        {
+            return;
+        }
+
+        scores.Add(side);
+    }
+
+    private static bool PointsNearlyEqual(SvgPoint first, SvgPoint second)
+    {
+        return Math.Abs(first.X - second.X) < 0.001 && Math.Abs(first.Y - second.Y) < 0.001;
     }
 
     private static double GetSchematicV2ParallelCorridorSpacing(
@@ -4594,15 +4699,22 @@ public sealed class MetroSvgRenderer
             return;
         }
 
+        if (familyCount < 2)
+        {
+            return;
+        }
+
         SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
         double center = (familyCount - 1) / 2.0;
         double maxOffset = center * spacing;
+        double visibleEnvelopeWidth = strokeWidth + maxOffset * 2;
         double knockoutWidth = Math.Max(
-            visualStyle.BaseRouteWidth + maxOffset * 2 + 6,
-            strokeWidth + maxOffset * 2 + visualStyle.StationMarkerStrokeWidth * 2);
+            visualStyle.BaseRouteWidth + 1,
+            visibleEnvelopeWidth - 0.5);
+        knockoutWidth = Math.Min(knockoutWidth, visibleEnvelopeWidth);
         string pointList = string.Join(" ", run.Points.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
         string familyKeys = string.Join("|", run.FamilyKeys);
-        svg.AppendLine($"""<polyline class="schematic-v2-parallel-corridor-knockout" data-schematic-v2-parallel-corridor-knockout="true" data-schematic-v2-shared-corridor-run-id="{Escape(run.RunId)}" data-schematic-v2-parallel-corridor-source="{Escape(run.Source)}" data-schematic-v2-shared-corridor-family-count="{run.FamilyKeys.Count}" data-schematic-v2-shared-corridor-families="{Escape(familyKeys)}" data-schematic-v2-knockout-width="{Format(knockoutWidth)}" points="{pointList}" stroke="#ffffff" stroke-linecap="butt" stroke-linejoin="round" style="stroke-width: {Format(knockoutWidth)};" />""");
+        svg.AppendLine($"""<polyline class="schematic-v2-parallel-corridor-knockout" data-schematic-v2-parallel-corridor-knockout="true" data-schematic-v2-shared-corridor-run-id="{Escape(run.RunId)}" data-schematic-v2-parallel-corridor-source="{Escape(run.Source)}" data-schematic-v2-shared-corridor-family-count="{run.FamilyKeys.Count}" data-schematic-v2-shared-corridor-families="{Escape(familyKeys)}" data-schematic-v2-knockout-width="{Format(knockoutWidth)}" data-schematic-v2-visible-envelope-width="{Format(visibleEnvelopeWidth)}" points="{pointList}" stroke="#ffffff" stroke-linecap="butt" stroke-linejoin="round" style="stroke-width: {Format(knockoutWidth)};" />""");
     }
 
     private static void AppendSchematicV2ParallelCorridorOverlay(
@@ -6562,7 +6674,7 @@ public sealed class MetroSvgRenderer
         }
 
         return new RoutePointSet(
-            [new RoutePolyline(stopPoints)],
+            [CreateSchematicMapRoutePolyline(stopPoints, options)],
             "stops",
             line.PathPoints?.Count ?? 0,
             0,
@@ -6570,6 +6682,137 @@ public sealed class MetroSvgRenderer
             0,
             0,
             0);
+    }
+
+    private static RoutePolyline CreateSchematicMapRoutePolyline(List<SvgPoint> stopPoints, SvgRenderOptions options)
+    {
+        if (options.LayoutMode != SvgLayoutMode.SchematicMap
+            || !options.EnableSchematicMapSyntheticBends
+            || stopPoints.Count < 2)
+        {
+            return new RoutePolyline(stopPoints);
+        }
+
+        List<SvgPoint> routePoints = [];
+        int syntheticBendCount = 0;
+        for (int i = 1; i < stopPoints.Count; i++)
+        {
+            SvgPoint start = stopPoints[i - 1];
+            SvgPoint end = stopPoints[i];
+            if (routePoints.Count == 0)
+            {
+                AddPointIfNotDuplicate(routePoints, start);
+            }
+
+            if (TryCreateSchematicMapSyntheticBend(start, end, options, out SvgPoint bend))
+            {
+                AddPointIfNotDuplicate(routePoints, bend);
+                syntheticBendCount++;
+            }
+
+            AddPointIfNotDuplicate(routePoints, end);
+        }
+
+        return syntheticBendCount > 0
+            ? new RoutePolyline(routePoints, SyntheticBendCount: syntheticBendCount)
+            : new RoutePolyline(stopPoints);
+    }
+
+    private static bool TryCreateSchematicMapSyntheticBend(
+        SvgPoint start,
+        SvgPoint end,
+        SvgRenderOptions options,
+        out SvgPoint bend)
+    {
+        bend = default;
+        double directLength = Distance(start, end);
+        if (directLength < Math.Max(options.SchematicMapSyntheticBendMinimumLength, options.LineWidth * 12.0))
+        {
+            return false;
+        }
+
+        double octilinearThresholdRadians = Math.PI / 180.0 * 5.0;
+        if (TryGetNearbyOctilinearDirection(start, end, octilinearThresholdRadians, out _))
+        {
+            return false;
+        }
+
+        double dx = end.X - start.X;
+        double dy = end.Y - start.Y;
+        if (Math.Abs(dx) <= 0.001 || Math.Abs(dy) <= 0.001)
+        {
+            return false;
+        }
+
+        double signX = Math.Sign(dx);
+        double signY = Math.Sign(dy);
+        double absDx = Math.Abs(dx);
+        double absDy = Math.Abs(dy);
+        double minimumLegLength = Math.Max(options.LineWidth * 5.0, 56);
+        List<SvgPoint> candidates =
+        [
+            new(end.X, start.Y),
+            new(start.X, end.Y)
+        ];
+
+        if (absDx > absDy + 0.001)
+        {
+            candidates.Add(new SvgPoint(start.X + signX * absDy, end.Y));
+            candidates.Add(new SvgPoint(end.X - signX * absDy, start.Y));
+        }
+        else if (absDy > absDx + 0.001)
+        {
+            candidates.Add(new SvgPoint(end.X, start.Y + signY * absDx));
+            candidates.Add(new SvgPoint(start.X, end.Y - signY * absDx));
+        }
+
+        SvgPoint originalDirection = Normalize(new SvgPoint(dx, dy));
+        double bestScore = double.PositiveInfinity;
+        SvgPoint best = default;
+        foreach (SvgPoint candidate in candidates.Distinct())
+        {
+            double firstLength = Distance(start, candidate);
+            double secondLength = Distance(candidate, end);
+            if (firstLength < minimumLegLength || secondLength < minimumLegLength)
+            {
+                continue;
+            }
+
+            double routeLength = firstLength + secondLength;
+            if (routeLength > directLength * 1.55)
+            {
+                continue;
+            }
+
+            if (!TryGetNearbyOctilinearDirection(start, candidate, octilinearThresholdRadians, out _)
+                || !TryGetNearbyOctilinearDirection(candidate, end, octilinearThresholdRadians, out _))
+            {
+                continue;
+            }
+
+            SvgPoint firstDirection = Normalize(new SvgPoint(candidate.X - start.X, candidate.Y - start.Y));
+            SvgPoint secondDirection = Normalize(new SvgPoint(end.X - candidate.X, end.Y - candidate.Y));
+            if (Dot(firstDirection, originalDirection) <= 0.05 || Dot(secondDirection, originalDirection) <= 0.05)
+            {
+                continue;
+            }
+
+            double balancePenalty = Math.Abs(firstLength - secondLength) / routeLength;
+            double score = (routeLength / directLength) + balancePenalty * 0.12;
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        if (double.IsPositiveInfinity(bestScore))
+        {
+            return false;
+        }
+
+        bend = best;
+        return true;
     }
 
     private static List<SvgPoint> GetLineStationPoints(
@@ -8400,7 +8643,8 @@ public sealed class MetroSvgRenderer
         double CorridorOffsetIndex = 0,
         double CorridorOffsetPx = 0,
         SharedCorridorStroke? SharedCorridorStroke = null,
-        string? SharedCorridorSkipped = null);
+        string? SharedCorridorSkipped = null,
+        int SyntheticBendCount = 0);
 
     private sealed class SchematicSegmentOccupancyBuilder(SvgPoint start, SvgPoint end)
     {

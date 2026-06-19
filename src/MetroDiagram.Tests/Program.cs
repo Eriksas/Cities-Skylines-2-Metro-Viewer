@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Xml.Linq;
 using MetroDiagram.Core.Exporting;
 using MetroDiagram.Core.Geometry;
@@ -28,6 +29,7 @@ List<(string Name, Action Test)> tests =
     ("transit-map style keeps standard style unchanged", TransitMapStyleKeepsStandardStyleUnchanged),
     ("transit-map legend explains express marker", TransitMapLegendExplainsExpressMarker),
     ("transit-map route badges avoid placed labels", TransitMapRouteBadgesAvoidPlacedLabels),
+    ("transit-map route badges avoid each other", TransitMapRouteBadgesAvoidEachOther),
     ("renderer sanitizes XML text values", RendererSanitizesXmlTextValues),
     ("schematic-lite snaps route points to grid and octilinear directions", SchematicLiteSnapsRoutePoints),
     ("schematic-lite offsets two overlapping segments", SchematicLiteOffsetsTwoOverlappingSegments),
@@ -62,6 +64,7 @@ List<(string Name, Action Test)> tests =
     ("schematic-v2 renders exact shared edge with express family", SchematicV2RendersExactSharedEdgeWithExpressFamily),
     ("schematic-v2 renders three-family exact shared edge visibly", SchematicV2RendersThreeFamilyExactSharedEdgeVisibly),
     ("schematic-v2 collapses same-number branch platform lanes", SchematicV2CollapsesSameNumberBranchPlatformLanes),
+    ("schematic-v2 orders shared platform lanes by continuation side", SchematicV2OrdersSharedPlatformLanesByContinuationSide),
     ("schematic-v2 chooses canonical service route by stop count", SchematicV2ChoosesCanonicalServiceRouteByStopCount),
     ("schematic-v2 hides express variant geometry", SchematicV2HidesExpressVariantGeometry),
     ("schematic-v2 marks express service family with center stripe", SchematicV2MarksExpressServiceFamilyWithCenterStripe),
@@ -70,6 +73,9 @@ List<(string Name, Action Test)> tests =
     ("schematic-map linearizes simple ordinary route runs", SchematicMapLinearizesSimpleOrdinaryRouteRuns),
     ("schematic-map preserves genuinely long station gaps", SchematicMapPreservesGenuinelyLongStationGaps),
     ("schematic-map normalizes near-octilinear route segments", SchematicMapNormalizesNearOctilinearRouteSegments),
+    ("schematic-map synthetic bends are off by default", SchematicMapSyntheticBendsAreOffByDefault),
+    ("schematic-map inserts synthetic bends for locked non-octilinear segments", SchematicMapInsertsSyntheticBendsForLockedNonOctilinearSegments),
+    ("schematic-map synthetic bends leave geographic unchanged", SchematicMapSyntheticBendsLeaveGeographicUnchanged),
     ("schematic-map adds local clearance near unrelated route segments", SchematicMapAddsLocalClearanceNearUnrelatedRouteSegments),
     ("schematic-map renders non-station route crossings as direct pass-through", SchematicMapRendersNonStationRouteCrossingsAsDirectPassThrough),
     ("schematic-map does not bridge station crossings", SchematicMapDoesNotBridgeStationCrossings),
@@ -355,6 +361,30 @@ static void TransitMapRouteBadgesAvoidPlacedLabels()
     Assert(xml.Descendants().Any(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "route-badges"), "Transit-map route badge layer was not rendered.");
     Assert(badges.All(badge => ReadDouble(badge.Attribute("data-route-badge-placement-score")) < 5000), "A route badge was placed despite severe station-label collision.");
     AssertValidSvg(xml, "transit-map route badge collision SVG");
+}
+
+static void TransitMapRouteBadgesAvoidEachOther()
+{
+    MetroExportDocument document = CreateTransitMapBadgeCollisionDocument();
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+        SvgLayoutMode.SchematicMap,
+        width: 980,
+        height: 620,
+        legendWidth: 220,
+        mapStyle: SvgMapStyle.TransitMap);
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    List<TestRect> badgeBoxes = GetRouteBadgeBoxes(xml).ToList();
+
+    for (int i = 0; i < badgeBoxes.Count; i++)
+    {
+        for (int j = i + 1; j < badgeBoxes.Count; j++)
+        {
+            Assert(!badgeBoxes[i].Overlaps(badgeBoxes[j], padding: 2), $"Route badges overlapped: {badgeBoxes[i].Name} vs {badgeBoxes[j].Name}.");
+        }
+    }
+
+    AssertValidSvg(xml, "transit-map route badge spacing SVG");
 }
 
 static void RendererSanitizesXmlTextValues()
@@ -983,7 +1013,13 @@ static void SchematicV2RendersExactSharedPlatformCorridors()
     Assert(platformCorridors.All(element => (string?)element.Attribute("data-schematic-v2-canonical-corridor") == "true"), "Exact shared platform overlays should be marked as canonical corridor output.");
     Assert(platformCorridors.All(element => int.TryParse((string?)element.Attribute("data-schematic-v2-shared-corridor-point-count"), out int count) && count == 3), "Exact shared platform corridor should cover the full three-station shared chain.");
     Assert(!platformCorridors.Any(element => (string?)element.Attribute("data-schematic-v2-route-guide-materialized") == "true"), "Exact shared platform rendering should not claim route-guide materialization.");
-    Assert(GetSchematicV2ParallelCorridorKnockouts(xml).Count == 1, "Exact shared platform corridor should mask duplicate base strokes before drawing platform overlays.");
+    IReadOnlyList<XElement> knockouts = GetSchematicV2ParallelCorridorKnockouts(xml);
+    Assert(knockouts.Count == 1, "Exact shared platform corridor should mask duplicate base strokes before drawing platform overlays.");
+    double maxOffset = platformCorridors.Max(element => Math.Abs(ReadDouble(element.Attribute("data-schematic-v2-parallel-offset"))));
+    double strokeWidth = platformCorridors.Max(element => ReadDouble(element.Attribute("data-schematic-v2-parallel-stroke-width")));
+    double visibleEnvelope = strokeWidth + maxOffset * 2;
+    double knockoutWidth = ReadDouble(knockouts.Single().Attribute("data-schematic-v2-knockout-width"));
+    Assert(knockoutWidth <= visibleEnvelope + 0.001, $"Exact shared platform knockout should stay inside the visible colored lane envelope to avoid white fringes; knockout={knockoutWidth}, envelope={visibleEnvelope}.");
     AssertValidSvg(xml, "schematic-v2 exact shared platform SVG");
 }
 
@@ -1058,8 +1094,35 @@ static void SchematicV2CollapsesSameNumberBranchPlatformLanes()
         .OrderBy(value => value)
         .ToList();
     Assert(offsets.Count == 2 && offsets[0] < 0 && offsets[1] > 0, $"Collapsed platform lanes should render as two centered lanes, found offsets: {string.Join(", ", offsets)}.");
+    XElement line7Lane = platformCorridors.Single(element => (string?)element.Attribute("data-schematic-v2-visible-lane-family-count") == "2");
+    XElement line5Lane = platformCorridors.Single(element => (string?)element.Attribute("data-display-family-key") == "Line 5");
+    double line7AverageY = SplitPoints((string?)line7Lane.Attribute("points")).Average(point => point.Y);
+    double line5AverageY = SplitPoints((string?)line5Lane.Attribute("points")).Average(point => point.Y);
+    Assert(line7AverageY < line5AverageY, $"Collapsed Line 7 platform lane should stay visually above single-family Line 5, found average Y values {line7AverageY} and {line5AverageY}.");
     Assert(GetSchematicV2ParallelCorridorKnockouts(xml).Count == 1, "Collapsed same-number branch platform should still mask duplicate base strokes.");
     AssertValidSvg(xml, "schematic-v2 same-number branch platform SVG");
+}
+
+static void SchematicV2OrdersSharedPlatformLanesByContinuationSide()
+{
+    MetroExportDocument document = CreateSchematicV2SideOrderedSharedPlatformDocument();
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
+        .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
+        .ToList();
+
+    Assert(platformCorridors.Count == 2, $"Expected two side-ordered shared platform overlays, but found {platformCorridors.Count}.");
+    XElement line7 = platformCorridors.Single(element => (string?)element.Attribute("data-display-family-key") == "Line 7");
+    XElement line5 = platformCorridors.Single(element => (string?)element.Attribute("data-display-family-key") == "Line 5");
+    double line7Offset = ReadDouble(line7.Attribute("data-schematic-v2-parallel-offset"));
+    double line5Offset = ReadDouble(line5.Attribute("data-schematic-v2-parallel-offset"));
+    double line7AverageY = SplitPoints((string?)line7.Attribute("points")).Average(point => point.Y);
+    double line5AverageY = SplitPoints((string?)line5.Attribute("points")).Average(point => point.Y);
+
+    Assert(Math.Sign(line7Offset) != Math.Sign(line5Offset), $"Line 7 and Line 5 should receive opposite platform offsets, found {line7Offset} and {line5Offset}.");
+    Assert(line7AverageY < line5AverageY, $"Line 7 should stay visually above Line 5 on the shared platform, found average Y values {line7AverageY} and {line5AverageY}.");
+    AssertValidSvg(xml, "schematic-v2 side-ordered shared platform SVG");
 }
 
 static void SchematicV2DetectsGeometrySharedCorridorForSkipStopService()
@@ -1249,6 +1312,68 @@ static void SchematicMapNormalizesNearOctilinearRouteSegments()
     Assert(result.Warnings.Any(warning => warning.Contains("schematic-map octilinear stations:", StringComparison.Ordinal)), "Schematic-map octilinear diagnostics were not reported.");
     Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-schematic-station-adjustment-reason") == "schematic-map-octilinear-normalization"), "Schematic-map octilinear station adjustment metadata was missing.");
     AssertValidSvg(xml, "schematic-map octilinear normalization SVG");
+}
+
+static void SchematicMapInsertsSyntheticBendsForLockedNonOctilinearSegments()
+{
+    MetroExportDocument document = CreateSchematicMapLockedNonOctilinearSegmentDocument();
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+        SvgLayoutMode.SchematicMap,
+        width: 1400,
+        height: 900,
+        legendWidth: 240);
+    SetInternalOption(options, "EnableSchematicMapSyntheticBends", true);
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
+    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    (double X, double Y) start = GetStationCenter(xml, "station_a");
+    (double X, double Y) end = GetStationCenter(xml, "station_b");
+
+    Assert((string?)route.Attribute("data-schematic-map-synthetic-bends") == "1", "Schematic-map locked non-octilinear segment did not record its synthetic bend.");
+    Assert(points.Count == 3, $"Synthetic bend should insert exactly one intermediate route point, found {points.Count} points.");
+    Assert(Distance(points[0], start) < 0.001, "Synthetic bend changed the route start station.");
+    Assert(Distance(points[^1], end) < 0.001, "Synthetic bend changed the route end station.");
+    Assert(Distance(points[1], start) > options.LineWidth * 4 && Distance(points[1], end) > options.LineWidth * 4, "Synthetic bend was placed too close to a station.");
+    Assert(IsOctilinearSegment(points[0], points[1]), "First synthetic-bend route leg was not octilinear.");
+    Assert(IsOctilinearSegment(points[1], points[2]), "Second synthetic-bend route leg was not octilinear.");
+    AssertValidSvg(xml, "schematic-map synthetic bend SVG");
+}
+
+static void SchematicMapSyntheticBendsAreOffByDefault()
+{
+    MetroExportDocument document = CreateSchematicMapLockedNonOctilinearSegmentDocument();
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+        SvgLayoutMode.SchematicMap,
+        width: 1400,
+        height: 900,
+        legendWidth: 240);
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
+    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+
+    Assert(route.Attribute("data-schematic-map-synthetic-bends") is null, "Schematic-map synthetic bends should not be enabled by product defaults.");
+    Assert(points.Count == 2, $"Default schematic-map route should keep the two-stop segment unless synthetic bends are explicitly enabled, found {points.Count} points.");
+    AssertValidSvg(xml, "schematic-map default synthetic bend SVG");
+}
+
+static void SchematicMapSyntheticBendsLeaveGeographicUnchanged()
+{
+    MetroExportDocument document = CreateSchematicMapLockedNonOctilinearSegmentDocument();
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+        SvgLayoutMode.Geographic,
+        width: 1400,
+        height: 900,
+        legendWidth: 240);
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
+    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+
+    Assert(route.Attribute("data-schematic-map-synthetic-bends") is null, "Geographic output unexpectedly received schematic-map synthetic bend metadata.");
+    Assert(points.Count == 2, $"Geographic route should keep the raw two-stop segment, found {points.Count} points.");
+    AssertValidSvg(xml, "geographic without schematic-map synthetic bend SVG");
 }
 
 static void SchematicMapAddsLocalClearanceNearUnrelatedRouteSegments()
@@ -2896,6 +3021,89 @@ static MetroExportDocument CreateSchematicMapNearOctilinearDocument()
     };
 }
 
+static MetroExportDocument CreateSchematicMapLockedNonOctilinearSegmentDocument()
+{
+    return new MetroExportDocument
+    {
+        City = new CityInfo { Name = "Locked Segment City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation
+                {
+                    Id = "station_a",
+                    Name = "Station A",
+                    Position = new MetroPosition { X = 0, Z = 0 },
+                    Lines = ["line_1", "anchor_a"]
+                },
+                new MetroStation
+                {
+                    Id = "station_b",
+                    Name = "Station B",
+                    Position = new MetroPosition { X = 600, Z = 210 },
+                    Lines = ["line_1", "anchor_b"]
+                },
+                new MetroStation
+                {
+                    Id = "station_a_north",
+                    Name = "A North",
+                    Position = new MetroPosition { X = 0, Z = -160 },
+                    Lines = ["anchor_a"]
+                },
+                new MetroStation
+                {
+                    Id = "station_a_south",
+                    Name = "A South",
+                    Position = new MetroPosition { X = 0, Z = 160 },
+                    Lines = ["anchor_a"]
+                },
+                new MetroStation
+                {
+                    Id = "station_b_north",
+                    Name = "B North",
+                    Position = new MetroPosition { X = 600, Z = 50 },
+                    Lines = ["anchor_b"]
+                },
+                new MetroStation
+                {
+                    Id = "station_b_south",
+                    Name = "B South",
+                    Position = new MetroPosition { X = 600, Z = 370 },
+                    Lines = ["anchor_b"]
+                }
+            ],
+            Lines =
+            [
+                new MetroLine
+                {
+                    Id = "line_1",
+                    Name = "Line 1",
+                    Color = "#00A859",
+                    Mode = "metro",
+                    Stops = ["station_a", "station_b"]
+                },
+                new MetroLine
+                {
+                    Id = "anchor_a",
+                    Name = "Anchor A",
+                    Color = "#999999",
+                    Mode = "metro",
+                    Stops = ["station_a_north", "station_a", "station_a_south"]
+                },
+                new MetroLine
+                {
+                    Id = "anchor_b",
+                    Name = "Anchor B",
+                    Color = "#777777",
+                    Mode = "metro",
+                    Stops = ["station_b_north", "station_b", "station_b_south"]
+                }
+            ]
+        }
+    };
+}
+
 static MetroExportDocument CreateSchematicMapCurvedOrdinaryRunDocument()
 {
     return new MetroExportDocument
@@ -3328,6 +3536,29 @@ static MetroExportDocument CreateSchematicV2BranchSharedPlatformDocument()
                 new MetroLine { Id = "line_5", Name = "Line 5", Color = "#6A00C2", Mode = "metro", Stops = ["station_5_west", "station_a", "station_b"] },
                 new MetroLine { Id = "line_7", Name = "Line 7", Color = "#00FFE6", Mode = "metro", Stops = ["station_7_west", "station_a", "station_b"] },
                 new MetroLine { Id = "line_7_branch", Name = "Line 7 Branch", Color = "#00FFE6", Mode = "metro", Stops = ["station_7_branch_west", "station_a", "station_b"] }
+            ]
+        }
+    };
+}
+
+static MetroExportDocument CreateSchematicV2SideOrderedSharedPlatformDocument()
+{
+    return new MetroExportDocument
+    {
+        City = new CityInfo { Name = "Side Ordered Shared Platform City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation { Id = "station_a", Name = "A", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["line_5", "line_7"] },
+                new MetroStation { Id = "station_b", Name = "B", Position = new MetroPosition { X = 100, Z = 0 }, Lines = ["line_5", "line_7"] },
+                new MetroStation { Id = "station_5_south", Name = "5 South", Position = new MetroPosition { X = -120, Z = 80 }, Lines = ["line_5"] },
+                new MetroStation { Id = "station_7_north", Name = "7 North", Position = new MetroPosition { X = -120, Z = -80 }, Lines = ["line_7"] }
+            ],
+            Lines =
+            [
+                new MetroLine { Id = "line_5", Name = "Line 5", Color = "#6A00C2", Mode = "metro", Stops = ["station_5_south", "station_a", "station_b"] },
+                new MetroLine { Id = "line_7", Name = "Line 7", Color = "#00FFE6", Mode = "metro", Stops = ["station_7_north", "station_a", "station_b"] }
             ]
         }
     };
@@ -4266,6 +4497,25 @@ static IReadOnlyList<XElement> GetSchematicOverlapRouteElements(XDocument xml)
         .ToList();
 }
 
+static IReadOnlyList<TestRect> GetRouteBadgeBoxes(XDocument xml)
+{
+    return xml
+        .Descendants()
+        .Where(element => element.Name.LocalName == "g" && (string?)element.Attribute("class") == "route-badge")
+        .Select(group =>
+        {
+            XElement rect = group.Elements().First(element => element.Name.LocalName == "rect");
+            string name = (string?)group.Attribute("data-display-family-key") ?? "unknown";
+            return new TestRect(
+                name,
+                ReadDouble(rect.Attribute("x")),
+                ReadDouble(rect.Attribute("y")),
+                ReadDouble(rect.Attribute("width")),
+                ReadDouble(rect.Attribute("height")));
+        })
+        .ToList();
+}
+
 static bool HasSharedCorridorStyle(XDocument xml)
 {
     return GetSharedCorridorRouteElements(xml).Count > 0;
@@ -4355,6 +4605,15 @@ static void AssertValidSvg(XDocument xml, string context)
     Assert(root.Name.LocalName == "svg", $"{context}: XML root was not <svg>.");
     Assert(root.Name.NamespaceName == "http://www.w3.org/2000/svg", $"{context}: SVG namespace was missing.");
     Assert(root.Descendants().Any(element => element.Name.LocalName == "title"), $"{context}: SVG did not contain a <title> element.");
+}
+
+static void SetInternalOption<T>(SvgRenderOptions options, string propertyName, T value)
+{
+    PropertyInfo? property = typeof(SvgRenderOptions).GetProperty(
+        propertyName,
+        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    Assert(property is not null, $"SvgRenderOptions did not contain internal option '{propertyName}'.");
+    property!.SetValue(options, value);
 }
 
 static void AssertSvgContains(string svg, string expected, string context)
@@ -4479,6 +4738,17 @@ static void Assert(bool condition, string message)
     if (!condition)
     {
         throw new InvalidOperationException(message);
+    }
+}
+
+readonly record struct TestRect(string Name, double X, double Y, double Width, double Height)
+{
+    public bool Overlaps(TestRect other, double padding = 0)
+    {
+        return X - padding < other.X + other.Width + padding
+            && X + Width + padding > other.X - padding
+            && Y - padding < other.Y + other.Height + padding
+            && Y + Height + padding > other.Y - padding;
     }
 }
 

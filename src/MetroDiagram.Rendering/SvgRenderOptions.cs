@@ -124,7 +124,7 @@ public sealed class SvgRenderOptions
 
     internal bool EnableSchematicMapOctilinearNormalization { get; set; }
 
-    internal double SchematicMapOctilinearSnapAngleDegrees { get; set; } = 14;
+    internal double SchematicMapOctilinearSnapAngleDegrees { get; set; } = 22.5;
 
     internal bool EnableSchematicMapSimpleRunLinearization { get; set; }
 
@@ -133,6 +133,10 @@ public sealed class SvgRenderOptions
     internal bool EnableSchematicMapLocalClearance { get; set; }
 
     internal double SchematicMapLocalClearanceDistance { get; set; }
+
+    internal bool EnableSchematicMapSyntheticBends { get; set; }
+
+    internal double SchematicMapSyntheticBendMinimumLength { get; set; } = 220;
 
     internal int EffectivePadding => Padding != 72 ? Padding : Margin;
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0-alpha.2-candidate - 2026-05-30
+## v0.1.0-alpha.2-candidate - 2026-06-19
 
 Alpha.2 candidate for focused external validation after the alpha.1 release.
 
@@ -15,18 +15,27 @@ Alpha.2 candidate for focused external validation after the alpha.1 release.
 - Timestamped export snapshot naming while preserving the latest `metro-export.json` / `metro-export-diagnostics.txt` paths.
 - Primary city baseline workflow under `artifacts\primary-city-baseline`.
 - Visual continuity diagnostics and SVG/PNG baseline generation helpers.
+- Viewer in-app SVG preview and export-data inspection.
+- Viewer no longer exposes legacy `schematic-lite`; it focuses on `geographic`, `schematic-v2`, and `schematic-map`.
+- Product-facing experimental `schematic-map` layout with transit-map framing, route badges, compact legend/key behavior, and official-map-style direction normalization.
+- Schematic-map SVG audit reports for octilinear grammar, crossings, turns, route badges, shared platform overlays, and stroke-width consistency.
+- Schematic regression gate for running real exports and synthetic regression samples together before accepting renderer changes.
+- Shared-platform rendering fixes for close parallel tracks, same-number branch lane collapse, and knockout-width clamping to avoid white fringes.
+- Regression samples for simple networks and shared-platform/branch cases.
 
 ### Experimental
 
 - Shared corridor composite/normalized rendering remains off by default.
 - Express center stripe rendering remains off by default.
 - Parallel corridor offset remains off by default and is no longer the recommended direction.
+- `schematic-map` is available for validation but is not yet the default alpha recommendation.
 
 ### Notes
 
 - The accepted alpha.2 candidate baseline is `geographic + UsePathPoints + service family merge / normalized family rendering`.
 - Shared corridor and express stripe outputs are comparison artifacts only and should not block alpha testing.
 - Phase 5A.9 Route Run Stitcher is not started for this candidate.
+- Use `scripts\generate-schematic-regression-gate.ps1` before accepting future schematic-map renderer changes.
 
 ## v0.1.0-alpha.1 - 2026-05-26
 

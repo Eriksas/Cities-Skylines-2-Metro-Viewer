@@ -9,6 +9,13 @@ $releasePath = Join-Path $releaseRoot $packageName
 $zipPath = Join-Path $releaseRoot "$packageName-win-x64.zip"
 $viewerSource = Join-Path $repoRoot 'artifacts\viewer-win-x64-self-contained'
 $modSource = Join-Path $repoRoot 'artifacts\cs2-local-mods'
+$modSourceDescription = 'artifacts\cs2-local-mods'
+$localModsDataSource = 'E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods'
+
+if (-not (Test-Path $modSource) -and (Test-Path $localModsDataSource)) {
+    $modSource = $localModsDataSource
+    $modSourceDescription = $localModsDataSource
+}
 
 function Assert-UnderPath {
     param(
@@ -82,7 +89,7 @@ else {
 }
 
 Copy-Item -Path (Join-Path $repoRoot 'docs\*') -Destination $docsTarget -Recurse -Force
-Copy-Item -Path (Join-Path $repoRoot 'samples\*.json') -Destination $samplesTarget -Force
+Copy-Item -Path (Join-Path $repoRoot 'samples\*') -Destination $samplesTarget -Recurse -Force
 
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $releasePath 'README.md') -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\ALPHA_QUICK_START.md') -Destination (Join-Path $releasePath 'QUICK_START.md') -Force
@@ -100,6 +107,7 @@ $builtAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     "ReleaseFolder: $releasePath"
     "Zip: $zipPath"
     'Includes: Mod, Viewer, docs, samples'
+    "ModSource: $modSourceDescription"
     'Stability: alpha, not a stable release'
 ) | Set-Content -LiteralPath (Join-Path $releasePath 'build-info.txt') -Encoding UTF8
 

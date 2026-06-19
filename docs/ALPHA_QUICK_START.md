@@ -71,7 +71,8 @@ D:\CS2MetroDiagram\exports\
 Use the `Layout` dropdown:
 
 - `geographic`: normalized source coordinate rendering.
-- `schematic-lite`: render-time grid snapping with horizontal, vertical, and 45-degree line segments where possible.
+- `schematic-map`: experimental product-facing schematic map style.
+- `schematic-v2`: experimental topology/diagnostic schematic layout.
 
 Click `Refresh Preview` after changing numeric settings.
 
