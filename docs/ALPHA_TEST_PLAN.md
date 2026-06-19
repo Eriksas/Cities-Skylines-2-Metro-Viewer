@@ -42,6 +42,27 @@ Refresh the index:
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\summarize-alpha-validation-bundles.ps1
 ```
 
+For a batch pass over recent exported snapshots:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 `
+  -IncludeLatest `
+  -LatestCount 5 `
+  -SkipZip
+```
+
+Use explicit inputs when comparing a known set of cities:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 `
+  -InputJson @(
+    'D:\CS2MetroDiagram\exports\metro-export-city-a-yyyymmdd-hhmmss.json',
+    'D:\CS2MetroDiagram\exports\metro-export-city-b-yyyymmdd-hhmmss.json'
+  ) `
+  -LatestCount 0 `
+  -SkipZip
+```
+
 Bundle index:
 
 ```text

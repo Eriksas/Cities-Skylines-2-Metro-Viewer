@@ -207,8 +207,41 @@ The CS2 mod was rebuilt with the local modding toolchain before packaging and
 copied into `artifacts\cs2-local-mods\CS2 Metro`. The package script then copied
 that artifact into the release `Mod` folder.
 
-Viewer publish and release package both completed successfully. The package is
-ready for manual smoke testing before public upload.
+Viewer publish and release package both completed successfully.
+
+Manual smoke validation passed, then the candidate was uploaded:
+
+- GitHub pre-release tag: `v0.1.0-alpha.2-candidate`
+- GitHub release asset: `CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
+- Paradox Mods ModId: `146643`
+- Paradox Mods version: `0.1.0-alpha.2-candidate`
+- Paradox Mods access level: `Unlisted`
+
+The first Paradox publish attempt failed because `ModVersion` was still
+`0.1.0-alpha.2`, matching an existing server version. Updating
+`CS2 Metro\Properties\PublishConfiguration.xml` to
+`0.1.0-alpha.2-candidate` fixed the publish.
+
+## Alpha Validation Set Workflow - 2026-06-19
+
+Use the batch wrapper once multiple cities or snapshots exist:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 `
+  -IncludeLatest `
+  -LatestCount 5 `
+  -SkipZip
+```
+
+The script:
+
+- scans recent `D:\CS2MetroDiagram\exports\metro-export-*.json` snapshots,
+- optionally includes `D:\CS2MetroDiagram\metro-export.json`,
+- calls `scripts\generate-alpha-validation-bundle.ps1` per input,
+- writes `artifacts\alpha-validation\batch-<timestamp>.csv`,
+- refreshes `artifacts\alpha-validation\index.md` and `index.csv`.
+
+Use `-WhatIfOnly` first when checking which exports will be processed.
 
 ## Roadmap Operating Rule
 

@@ -132,6 +132,14 @@ Reason: subtle layout changes often improve one local area while hurting another
 
 Consequence: use `scripts\compare-product-candidates.ps1` after generating product candidates. The script writes `comparison.html`, `comparison.md`, `comparison.csv`, and `comparison.full.png` under `artifacts\product-candidate-comparison`.
 
+## Batch Alpha Validation Before Broad Schematic Tuning
+
+Decision: medium-term schematic-map work should collect and review multiple alpha validation bundles before broad layout changes.
+
+Reason: two hand-tested cities are not enough to prove a schematic rule is general. A batch wrapper makes it cheap to process recent exported snapshots and refresh the review index.
+
+Consequence: use `scripts\generate-alpha-validation-set.ps1` to generate one validation bundle per latest/snapshot export, then use `artifacts\alpha-validation\index.md` as the review queue. Continue using product-candidate comparison and schematic regression gates for code changes.
+
 ## Add Visual Debug Overlays Before More Schematic-map Tuning
 
 Decision: schematic-map audits should produce a visual debug overlay that marks

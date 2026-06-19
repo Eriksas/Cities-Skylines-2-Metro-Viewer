@@ -8,7 +8,13 @@ This is alpha software. It is not a stable release.
 
 ## Current Status
 
-The project is in alpha validation and schematic-map refinement.
+The project is in multi-city alpha validation and schematic-map refinement.
+
+`v0.1.0-alpha.2-candidate` has been published as:
+
+- GitHub pre-release: `v0.1.0-alpha.2-candidate`
+- Paradox Mods version: `0.1.0-alpha.2-candidate`
+- Paradox Mods access level: `Unlisted`
 
 Recommended alpha default:
 
@@ -40,8 +46,7 @@ Phase 6A.1 adds a schematic-map regression gate so future renderer changes are
 checked across real exports and synthetic regression samples before visual
 acceptance.
 
-Alpha.2 candidate release package has been regenerated and is ready for manual
-release review:
+Alpha.2 candidate release package:
 
 ```text
 artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
@@ -49,7 +54,8 @@ artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
 ```
 
 The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
-docs, samples, and regression samples.
+docs, samples, and regression samples. Manual smoke validation passed before the
+release was published.
 
 Latest real-export regression gate:
 
@@ -84,6 +90,12 @@ Generate a full alpha validation bundle:
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-bundle.ps1 -InputJson "D:\CS2MetroDiagram\metro-export.json" -CaseName my-city
+```
+
+Generate a batch of validation bundles from latest/recent exports:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipZip
 ```
 
 Generate a product candidate map:
@@ -121,15 +133,16 @@ Important generated artifacts:
 Short term:
 
 - Keep `geographic` stable as the alpha default.
+- Collect more real-city validation bundles before accepting broad layout changes.
 - Continue polishing `schematic-map` only through evidence-backed candidate bundles.
 - Run the schematic regression gate before accepting layout/rendering changes.
 - Use debug overlays and scoring reports before layout changes.
 - Preserve the current shared-platform behavior: same-number branch/shared-service lanes collapse when they share the exact same platform segment; distinct colored lanes remain visible and consistent width.
-- Before public release, manually smoke-test the packaged Viewer and in-game mod export from the release folder/zip.
 
 Medium term:
 
-- Make `schematic-map` closer to an official metro diagram through topology-safe octilinear routing, label placement, crossing readability, and multi-city validation.
+- Build a multi-city regression set from alpha tester exports.
+- Make `schematic-map` closer to an official metro diagram through topology-safe octilinear routing, label placement, crossing readability, and validation across that regression set.
 
 Long term:
 

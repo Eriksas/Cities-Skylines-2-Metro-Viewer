@@ -24,7 +24,7 @@ docs\archive\historical
 
 ## Current Direction
 
-The project is focused on alpha validation and `schematic-map` polish.
+The project is focused on multi-city alpha validation and `schematic-map` polish.
 
 Recommended alpha tester output:
 
@@ -68,6 +68,12 @@ schematic-lite
 - Latest alpha.2 candidate release package:
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
+- GitHub pre-release:
+  - `v0.1.0-alpha.2-candidate`
+- Paradox Mods:
+  - ModId `146643`
+  - Version `0.1.0-alpha.2-candidate`
+  - Access level `Unlisted`
 
 ## Current Schematic-map Notes
 
@@ -82,7 +88,8 @@ schematic-lite
 
 Good next tasks:
 
-- Manually smoke-test the release Viewer and in-game mod export from the alpha.2 candidate package.
+- Generate alpha validation bundles for every new city export.
+- Use `scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipZip` to process recent snapshots and refresh the bundle index.
 - Generate and compare product candidates for new city exports.
 - Run `scripts\generate-schematic-regression-gate.ps1` before accepting schematic-map changes.
 - Use `schematic-map-debug.full.png`, `schematic-map-score.csv`, and comparison bundles before changing layout behavior.

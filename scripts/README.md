@@ -18,6 +18,7 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 ## Alpha Validation
 
 - `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, geographic/schematic outputs, `schematic-map` product candidate output, screenshots, `manifest.json`, notes, and feedback template.
+- `generate-alpha-validation-set.ps1` - batch wrapper for multi-city alpha validation. It can scan recent timestamped exports, include the latest export, generate one bundle per input, and refresh the alpha validation index.
 - `summarize-alpha-validation-bundles.ps1` - scans generated alpha validation bundles and writes `artifacts\alpha-validation\index.md` plus `index.csv` so multi-city review status is visible in one place.
 - `generate-schematic-regression-gate.ps1` - runs the current schematic-map regression gate across latest exports and regression samples, writing per-case geographic/schematic-map outputs, audit files, screenshots unless `-SkipPng` is used, and a `regression-summary.csv`.
 - `generate-primary-city-baseline.ps1` - refreshes the primary city regression baseline.
