@@ -57,6 +57,7 @@ function Get-BundleSummary {
             GeneratorVersion = ''
             ToolVersion = ''
             SourceJson = ''
+            ScreenshotsGenerated = ''
             ValidationWarningCount = ''
             ValidationWarnings = 'missing manifest.json'
             HasGeographicPng = Test-BundleFile -BundlePath $Directory.FullName -RelativePath 'baseline-geographic.full.png'
@@ -72,6 +73,20 @@ function Get-BundleSummary {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $warnings = @($manifest.validationWarnings)
     $files = $manifest.files
+    $renderSettingsProperty = $manifest.PSObject.Properties['renderSettings']
+    $screenshotsProperty = if ($null -ne $renderSettingsProperty -and $null -ne $renderSettingsProperty.Value) {
+        $renderSettingsProperty.Value.PSObject.Properties['screenshotsGenerated']
+    }
+    else {
+        $null
+    }
+
+    $screenshotsGenerated = if ($null -ne $screenshotsProperty) {
+        [bool] $manifest.renderSettings.screenshotsGenerated
+    }
+    else {
+        Test-BundleFile -BundlePath $Directory.FullName -RelativePath $files.geographicPng
+    }
 
     return [pscustomobject]@{
         BundleName = Convert-ToDisplayValue $manifest.bundleName $Directory.Name
@@ -83,6 +98,7 @@ function Get-BundleSummary {
         GeneratorVersion = Convert-ToDisplayValue $manifest.export.generatorVersion
         ToolVersion = Convert-ToDisplayValue $manifest.tool.version
         SourceJson = Convert-ToDisplayValue $manifest.source.inputJson
+        ScreenshotsGenerated = $screenshotsGenerated
         ValidationWarningCount = $warnings.Count
         ValidationWarnings = if ($warnings.Count -eq 0) { '' } else { $warnings -join ' | ' }
         HasGeographicPng = Test-BundleFile -BundlePath $Directory.FullName -RelativePath $files.geographicPng
@@ -139,19 +155,23 @@ $markdown.Add("- Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 $markdown.Add("- Input root: $inputRootPath")
 $markdown.Add("- Bundle count: $($summaries.Count)")
 $markdown.Add('')
-$markdown.Add('| Bundle | City | Lines | Stations | Generated | Geo PNG | Schematic-map PNG | Schematic-v2 PNG | Warnings |')
-$markdown.Add('| --- | --- | ---: | ---: | --- | --- | --- | --- | --- |')
+$markdown.Add('| Bundle | City | Lines | Stations | Generated | Screenshots | Geo PNG | Schematic-map PNG | Schematic-v2 PNG | Warnings |')
+$markdown.Add('| --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- |')
 foreach ($summary in $summaries) {
     $warningText = if ([string]::IsNullOrWhiteSpace([string] $summary.ValidationWarnings)) { '' } else { [string] $summary.ValidationWarnings }
     $warningText = $warningText.Replace('|', '\|')
-    $markdown.Add("| $($summary.BundleName) | $($summary.CityName) | $($summary.LineCount) | $($summary.StationCount) | $($summary.GeneratedAt) | $(Convert-ToMarkdownBool $summary.HasGeographicPng) | $(Convert-ToMarkdownBool $summary.HasSchematicMapPng) | $(Convert-ToMarkdownBool $summary.HasSchematicV2Png) | $warningText |")
+    $screenshotsText = if ($summary.ScreenshotsGenerated -is [bool]) { Convert-ToMarkdownBool $summary.ScreenshotsGenerated } else { '' }
+    $markdown.Add("| $($summary.BundleName) | $($summary.CityName) | $($summary.LineCount) | $($summary.StationCount) | $($summary.GeneratedAt) | $screenshotsText | $(Convert-ToMarkdownBool $summary.HasGeographicPng) | $(Convert-ToMarkdownBool $summary.HasSchematicMapPng) | $(Convert-ToMarkdownBool $summary.HasSchematicV2Png) | $warningText |")
 }
 
 $markdown.Add('')
 $markdown.Add('## Review Notes')
 $markdown.Add('')
-$markdown.Add('- Open `baseline-geographic.full.png` first for alpha baseline acceptance.')
-$markdown.Add('- Open `schematic-map.full.png` next for product-facing schematic review.')
+$markdown.Add('- Fast triage bundles generated with `-SkipPng` have SVGs, diagnostics, notes, and manifests but no PNG screenshots.')
+$markdown.Add('- For fast bundles, inspect `schematic-map.svg`, `baseline-geographic.svg`, and `schematic-v2-diagnostics\topology-summary.txt` first.')
+$markdown.Add('- For full review bundles, open `baseline-geographic.full.png` first for alpha baseline acceptance.')
+$markdown.Add('- For full review bundles, open `schematic-map.full.png` next for product-facing schematic review.')
+$markdown.Add('- Regenerate a selected fast bundle without `-SkipPng` when it needs manual screenshot review or feedback attachments.')
 $markdown.Add('- Attach `manifest.json`, `notes.md`, and `feedback-template-filled.md` when reporting a city-specific issue.')
 $markdown.Add('- Bundles marked `missing manifest.json` are older outputs and should be regenerated before formal alpha review.')
 
