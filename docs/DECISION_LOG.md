@@ -191,3 +191,17 @@ Consequence: shared-platform SVG now records both
 `data-schematic-v2-knockout-width` and
 `data-schematic-v2-visible-envelope-width`, and tests assert the knockout does
 not exceed the visible lane envelope.
+
+## Split Alpha Validation Into Fast And Full Modes
+
+Decision: batch alpha validation should default to fast SVG/diagnostics triage
+when reviewing many exports, with PNG screenshots reserved for selected full
+review bundles.
+
+Reason: a recent six-case validation batch completed the actual bundle work but
+hit the command timeout because screenshot capture dominates runtime. We need
+multi-city evidence without making every scan wait on browser screenshots.
+
+Consequence: `generate-alpha-validation-bundle.ps1` and
+`generate-alpha-validation-set.ps1` support `-SkipPng`. Use `-SkipPng` for daily
+triage and omit it for the cases that need full screenshot feedback packages.

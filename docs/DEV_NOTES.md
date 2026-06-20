@@ -480,3 +480,20 @@ chronological evidence in validation artifacts or `docs\archive`.
 
 If a root doc starts reading like a transcript, archive the full version and
 replace it with a concise summary plus artifact paths.
+
+## Fast Alpha Validation Bundles - 2026-06-20
+
+Batch validation can be expensive because a full bundle captures PNG screenshots
+for every rendered layout. Use the fast SVG/diagnostics-only mode for daily
+multi-city triage:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipPng -SkipZip
+```
+
+Use the full screenshot mode only after choosing a city/case for manual visual
+review:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-bundle.ps1 -InputJson "D:\CS2MetroDiagram\metro-export.json" -CaseName review
+```

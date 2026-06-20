@@ -89,7 +89,8 @@ schematic-lite
 Good next tasks:
 
 - Generate alpha validation bundles for every new city export.
-- Use `scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipZip` to process recent snapshots and refresh the bundle index.
+- Use `scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipPng -SkipZip` for a fast recent-snapshot triage pass and refreshed bundle index.
+- Omit `-SkipPng` only for selected cases that need full screenshot bundles for manual review or feedback attachments.
 - Generate and compare product candidates for new city exports.
 - Run `scripts\generate-schematic-regression-gate.ps1` before accepting schematic-map changes.
 - Use `schematic-map-debug.full.png`, `schematic-map-score.csv`, and comparison bundles before changing layout behavior.

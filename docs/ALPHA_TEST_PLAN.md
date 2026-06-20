@@ -48,6 +48,20 @@ For a batch pass over recent exported snapshots:
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 `
   -IncludeLatest `
   -LatestCount 5 `
+  -SkipPng `
+  -SkipZip
+```
+
+This is the recommended daily triage mode. It generates SVGs, diagnostics,
+notes, manifests, and the validation index without spending time on every PNG
+screenshot.
+
+For a full screenshot batch, omit `-SkipPng`:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 `
+  -IncludeLatest `
+  -LatestCount 5 `
   -SkipZip
 ```
 
@@ -60,6 +74,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-
     'D:\CS2MetroDiagram\exports\metro-export-city-b-yyyymmdd-hhmmss.json'
   ) `
   -LatestCount 0 `
+  -SkipPng `
   -SkipZip
 ```
 
@@ -113,11 +128,11 @@ Each current bundle should contain:
 - `metro-export.json`
 - `metro-export-diagnostics.txt`, when available
 - `baseline-geographic.svg`
-- `baseline-geographic.full.png`
+- `baseline-geographic.full.png`, when PNG screenshots were generated
 - `schematic-map.svg`
-- `schematic-map.full.png`
+- `schematic-map.full.png`, when PNG screenshots were generated
 - `schematic-v2.svg`
-- `schematic-v2.full.png`
+- `schematic-v2.full.png`, when PNG screenshots were generated
 - `visual-continuity-summary.txt`
 - `schematic-v2-diagnostics\`
 - `manifest.json`

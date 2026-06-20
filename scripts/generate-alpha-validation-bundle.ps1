@@ -3,7 +3,8 @@ param(
     [string] $InputJson = 'D:\CS2MetroDiagram\metro-export.json',
     [string] $CaseName = 'primary-city',
     [string] $OutputRoot,
-    [switch] $SkipZip
+    [switch] $SkipZip,
+    [switch] $SkipPng
 )
 
 Set-StrictMode -Version Latest
@@ -261,15 +262,15 @@ $warningText
 - metro-export.json
 - metro-export-diagnostics.txt, if available
 - baseline-geographic.svg
-- baseline-geographic.full.png
+- baseline-geographic.full.png, unless -SkipPng was used
 - visual-continuity-summary.txt
 - visual-continuity-debug.svg
 - schematic-lite.svg
-- schematic-lite.full.png
+- schematic-lite.full.png, unless -SkipPng was used
 - schematic-v2.svg
-- schematic-v2.full.png
+- schematic-v2.full.png, unless -SkipPng was used
 - schematic-map.svg
-- schematic-map.full.png
+- schematic-map.full.png, unless -SkipPng was used
 - schematic-v2-diagnostics\
 - manifest.json
 - feedback-template-filled.md
@@ -314,11 +315,11 @@ $warningText
 - metro-export.json
 - metro-export-diagnostics.txt, if available
 - baseline-geographic.svg
-- baseline-geographic.full.png
+- baseline-geographic.full.png, if generated
 - schematic-v2.svg
-- schematic-v2.full.png
+- schematic-v2.full.png, if generated
 - schematic-map.svg
-- schematic-map.full.png
+- schematic-map.full.png, if generated
 - schematic-v2-diagnostics\shared-corridors.txt
 - manifest.json
 - Viewer settings from Documents\CS2MetroDiagram\viewer-settings.json, if available
@@ -354,6 +355,7 @@ function Write-BundleManifest {
         [Parameter(Mandatory = $true)][string] $GeneratedAt,
         [Parameter(Mandatory = $true)] $Metadata,
         [Parameter(Mandatory = $true)][string] $CurrentAppVersion,
+        [Parameter(Mandatory = $true)][bool] $ScreenshotsGenerated,
         [string[]] $ValidationWarnings = @()
     )
 
@@ -415,6 +417,7 @@ function Write-BundleManifest {
                 status = 'product-facing experimental candidate'
             }
             comparisons = @('schematic-lite', 'schematic-v2')
+            screenshotsGenerated = $ScreenshotsGenerated
         }
         validationWarnings = $ValidationWarnings
     }
@@ -500,10 +503,15 @@ try {
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicV2Svg -Layout 'schematic-v2'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicMapSvg -Layout 'schematic-map' -UsePathPoints
 
-    Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
-    Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicLiteSvg -OutputPng $schematicLitePng
-    Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
-    Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
+    if ($SkipPng) {
+        Write-Host 'Skipping PNG screenshot generation because -SkipPng was specified.'
+    }
+    else {
+        Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
+        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicLiteSvg -OutputPng $schematicLitePng
+        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
+        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
+    }
 
     $powerShellRunner = Get-PowerShellRunner
     & $powerShellRunner -NoProfile -ExecutionPolicy Bypass -File $visualScript -InputSvg $baselineSvg -OutputReport $visualReport -OutputDebugSvg $visualDebugSvg
@@ -531,6 +539,7 @@ try {
         -GeneratedAt (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') `
         -Metadata $metadata `
         -CurrentAppVersion $currentAppVersion `
+        -ScreenshotsGenerated (-not $SkipPng) `
         -ValidationWarnings $validationWarnings
 
     if (-not $SkipZip) {

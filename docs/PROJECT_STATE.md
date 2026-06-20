@@ -95,8 +95,12 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-
 Generate a batch of validation bundles from latest/recent exports:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipZip
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-alpha-validation-set.ps1 -IncludeLatest -LatestCount 5 -SkipPng -SkipZip
 ```
+
+This is the preferred daily triage mode. It keeps SVGs, diagnostics, notes, and
+the index, but skips full PNG screenshots. Omit `-SkipPng` for a full
+screenshot bundle after choosing cases for manual review.
 
 Generate a product candidate map:
 

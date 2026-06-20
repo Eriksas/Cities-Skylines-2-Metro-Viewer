@@ -7,6 +7,7 @@ param(
     [int] $LatestCount = 5,
     [string] $OutputRoot,
     [switch] $SkipZip,
+    [switch] $SkipPng,
     [switch] $WhatIfOnly
 )
 
@@ -209,6 +210,10 @@ foreach ($candidate in $candidates) {
 
     if ($SkipZip) {
         $arguments += '-SkipZip'
+    }
+
+    if ($SkipPng) {
+        $arguments += '-SkipPng'
     }
 
     try {
