@@ -1,6 +1,7 @@
 <Window x:Class="MetroDiagram.Viewer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="CS2 Metro Diagram Viewer"
         Width="1320"
         Height="900"
@@ -55,6 +56,15 @@
                             <ComboBoxItem Content="200%" Tag="200" />
                             <ComboBoxItem Content="300%" Tag="300" />
                         </ComboBox>
+                        <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="12,0,8,8" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
+                        <ComboBox x:Name="ManualEditModeComboBox" Width="98" Margin="0,0,8,8" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
+                            <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
+                            <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
+                        </ComboBox>
+                        <Button x:Name="ResetSelectedOverrideButton" Content="Reset Selected" MinWidth="104" Margin="0,0,8,8" Padding="10,3" Click="ResetSelectedOverride_Click" IsEnabled="False" />
+                        <Button x:Name="ToggleSelectedLabelButton" Content="Hide Label" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ToggleSelectedLabel_Click" IsEnabled="False" />
+                        <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ClearOverrides_Click" IsEnabled="False" />
+                        <Button x:Name="OpenOverridesButton" Content="Open Edit File" MinWidth="104" Margin="0,0,0,8" Padding="10,3" Click="OpenOverrides_Click" IsEnabled="False" />
                     </WrapPanel>
 
                     <UniformGrid Columns="8" Margin="0,4,0,0">
@@ -116,7 +126,7 @@
         <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="12">
             <TabItem x:Name="MapPreviewTabItem" Header="Map Preview">
                 <Border Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1">
-                    <WebBrowser x:Name="PreviewBrowser" />
+                    <wv2:WebView2 x:Name="PreviewBrowser" />
                 </Border>
             </TabItem>
             <TabItem x:Name="ExportDataTabItem" Header="Export Data">

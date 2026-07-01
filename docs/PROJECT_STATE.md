@@ -37,10 +37,44 @@ Current schematic directions:
 The latest notable product candidate is:
 
 ```text
-artifacts\product-candidate\20260619-171203-sheffield-knockout-fringe-fix
+artifacts\product-candidate\20260624-115621-same-visible-lane-anchor-polish
+artifacts\product-candidate\20260623-174304-phase-5c2-corner-parallel-polish
+artifacts\product-candidate\20260623-152745-phase-5c2-cartographic-polish-final
+artifacts\product-candidate\phase-5c2-cartographic-polish
 ```
 
-That candidate keeps the recent shared-platform fixes and clamps white knockout strokes inside the visible colored lane envelope so exact shared platforms do not show white fringes.
+The latest same-visible-lane anchor polish is renderer-only. It treats
+same-number/same-color branch or service families as one visible lane for
+schematic-map anchor decisions, so shared-service stations can still be
+straightened or cleared instead of being frozen as false transfer anchors.
+True multi-visible-line transfers and high-degree junctions remain protected.
+
+The latest manual-editing foundation is also renderer-only. When a JSON export
+has a sibling sidecar named `*.layout-overrides.json`, the CLI can load it with
+`--overrides` and the Viewer auto-loads it with `Open JSON`. The sidecar can
+nudge station render positions and label positions without modifying
+`metro-export.json`, raw `station.position`, `line.stops`, or `line.pathPoints`.
+The Viewer now has `Manual edit` mode: users can drag station circles, drag
+labels, hide/show a selected label, reset the selected edit, clear all edits,
+and open the sidecar file. It is a lightweight map-polish editor, not a CS2 data
+editor.
+
+The latest Phase 5C.2 corner/parallel polish pass is renderer-only. It makes
+schematic-map synthetic route doglegs context-aware so short or already readable
+segments are less likely to receive unnecessary hard elbows, and it keeps the
+dominant same-number/same-color lane centered on exact shared-platform
+corridors while adjacent different-color lines remain visible. On the current
+Sheffield product audit, synthetic bends dropped from 34 to 18. The tradeoff is
+that the audit now reports more slight non-octilinear direct segments, so visual
+review must weigh natural route flow against strict 45-degree grammar.
+
+The earlier Phase 5C.2 cartographic candidate keeps the recent shared-platform
+and route-grammar fixes, then adds low-risk product cartography polish: a
+stronger official-map header, clearer bottom legend sectioning,
+station/terminal/transfer symbol legend entries, more explicit station
+hierarchy metadata, and important station-label metadata. It is renderer-only;
+exporter data, JSON schema, `line.stops`, and `line.pathPoints` remain
+unchanged.
 
 Phase 6A.1 adds a schematic-map regression gate so future renderer changes are
 checked across real exports and synthetic regression samples before visual
@@ -60,8 +94,19 @@ release was published.
 Latest real-export regression gate:
 
 ```text
-artifacts\schematic-regression\20260619-214528
+artifacts\schematic-regression\20260622-155035
 ```
+
+Latest external audit bundle:
+
+```text
+artifacts\external-audit\20260623-144955-external-audit-current
+docs\EXTERNAL_AUDIT_SUMMARY.md
+```
+
+This bundle includes the current product-style map PNG/SVG, the official
+reference image, debug overlays, machine-readable schematic-map diagnostics,
+and a progress/engineering review summary for external reviewers.
 
 Latest sample smoke regression gate:
 
@@ -72,17 +117,30 @@ artifacts\schematic-regression\20260619-215440
 ## Current Capabilities
 
 - CS2 mod can export real metro JSON.
+- The mod settings page has an `Export Folder` group with an editable path and
+  presets for `Documents\CS2MetroDiagram`, `Desktop\CS2MetroDiagram`, and
+  `D:\CS2MetroDiagram`.
 - Real export writes latest files:
-  - `D:\CS2MetroDiagram\metro-export.json`
-  - `D:\CS2MetroDiagram\metro-export-diagnostics.txt`
+  - `<export folder>\metro-export.json`
+  - `<export folder>\metro-export-diagnostics.txt`
 - Real export also writes timestamped snapshots:
-  - `D:\CS2MetroDiagram\exports\metro-export-{citySlug}-{yyyyMMdd-HHmmss}.json`
-  - `D:\CS2MetroDiagram\exports\metro-export-diagnostics-{citySlug}-{yyyyMMdd-HHmmss}.txt`
+  - `<export folder>\exports\metro-export-{citySlug}-{yyyyMMdd-HHmmss}.json`
+  - `<export folder>\exports\metro-export-diagnostics-{citySlug}-{yyyyMMdd-HHmmss}.txt`
 - CLI can render SVG from sample or real JSON.
-- Viewer can open latest export or manual snapshot JSON.
+- Viewer can open latest exports from common folders or manual custom-folder/snapshot JSON.
+- Viewer auto-loads a sibling `*.layout-overrides.json` sidecar when present.
+- Viewer can use `Manual edit` mode to drag station circles, drag labels,
+  hide/show selected labels, reset selected edits, clear all edits, and open the
+  sidecar file.
+- Viewer preview now uses WebView2 instead of the legacy WPF WebBrowser/IE
+  control, avoiding local-file active-content security prompts and improving
+  the preview/edit surface.
+- CLI supports `--overrides <path>` for render-time station/label nudges.
 - Viewer supports in-app SVG preview, export data inspection, Chinese/English UI, render settings, and save SVG.
 - Viewer no longer exposes legacy `schematic-lite`.
 - Alpha validation bundles and product-candidate bundles can be generated for repeatable review.
+- `schematic-map` uses render-time route grammar safeguards so map size changes
+  should scale the same schematic content instead of changing route shape.
 
 ## Current Validation Workflow
 
@@ -139,9 +197,16 @@ Short term:
 - Keep `geographic` stable as the alpha default.
 - Collect more real-city validation bundles before accepting broad layout changes.
 - Continue polishing `schematic-map` only through evidence-backed candidate bundles.
+- Treat Phase 5C.2 as cartographic polish only: header/footer/legend,
+  station hierarchy, label hierarchy, and framing refinements. Do not use it
+  as a reason to restart schematic-v2 route-chain or crossing-convention work.
 - Run the schematic regression gate before accepting layout/rendering changes.
 - Use debug overlays and scoring reports before layout changes.
 - Preserve the current shared-platform behavior: same-number branch/shared-service lanes collapse when they share the exact same platform segment; distinct colored lanes remain visible and consistent width.
+- Treat same-number/same-color branch families as the same visible lane when
+  deciding whether a schematic-map station is an anchor. This avoids preserving
+  artificial kinks around branch/shared-service stations that are not true
+  transfer nodes.
 
 Medium term:
 
@@ -152,6 +217,9 @@ Long term:
 
 - Reduce Viewer package size after alpha behavior stabilizes.
 - Add image export, style presets, and optional manual overrides only after core rendering is trustworthy.
+- Manual overrides should be added as a separate render-time override file or
+  Viewer layer, not by mutating `metro-export.json`, raw station positions, or
+  raw route geometry.
 
 ## Current Engineering Guardrails
 
@@ -167,11 +235,15 @@ Long term:
 
 - Only metro/subway is supported.
 - No PNG/PDF export as product features.
-- No manual drag editor.
+- Manual map edits exist as Viewer/CLI render-time sidecar overrides, not as
+  exporter data or CS2 city-data edits.
 - No offline save parsing.
 - Multi-city validation is still limited.
 - City/station names may fall back when CS2 data is unavailable.
 - `schematic-map` still needs polish for crossings, octilinear grammar, labels, small-network framing, and edge cases around parallel platforms.
+- Intentional schematic-map doglegs are counted as audit notes, not direction
+  divergence warnings, because their route points no longer map one-to-one to
+  exported stop positions.
 - Shared platform corridors are render-only approximations based on exact shared schematic segments, not exporter-provided platform metadata.
 
 ## Documentation

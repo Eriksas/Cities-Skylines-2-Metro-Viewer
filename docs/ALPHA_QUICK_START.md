@@ -24,35 +24,43 @@ artifacts\cs2-local-mods\CS2 Metro
 ## Export Real Metro JSON
 
 1. Open a city in Cities: Skylines II.
-2. Open `Options > CS2 Metro Diagram > Main > Export`.
-3. Click `Export Real Metro JSON`.
-4. Check the game/mod log if export fails.
+2. Open `Options > CS2 Metro Diagram > Main`.
+3. Optional: in `Export Folder`, paste a full folder path or click one of the
+   recommended presets:
+   - `Use Documents folder` -> `Documents\CS2MetroDiagram`
+   - `Use Desktop folder` -> `Desktop\CS2MetroDiagram`
+   - `Use D:\CS2MetroDiagram`
+4. Open the `Export` group and click `Export Real Metro JSON`.
+5. Check the game/mod log if export fails.
 
-The default real export path is:
+The latest real export path is:
+
+```text
+<export folder>\metro-export.json
+```
+
+The Viewer default button checks the common locations:
 
 ```text
 D:\CS2MetroDiagram\metro-export.json
-```
-
-The Viewer also checks:
-
-```text
 Documents\CS2MetroDiagram\metro-export.json
+Desktop\CS2MetroDiagram\metro-export.json
 ```
 
 Diagnostics are written next to the export:
 
 ```text
-D:\CS2MetroDiagram\metro-export-diagnostics.txt
+<export folder>\metro-export-diagnostics.txt
 ```
 
 Each real export also writes timestamped snapshots under:
 
 ```text
-D:\CS2MetroDiagram\exports\
+<export folder>\exports\
 ```
 
-`Open Default Export` opens the latest `metro-export.json`; use `Open JSON` to open a snapshot manually.
+`Open Default Export` opens the latest `metro-export.json` from a common
+location; use `Open JSON` to open a custom-folder export or a snapshot manually.
 
 ## Start The Viewer
 
@@ -64,7 +72,7 @@ D:\CS2MetroDiagram\exports\
 
 1. Click `Open Default Export` if it is enabled.
 2. If it is disabled, click `Open JSON`.
-3. Select `D:\CS2MetroDiagram\metro-export.json` or another metro export JSON.
+3. Select `D:\CS2MetroDiagram\metro-export.json`, a custom-folder export, or another metro export JSON.
 
 ## Switch Layout
 

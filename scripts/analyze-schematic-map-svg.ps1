@@ -418,6 +418,8 @@ foreach ($node in $routeNodes) {
     $family = Get-Attr $node 'data-display-family-key'
     $lineId = Get-Attr $node 'data-line-id'
     $syntheticBends = Get-Attr $node 'data-schematic-map-synthetic-bends'
+    $syntheticBendCount = 0
+    $hasSyntheticBends = [int]::TryParse([string] $syntheticBends, [ref] $syntheticBendCount) -and $syntheticBendCount -gt 0
     $points = @(Parse-Points (Get-Attr $node 'points'))
     $styleWidth = Get-StyleStrokeWidth (Get-Attr $node 'style')
     $width = if ($null -ne $styleWidth) { [double] $styleWidth } elseif ($class -eq 'route') { $defaultRouteWidth } else { 0.0 }
@@ -474,7 +476,10 @@ foreach ($node in $routeNodes) {
         $sourceWarning = ''
         $sourceNote = ''
 
-        if ($stops.Count -eq $points.Count -and $i -lt $stops.Count) {
+        if ($hasSyntheticBends) {
+            $sourceNote = "source-direction-skipped-synthetic-bends:$syntheticBendCount"
+        }
+        elseif ($stops.Count -eq $points.Count -and $i -lt $stops.Count) {
             $stopA = [string] $stops[$i - 1]
             $stopB = [string] $stops[$i]
             if ($lookup.StationsById.ContainsKey($stopA) -and $lookup.StationsById.ContainsKey($stopB)) {
@@ -670,6 +675,7 @@ $nonOctilinear = @($routeRows | Where-Object { $_.Warning -match 'non-octilinear
 $directionWarnings = @($routeRows | Where-Object { $_.Warning -match 'direction-diverges-from-export' })
 $shortSegments = @($routeRows | Where-Object { $_.Warning -match 'short-segment' })
 $routeNotes = @($routeRows | Where-Object { -not [string]::IsNullOrWhiteSpace($_.Note) })
+$intentionalDoglegs = @($routeRows | Where-Object { $_.Note -match 'source-direction-skipped-synthetic-bends' })
 $badgeConflicts = @($conflictRows | Where-Object { $_.Type -eq 'badge-badge' })
 $badgeLabelConflicts = @($conflictRows | Where-Object { $_.Type -eq 'badge-label' })
 $widthGroups = @($styleRows | Where-Object { $_.StrokeWidth -ne '0.00' } | Group-Object Layer, StrokeWidth)
@@ -704,6 +710,7 @@ $scoreRows = @(
     (Get-ScoreRow 'overall' $totalPenalty $routeRows.Count 'Weighted score; visual review still takes precedence.'),
     (Get-ScoreRow 'octilinear-grammar' $octilinearPenalty $nonOctilinear.Count 'Penalizes route segments far from horizontal, vertical, or 45-degree directions.'),
     (Get-ScoreRow 'direction-fidelity' $directionPenalty $directionWarnings.Count 'Penalizes route directions that diverge from source station order when comparable.'),
+    (Get-ScoreRow 'source-direction-skipped-for-route-doglegs' 0.0 $intentionalDoglegs.Count 'Reports route segments where source-direction comparison is skipped because their route polyline includes schematic-map grammar bends.'),
     (Get-ScoreRow 'short-segments' $shortPenalty $shortSegments.Count 'Penalizes tiny route fragments that can create jitter or visual noise.'),
     (Get-ScoreRow 'badge-layout' $badgePenalty ($badgeConflicts.Count + $badgeLabelConflicts.Count) 'Penalizes route badge overlaps with badges or station labels.'),
     (Get-ScoreRow 'route-crossings' $crossingPenalty $crossingRows.Count 'Penalizes interior route crossings; station crossings are excluded by endpoint filtering.'),
@@ -731,6 +738,7 @@ $summary.Add("- Route segments checked: $($routeRows.Count)") | Out-Null
 $summary.Add("- Route warnings: $($routeWarnings.Count)") | Out-Null
 $summary.Add("- Non-octilinear segments: $($nonOctilinear.Count)") | Out-Null
 $summary.Add("- Direction divergence warnings: $($directionWarnings.Count)") | Out-Null
+$summary.Add("- Source-direction checks skipped on dogleg routes: $($intentionalDoglegs.Count)") | Out-Null
 $summary.Add("- Short segments: $($shortSegments.Count)") | Out-Null
 $summary.Add("- Informational route notes: $($routeNotes.Count)") | Out-Null
 $summary.Add("- Parallel corridor elements: $($corridorRows.Count)") | Out-Null

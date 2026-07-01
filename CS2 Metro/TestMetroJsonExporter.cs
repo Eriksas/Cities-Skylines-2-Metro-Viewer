@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using MetroDiagram.Core.Exporting;
 
 namespace CS2_Metro
 {
@@ -11,19 +12,7 @@ namespace CS2_Metro
 
         public static string GetDefaultExportDirectory()
         {
-            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-            if (string.IsNullOrWhiteSpace(documentsPath))
-            {
-                documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            }
-
-            if (string.IsNullOrWhiteSpace(documentsPath))
-            {
-                documentsPath = Path.GetTempPath();
-            }
-
-            return Path.Combine(documentsPath, "CS2MetroDiagram");
+            return ExportDirectoryResolver.GetConfiguredOrDefaultExportDirectory(Mod.Settings?.ExportDirectory);
         }
 
         public static string GetDefaultExportPath()

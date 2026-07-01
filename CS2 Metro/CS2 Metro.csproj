@@ -66,6 +66,7 @@
 
 	<ItemGroup>
 		<Compile Include="..\src\MetroDiagram.Core\Geometry\PathGeometrySampler.cs" Link="Shared\PathGeometrySampler.cs" />
+		<Compile Include="..\src\MetroDiagram.Core\Exporting\ExportDirectoryResolver.cs" Link="Shared\ExportDirectoryResolver.cs" />
 		<Compile Include="..\src\MetroDiagram.Core\Exporting\ExportSnapshotPathBuilder.cs" Link="Shared\ExportSnapshotPathBuilder.cs" />
 	</ItemGroup>
 

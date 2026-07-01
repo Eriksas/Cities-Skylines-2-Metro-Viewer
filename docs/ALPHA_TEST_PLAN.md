@@ -172,7 +172,22 @@ Collect cases across these shapes:
 
 - Lines mostly use horizontal, vertical, and 45-degree directions.
 - Obvious straight corridors do not become awkward zigzags.
-- Synthetic bends are off by default; if an experiment enables them, check whether the full map looks better, not only whether `schematic-map-audit.txt` warning counts decrease.
+- Product-map header reads as a clear official-style title bar.
+- Bottom legend is readable, separated into key/line/symbol areas, and does not
+  dominate the network.
+- Station hierarchy is clear: ordinary stops, terminals, and transfers are
+  visually distinct without cutting routes apart.
+- Important station labels are more prominent, while default/non-important
+  station labels can still be hidden.
+- Route grammar safeguards are on for `schematic-map`: size presets should keep
+  the same route shape, long non-octilinear spans should be bent into clean
+  0/45/90-degree legs, and shallow ordinary kinks should be straightened when
+  topology permits.
+- Check whether the full map looks better, not only whether
+  `schematic-map-audit.txt` warning counts decrease.
+- Intentional schematic-map doglegs may be reported as informational
+  source-direction skips. This is expected when the route stays octilinear and
+  the visual result is cleaner than the raw geographic direction.
 - True route crossings are marked or visually understandable.
 - Interchanges are preserved.
 - Shared/parallel corridors do not hide one line behind another.

@@ -94,13 +94,18 @@ Reason: recent visual issues were subtle and could regress across cities when ju
 
 Consequence: `scripts\generate-product-candidate-map.ps1` now runs `scripts\analyze-schematic-map-svg.ps1`. Schematic-map octilinear snapping is more assertive for official-map style, but remaining non-octilinear segments are tracked in audit output and should be fixed only when the correction preserves topology and real-world route direction.
 
-## Keep Route-only Synthetic Bends Opt-in
+## Keep Route-only Synthetic Bends Opt-in (Superseded For Current Schematic-map)
 
-Decision: route-only synthetic bends for schematic-map remain available as an explicit experiment, but are not enabled by default.
+Decision: route-only synthetic bends for schematic-map were initially available
+as an explicit experiment, but were not enabled by default.
 
 Reason: moving station nodes can damage topology, interchange relationships, and shared-platform alignment, and a route-only bend can sometimes help. However, the first Sheffield experiment reduced non-octilinear warnings while making the whole map feel less natural than the previous candidate.
 
-Consequence: product candidates keep synthetic bends off unless explicitly requested. The audit still tracks `data-schematic-map-synthetic-bends` so future experiments can be compared, but visual review takes precedence over warning-count reduction.
+Consequence: this was superseded on 2026-06-20 by the narrower
+schematic-map route grammar protection decision below. The audit still tracks
+`data-schematic-map-synthetic-bends` so future changes can be compared, but the
+current product-facing schematic-map default now enables conservative
+route-grammar bends.
 
 ## Use Scoring Before Large Schematic-map Rewrites
 
@@ -205,3 +210,190 @@ multi-city evidence without making every scan wait on browser screenshots.
 Consequence: `generate-alpha-validation-bundle.ps1` and
 `generate-alpha-validation-set.ps1` support `-SkipPng`. Use `-SkipPng` for daily
 triage and omit it for the cases that need full screenshot feedback packages.
+
+## Promote Schematic-map Route Grammar Protection To Product Defaults
+
+Decision: `schematic-map` now enables route grammar safeguards by default:
+uniform output-size scaling, route-only octilinear synthetic bends for long
+non-octilinear spans, and conservative shallow-kink straightening for ordinary
+non-anchor stations.
+
+Reason: the Zhaoqing 1号线 west-side route showed that a map can be topologically
+correct but still feel unlike a metro diagram when a mostly straight corridor is
+drawn as a small zigzag. This is a general schematic grammar issue, not a
+city-specific issue.
+
+Consequence: generated schematic-map candidates should keep the same route shape
+across size presets and avoid avoidable shallow zigzags. Interchanges and
+high-degree stations remain protected anchors. Exporter data, JSON schema,
+`line.stops`, and `line.pathPoints` are unchanged.
+
+## Separate Non-adjacent Route Node Collapses In Schematic-map
+
+Decision: `schematic-map` should separate non-adjacent stations in the same final
+route chain when layout transforms collapse them onto the same visual route node.
+
+Reason: a product-candidate review showed a real case where two non-adjacent
+stations were geographically separate but became nearly coincident after
+schematic-map layout passes. That made the route look like an unnatural loop or
+self-overlap even though the exported data was valid.
+
+Consequence: this is a renderer-only post-layout guard. It never separates true
+adjacent station pairs, prefers moving less-connected stations, and uses
+original geography only to choose a stable separation direction. Exporter logic,
+JSON schema, `line.stops`, and `line.pathPoints` are unchanged.
+
+## Prefer Compact Octilinear Doglegs For Product-map Grammar
+
+Decision: `schematic-map` may use compact route-only synthetic bends for shorter
+non-octilinear spans when station movement would be too risky.
+
+Reason: official metro maps often preserve topology and station anchors while
+absorbing small geographic offsets into short 0/45/90-degree doglegs. Keeping a
+single slightly off-grid segment makes the map feel less like a system diagram,
+but moving interchange or shared-platform stations can damage topology.
+
+Consequence: the product-facing `schematic-map` can produce more route points
+and may trigger source-direction audit warnings because intentional dogleg legs
+diverge from the original geographic segment. This is still renderer-only and
+does not change exporter logic, JSON schema, `line.stops`, or
+`line.pathPoints`.
+
+## Treat Synthetic Doglegs As Route Grammar In Audit
+
+Decision: `analyze-schematic-map-svg.ps1` skips source-direction comparison for
+route polylines that declare `data-schematic-map-synthetic-bends`, and reports
+those segments as informational dogleg notes instead of direction-divergence
+warnings.
+
+Reason: compact schematic doglegs intentionally add route points that no longer
+map one-to-one to raw stop positions. Comparing those generated dogleg legs to
+the original station-to-station direction by index creates false positives and
+can make a more official-map-like candidate look worse than it is.
+
+Consequence: candidate scoring still penalizes non-octilinear segments, short
+fragments, badge collisions, width inconsistencies, and interior route
+crossings, but intentional dogleg route grammar is reviewed through PNG/SVG
+inspection and debug attributes. This is an audit-script change only; renderer
+behavior, exporter data, and JSON schema are unchanged.
+
+## Add Configurable Mod Export Folder
+
+Decision: the CS2 mod exposes an `Export Folder` setting with an editable folder
+path and preset buttons for Documents, Desktop, and `D:\CS2MetroDiagram`.
+
+Reason: alpha testing now depends on repeated exports and snapshots from
+multiple cities. Users should not have to accept one hard-coded folder, and
+common destinations should be one click away.
+
+Consequence: real exports, test exports, transport debug dumps, and metro track
+geometry debug dumps resolve through one shared export-directory helper. Latest
+files and timestamped snapshots keep the same file names under the selected
+folder. Viewer `Open Default Export` checks the common folders; arbitrary custom
+folders are opened with `Open JSON`.
+
+## Treat Product-map Polish As Cartographic Hierarchy, Not Topology Work
+
+Decision: Phase 5C.2 improves `schematic-map` through header/footer/legend,
+station hierarchy, label hierarchy, and framing polish only.
+
+Reason: the current product-style map is ready for external visual audit, but
+still looks more like an automatic engineering output than an official system
+map. The safest next step is to improve information hierarchy without changing
+exporter data, JSON schema, geographic output, or schematic route topology.
+
+Consequence: `schematic-map` now emits clearer transit-map header and bottom
+legend styling plus station/terminal/transfer symbol metadata. Important station
+labels are marked with data attributes while keeping the existing
+`station-label` class for test/tool compatibility. Future official-map polish
+should continue through candidate bundles and audits instead of reopening
+schematic-v2 route-chain experiments or legacy schematic-lite patching.
+
+## Prefer Context-aware Doglegs Over Pure Octilinear Score
+
+Decision: `schematic-map` synthetic bends should be context-aware instead of
+blindly adding hard elbows to every short non-octilinear span.
+
+Reason: the Sheffield product candidate showed several visually unnecessary
+doglegs where a short direct segment or a nearly octilinear segment read better
+than a forced L-shaped route. A higher octilinear score can still make the map
+feel less official if it creates cramped or backtracking elbows.
+
+Consequence: the renderer now suppresses synthetic bends when a contextual
+segment is close to 0/45/90 degrees, too short to benefit from a bend, or when
+the proposed bend would fight the incoming/outgoing route direction. Candidate
+audits must be reviewed visually as well as numerically. Exporter logic, JSON
+schema, geographic output, `line.stops`, and `line.pathPoints` are unchanged.
+
+## Center Dominant Same-service Lanes On Exact Shared Platforms
+
+Decision: when an exact shared-platform corridor contains a collapsed
+same-number/same-color branch lane plus another visible line, the collapsed
+same-service lane should remain centered and the adjacent different line should
+move to the side.
+
+Reason: same-service branches such as `7号线` and `7号线支线` can represent the
+same physical track/service family through a platform segment. Splitting that
+collapsed lane away from the station center makes it look like a false separate
+track, while offsetting the adjacent different-color line keeps both visible.
+
+Consequence: parallel corridor offsets are assigned by visible-lane semantics,
+not only by lane count. SVG output records
+`data-schematic-v2-parallel-offset-mode` for these cases, and tests assert the
+dominant same-service lane stays centered. This remains renderer-only.
+
+## Use Visible-lane Semantics For Schematic-map Anchors
+
+Decision: schematic-map station anchoring and local-clearance passes should use
+visible-lane groups, not raw service/display-family counts.
+
+Reason: same-number/same-color branches and service variants can share one
+physical or visual lane. Treating every raw family at a shared station as a true
+interchange froze false anchors and preserved avoidable kinks around branch
+sections. True transfer behavior is better represented by multiple distinct
+visible lanes or high route degree.
+
+Consequence: same-visible-lane branch stations can be straightened and cleaned
+up by the product-map passes, while true multi-line interchanges and high-degree
+junctions remain protected. Local clearance also ignores paths belonging to the
+same visible lane, preventing a route family from pushing itself apart. This is
+renderer-only and does not alter exporter data or `metro-export.json`.
+
+## Keep Manual Adjustments As A Separate Render Override Layer
+
+Decision: future player/manual layout adjustment should be stored outside
+`metro-export.json` as render-time overrides.
+
+Reason: exported JSON is the factual game-data snapshot. Manual station nudges,
+label moves, bend locks, and lane-order preferences are cartographic choices
+that should be editable, reversible, and portable without corrupting the source
+export.
+
+Consequence: the likely next implementation should introduce a separate Viewer
+override file or sidecar model and apply it after automatic schematic-map layout
+passes. Do not write manual edits back into raw `station.position`, `line.stops`,
+or `line.pathPoints`.
+
+Update 2026-06-24: the first sidecar model is implemented as
+`*.layout-overrides.json`. It supports station render-position nudges and label
+nudges/hiding, can be loaded explicitly by the CLI with `--overrides`, and is
+auto-loaded by the Viewer when a sibling sidecar exists. This confirms the
+manual-adjustment direction while keeping the exported JSON/schema unchanged.
+
+Update 2026-06-28: the Viewer manual editor now uses the same sidecar for the
+complete lightweight edit loop: station dragging, label dragging, selected label
+hide/show, selected reset, clear-all, and open-sidecar. This remains a
+renderer/UI override only; it does not change exporter data or source geometry.
+
+## Use WebView2 For Viewer Preview
+
+Decision: replace the legacy WPF `WebBrowser` preview with Microsoft WebView2.
+
+Reason: the old control uses Internet Explorer behavior, shows local-file
+active-content security prompts, and makes SVG preview/manual drag interaction
+feel dated and slower.
+
+Consequence: preview HTML is loaded in-memory with WebView2 `NavigateToString`,
+manual edit messages use `window.chrome.webview.postMessage`, and the Viewer
+depends on the Microsoft Edge WebView2 Runtime. This is Viewer-only and does
+not alter exporter data, renderer output, or `metro-export.json`.

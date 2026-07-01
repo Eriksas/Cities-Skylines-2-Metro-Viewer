@@ -12,6 +12,8 @@ namespace CS2_Metro
 
         public static UpdateSystem UpdateSystem { get; private set; }
 
+        public static Setting Settings { get; private set; }
+
         private Setting m_Setting;
 
         public void OnLoad(UpdateSystem updateSystem)
@@ -25,6 +27,7 @@ namespace CS2_Metro
             }
 
             m_Setting = new Setting(this);
+            Settings = m_Setting;
             m_Setting.RegisterInOptionsUI();
             GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(m_Setting));
             AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
@@ -44,6 +47,7 @@ namespace CS2_Metro
                 m_Setting = null;
             }
 
+            Settings = null;
             UpdateSystem = null;
         }
     }

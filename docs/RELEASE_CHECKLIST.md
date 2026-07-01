@@ -72,6 +72,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-alpha-releas
 - [ ] Verify `Export Test Metro JSON`.
 - [ ] Verify `Export Transport Debug Dump`.
 - [ ] Verify `Export Real Metro JSON` in-game.
+- [ ] Verify the mod `Export Folder` setting can use at least one preset and one custom folder.
 - [ ] Confirm latest export and latest diagnostics exist.
 - [ ] Confirm timestamped export and diagnostics snapshots exist.
 - [ ] Export twice and confirm old snapshots are not overwritten.

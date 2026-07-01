@@ -26,6 +26,8 @@ geographic + exported path geometry + service family merge
 The newer `schematic-map` mode is the product-facing schematic direction. It is
 being developed toward a cleaner official metro-map style, but it is still
 experimental and should be reviewed through validation bundles.
+It uses render-time route grammar safeguards to keep schematic output mostly
+horizontal, vertical, or 45-degree, while preserving exported data unchanged.
 
 `schematic-v2` remains available as a topology/diagnostic schematic mode.
 
@@ -56,25 +58,36 @@ CLI for historical comparison.
 3. Open the mod options page:
 
    ```text
-   Options > CS2 Metro Diagram > Main > Export > Export Real Metro JSON
+   Options > CS2 Metro Diagram > Main
    ```
 
-4. The latest export is written to:
+4. Optional: under `Export Folder`, paste a full folder path or click one of
+   the presets:
 
    ```text
-   D:\CS2MetroDiagram\metro-export.json
-   D:\CS2MetroDiagram\metro-export-diagnostics.txt
+   Documents\CS2MetroDiagram
+   Desktop\CS2MetroDiagram
+   D:\CS2MetroDiagram
    ```
 
-5. Each export also creates timestamped snapshots under:
+5. Under `Export`, click `Export Real Metro JSON`.
+6. The latest export is written to the selected export folder:
 
    ```text
-   D:\CS2MetroDiagram\exports\
+   <export folder>\metro-export.json
+   <export folder>\metro-export-diagnostics.txt
    ```
 
-6. Open `MetroDiagram.Viewer.exe`.
-7. Click `Open Default Export`, or use `Open JSON` to load a snapshot.
-8. Preview the map in the app and click `Save SVG` when needed.
+7. Each export also creates timestamped snapshots under:
+
+   ```text
+   <export folder>\exports\
+   ```
+
+8. Open `MetroDiagram.Viewer.exe`.
+9. Click `Open Default Export`, or use `Open JSON` to load a snapshot or a
+   custom-folder export.
+10. Preview the map in the app and click `Save SVG` when needed.
 
 For a fuller tester guide, see [docs/ALPHA_QUICK_START.md](docs/ALPHA_QUICK_START.md).
 
@@ -109,6 +122,11 @@ The Viewer supports:
 - diagnostics-file detection,
 - SVG saving.
 
+The in-app preview uses Microsoft WebView2 instead of the legacy WPF
+`WebBrowser`/Internet Explorer control, so it should not show local-file active
+content security prompts. If the Viewer does not start on a clean Windows
+machine, install the Microsoft Edge WebView2 Runtime.
+
 ## Command Line Usage
 
 Render a sample JSON:
@@ -140,6 +158,30 @@ dotnet run --project src\MetroDiagram.Cli\MetroDiagram.Cli.csproj --no-restore -
   --hide-generic-labels `
   --hide-crowded-labels
 ```
+
+Optional render-time layout overrides can be supplied as a sidecar file:
+
+```powershell
+dotnet run --project src\MetroDiagram.Cli\MetroDiagram.Cli.csproj --no-restore -- `
+  D:\CS2MetroDiagram\exports\metro-export-mycity-20260624-123456.json output.svg `
+  --layout schematic-map `
+  --overrides D:\CS2MetroDiagram\exports\metro-export-mycity-20260624-123456.layout-overrides.json
+```
+
+The Viewer also auto-loads a sidecar next to the opened JSON when it follows the
+same naming pattern. This enables safe manual map edits without modifying the
+exported JSON.
+
+In the Viewer, enable `Manual edit` to adjust the rendered map directly:
+
+- choose `Stations` and drag station circles to move station render anchors and
+  the connected route geometry;
+- choose `Labels` and drag station labels to move text without moving the
+  station or route;
+- use `Hide Label` / `Show Label`, `Reset Selected`, `Clear Edits`, and
+  `Open Edit File` to manage the sidecar.
+
+Manual edits are saved into the sidecar and re-applied on the next render.
 
 ## Alpha Validation Bundles
 
@@ -225,7 +267,9 @@ docs\                       current docs and archived phase notes
 - No offline save parsing; export from a loaded city.
 - No PNG/PDF product export yet.
 - No in-game SVG preview.
-- No drag editor or manual layout override.
+- Manual map edits are render-time sidecar overrides. They are useful for
+  polishing a generated map, but they are not written back to CS2 or to
+  `metro-export.json`.
 - `schematic-map` and `schematic-v2` are experimental.
 - Multi-city validation is still ongoing.
 

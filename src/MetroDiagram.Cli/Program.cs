@@ -1,11 +1,12 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using MetroDiagram.Core.Loading;
 using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-lite|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-lite|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -84,6 +85,7 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
     bool enableServiceFamilyMerge = true;
     bool enableSharedCorridorCompositeStroke = false;
     bool enableExpressCenterStripe = false;
+    string? overridePath = null;
 
     for (int i = 0; i < optionArgs.Length; i++)
     {
@@ -171,8 +173,24 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
             case "--enable-express-center-stripe":
                 enableExpressCenterStripe = true;
                 break;
+            case "--overrides":
+                overridePath = ReadValue(optionArgs, ref i, option);
+                break;
             default:
                 throw new ArgumentException($"Unknown option '{option}'.");
+        }
+    }
+
+    LayoutOverrideDocument? layoutOverrides = null;
+    if (!string.IsNullOrWhiteSpace(overridePath))
+    {
+        try
+        {
+            layoutOverrides = LayoutOverrideLoader.LoadFromFile(Path.GetFullPath(overridePath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            throw new ArgumentException($"Could not load layout overrides '{overridePath}': {ex.Message}");
         }
     }
 
@@ -222,6 +240,7 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
         EnableServiceFamilyMerge = enableServiceFamilyMerge,
         EnableSharedCorridorCompositeStroke = enableSharedCorridorCompositeStroke,
         EnableExpressCenterStripe = enableExpressCenterStripe,
+        LayoutOverrides = layoutOverrides,
         SchematicMinimumStationSpacing = schematicMinimumStationSpacing ?? defaults.SchematicMinimumStationSpacing
     };
 }

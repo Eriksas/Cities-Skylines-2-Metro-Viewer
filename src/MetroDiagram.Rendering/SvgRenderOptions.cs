@@ -104,6 +104,8 @@ public sealed class SvgRenderOptions
 
     public bool EnableExpressCenterStripe { get; init; }
 
+    public LayoutOverrideDocument? LayoutOverrides { get; init; }
+
     public bool EnableStationRouteAnchoring { get; init; } = true;
 
     public double StationRouteAnchorMaxDistance { get; init; } = 36;

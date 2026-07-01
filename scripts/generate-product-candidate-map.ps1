@@ -164,15 +164,27 @@ if (-not $SkipPng) {
     }
 }
 
+Move-Item -LiteralPath $tempOutputPath -Destination $outputPath
+
 if (Test-Path -LiteralPath $auditScript -PathType Leaf) {
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $candidateSvg -InputJson $inputPath -OutputDir $tempOutputPath
+    $finalSvg = Join-Path $outputPath 'product-candidate.svg'
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $finalSvg -InputJson $inputPath -OutputDir $outputPath
     if ($LASTEXITCODE -ne 0) {
-        throw "Product candidate audit failed with exit code $LASTEXITCODE."
+        throw "Final product candidate audit refresh failed with exit code $LASTEXITCODE."
+    }
+
+    $debugSvg = Join-Path $outputPath 'schematic-map-debug.svg'
+    $debugPng = Join-Path $outputPath 'schematic-map-debug.full.png'
+    if (-not $SkipPng -and (Test-Path -LiteralPath $debugSvg -PathType Leaf)) {
+        & pwsh -NoProfile -ExecutionPolicy Bypass -File $captureScript -InputSvg $debugSvg -OutputPng $debugPng -Width $captureSize.Width -Height $captureSize.Height
+        if ($LASTEXITCODE -ne 0) {
+            throw "Schematic map debug screenshot failed with exit code $LASTEXITCODE."
+        }
     }
 }
 
 $scoreSummaryMarkdown = '- Layout score: not available'
-$scoreCsvPath = Join-Path $tempOutputPath 'schematic-map-score.csv'
+$scoreCsvPath = Join-Path $outputPath 'schematic-map-score.csv'
 if (Test-Path -LiteralPath $scoreCsvPath -PathType Leaf) {
     $scoreRows = @(Import-Csv -LiteralPath $scoreCsvPath)
     if ($scoreRows.Count -gt 0) {
@@ -182,6 +194,7 @@ if (Test-Path -LiteralPath $scoreCsvPath -PathType Leaf) {
     }
 }
 
+$notesPath = Join-Path $outputPath 'notes.md'
 @"
 # Product Candidate Map
 
@@ -234,25 +247,6 @@ $scoreSummaryMarkdown
 - Known issues:
 - Accept as current product candidate: yes/no
 "@ | Set-Content -LiteralPath $notesPath -Encoding UTF8
-
-Move-Item -LiteralPath $tempOutputPath -Destination $outputPath
-
-if (Test-Path -LiteralPath $auditScript -PathType Leaf) {
-    $finalSvg = Join-Path $outputPath 'product-candidate.svg'
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $finalSvg -InputJson $inputPath -OutputDir $outputPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Final product candidate audit refresh failed with exit code $LASTEXITCODE."
-    }
-
-    $debugSvg = Join-Path $outputPath 'schematic-map-debug.svg'
-    $debugPng = Join-Path $outputPath 'schematic-map-debug.full.png'
-    if (-not $SkipPng -and (Test-Path -LiteralPath $debugSvg -PathType Leaf)) {
-        & pwsh -NoProfile -ExecutionPolicy Bypass -File $captureScript -InputSvg $debugSvg -OutputPng $debugPng -Width $captureSize.Width -Height $captureSize.Height
-        if ($LASTEXITCODE -ne 0) {
-            throw "Schematic map debug screenshot failed with exit code $LASTEXITCODE."
-        }
-    }
-}
 
 Write-Host "Product candidate written to: $outputPath"
 Write-Host "SVG: $(Join-Path $outputPath 'product-candidate.svg')"
