@@ -31,11 +31,29 @@ Use PowerShell 7 (`pwsh`) for scripts when available. Older Windows PowerShell c
 Run from repo root:
 
 ```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1
+```
+
+The preflight script restores `CS2MetroDiagram.slnx`, builds the offline
+solution, and runs the lightweight renderer test project. Use this before
+committing or pushing. To keep the working folder light after verification:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1 -CleanBuildOutput
+```
+
+Manual equivalent:
+
+```powershell
+dotnet restore CS2MetroDiagram.slnx
 dotnet build CS2MetroDiagram.slnx --no-restore
 dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
 ```
 
 Run sequentially to avoid DLL locking.
+
+GitHub Actions runs the same `scripts\preflight.ps1` workflow on pushes and
+pull requests to `master`.
 
 ## CS2 Mod Build And Deploy
 

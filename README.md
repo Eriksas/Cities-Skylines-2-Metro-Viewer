@@ -231,17 +231,29 @@ check, not a replacement for visual review.
 
 ## Build And Test
 
-Build the offline solution:
+Run the local preflight check:
 
 ```powershell
-dotnet build CS2MetroDiagram.slnx --no-restore
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1
 ```
 
-Run tests:
+This restores the offline solution, builds it, and runs the renderer test
+project. To remove generated `bin`/`obj` output afterward:
 
 ```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1 -CleanBuildOutput
+```
+
+Equivalent manual commands:
+
+```powershell
+dotnet restore CS2MetroDiagram.slnx
+dotnet build CS2MetroDiagram.slnx --no-restore
 dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
 ```
+
+GitHub Actions also runs `scripts\preflight.ps1` on pushes and pull requests to
+`master`.
 
 The CS2 mod project requires local Cities: Skylines II modding toolchain paths.
 See [docs/DEV_NOTES.md](docs/DEV_NOTES.md) for the local build/deploy command
