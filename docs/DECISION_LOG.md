@@ -38,6 +38,8 @@ Reason: schematic-map polish had degraded into per-map coefficient tuning: ~40 i
 
 Consequence: the metrics live in one place (`MetroSvgRenderer.LayoutMetrics.cs`) and drive both the CLI `--emit-layout-score` output and the experimental `schematic-anneal` mode, which minimizes exactly this cost globally with deterministic simulated annealing. `schematic-anneal` is the challenger to the schematic-map pass stack; whichever wins on corpus evidence becomes the product direction.
 
+Update 2026-07-06: on the corpus of 9 samples plus 2 real cities (Sheffield 59 stations, Zhaoqing 51), `schematic-anneal` wins every metric on both median and worst case (octilinear ratio, bends, crossings, spacing/clearance violations, weighted cost). It is now selectable in the Viewer. schematic-map is retained as the previous product mode until anneal has broader multi-city validation.
+
 ## Use Schematic-v2 As Diagnostic Base
 
 Decision: keep `schematic-v2` as an experimental topology/corridor diagnostic layout.

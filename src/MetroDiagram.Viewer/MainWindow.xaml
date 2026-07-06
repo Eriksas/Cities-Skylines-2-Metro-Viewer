@@ -30,6 +30,7 @@
                             <ComboBoxItem Content="geographic" Tag="geographic" IsSelected="True" />
                             <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                             <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
+                            <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" />
                         </ComboBox>
 
                         <TextBlock x:Name="SizePresetLabelTextBlock" Text="Size" VerticalAlignment="Center" Margin="0,0,6,8" />

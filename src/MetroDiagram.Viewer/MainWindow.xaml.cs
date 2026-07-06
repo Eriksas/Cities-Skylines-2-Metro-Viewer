@@ -1381,6 +1381,7 @@ public partial class MainWindow : Window
         return tag switch
         {
             "schematic-map" => SvgLayoutMode.SchematicMap,
+            "schematic-anneal" => SvgLayoutMode.SchematicAnneal,
             "schematic-v2" => SvgLayoutMode.SchematicV2,
             _ => SvgLayoutMode.Geographic
         };
@@ -2086,6 +2087,7 @@ public partial class MainWindow : Window
         {
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
+            SvgLayoutMode.SchematicAnneal => "schematic-anneal",
             _ => "geographic"
         };
     }
@@ -2377,6 +2379,7 @@ public partial class MainWindow : Window
             "schematic-lite" => "schematic-v2",
             "schematic-v2" => "schematic-v2",
             "schematic-map" => "schematic-map",
+            "schematic-anneal" => "schematic-anneal",
             _ => "geographic"
         };
     }

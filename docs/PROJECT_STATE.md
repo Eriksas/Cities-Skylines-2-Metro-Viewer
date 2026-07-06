@@ -31,7 +31,7 @@ express stripe = disabled
 Current schematic directions:
 
 - `schematic-map` - product-facing official-map style experiment; current active polish target.
-- `schematic-anneal` - experimental global-optimization layout (single cost function + deterministic simulated annealing) developed as the corpus-scored challenger to schematic-map's local-pass stack; CLI-only for now.
+- `schematic-anneal` - global-optimization layout (single cost function + deterministic simulated annealing). On the current corpus (9 samples + 2 real cities) it wins every layout metric on both median and worst case, so it is now selectable in the Viewer alongside the other modes.
 - `schematic-v2` - topology/diagnostic schematic base; still experimental.
 - `schematic-lite` - removed from the toolchain (2026-07). History remains in git.
 
