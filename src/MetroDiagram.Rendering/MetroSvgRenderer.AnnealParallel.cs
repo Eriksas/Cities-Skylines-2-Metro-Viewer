@@ -92,18 +92,31 @@ public sealed partial class MetroSvgRenderer
                 continue;
             }
 
-            // Stable lane order: by line number when available, then family key.
-            List<DisplayLineFamily> ordered = entry.Families.Values
-                .OrderBy(family => ExtractLineNumber(family.PrimaryLine.Name) ?? int.MaxValue)
-                .ThenBy(family => family.FamilyKey, StringComparer.Ordinal)
+            // Visible lane = distinct stroke color. Same-color families (a line and
+            // its branch, e.g. 7号线 / 7号线支线) collapse onto one lane so they
+            // overlap as a single visible line instead of drawing a doubled stripe.
+            // Only genuinely different-colored lines get separate parallel lanes.
+            List<IGrouping<string, DisplayLineFamily>> lanes = entry.Families.Values
+                .GroupBy(family => string.IsNullOrWhiteSpace(family.Color) ? family.FamilyKey : family.Color, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(group => group.Min(family => ExtractLineNumber(family.PrimaryLine.Name) ?? int.MaxValue))
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
                 .ToList();
+
+            if (lanes.Count < 2)
+            {
+                continue;
+            }
 
             SvgPoint normal = GetSegmentNormal(entry.A, entry.B);
             Dictionary<string, double> offsets = new(StringComparer.Ordinal);
-            double center = (ordered.Count - 1) / 2.0;
-            for (int i = 0; i < ordered.Count; i++)
+            double center = (lanes.Count - 1) / 2.0;
+            for (int i = 0; i < lanes.Count; i++)
             {
-                offsets[ordered[i].FamilyKey] = (i - center) * spacing;
+                double laneOffset = (i - center) * spacing;
+                foreach (DisplayLineFamily family in lanes[i])
+                {
+                    offsets[family.FamilyKey] = laneOffset;
+                }
             }
 
             plan[key] = new ParallelSharedEdge(normal, offsets);
