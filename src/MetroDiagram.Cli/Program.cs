@@ -6,7 +6,7 @@ using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-lite|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -251,10 +251,9 @@ static SvgLayoutMode ReadLayoutMode(string[] args, ref int index, string option)
     return value switch
     {
         "geographic" => SvgLayoutMode.Geographic,
-        "schematic-lite" => SvgLayoutMode.SchematicLite,
         "schematic-v2" => SvgLayoutMode.SchematicV2,
         "schematic-map" => SvgLayoutMode.SchematicMap,
-        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-lite', 'schematic-v2', or 'schematic-map'.")
+        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-v2', or 'schematic-map'.")
     };
 }
 

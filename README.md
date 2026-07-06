@@ -35,8 +35,8 @@ Near-term work is focused on alpha.2 validation bundles and small, evidence-led
 schematic-map fixes. Larger items such as smaller Viewer packages, PNG export,
 style presets, and manual editing are tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-Legacy `schematic-lite` is no longer exposed in the Viewer, but remains in the
-CLI for historical comparison.
+Legacy `schematic-lite` has been removed from the toolchain; its history
+remains available in git.
 
 ## What Works Today
 

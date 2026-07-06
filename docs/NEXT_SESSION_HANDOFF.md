@@ -39,7 +39,7 @@ schematic-map
 schematic-v2
 ```
 
-Retired from Viewer:
+Removed from the toolchain (2026-07):
 
 ```text
 schematic-lite

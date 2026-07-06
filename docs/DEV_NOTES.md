@@ -324,8 +324,7 @@ still moving.
 `schematic-lite`
 
 - Legacy mode.
-- Removed from Viewer.
-- Still available in CLI for historical comparison.
+- Fully removed from the toolchain (renderer, CLI, tests) in 2026-07.
 
 ## Current Guardrails
 

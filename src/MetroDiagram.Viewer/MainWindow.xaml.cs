@@ -2084,7 +2084,6 @@ public partial class MainWindow : Window
     {
         return layoutMode switch
         {
-            SvgLayoutMode.SchematicLite => "schematic-lite",
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
             _ => "geographic"

@@ -90,12 +90,6 @@ public sealed class MetroSvgRenderer
             points[station.Id] = projector.Project(station.X, station.Z);
         }
 
-        if (options.LayoutMode == SvgLayoutMode.SchematicLite)
-        {
-            SchematicLayoutResult schematicLayout = ApplySchematicLiteLayout(points, lines, stationsById, options, reserveLegendSpace, warnings);
-            return new RenderGeometry(schematicLayout.Points, projector, schematicLayout.Adjustments, [], null, null);
-        }
-
         if (IsSchematicV2FamilyLayout(options.LayoutMode))
         {
             SvgRenderOptions canonicalOptions = CreateSchematicV2CanonicalOptions(options);
@@ -247,10 +241,6 @@ public sealed class MetroSvgRenderer
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
             StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,
-            EnableSchematicSegmentOverlapResolver = options.EnableSchematicSegmentOverlapResolver,
-            SchematicSegmentOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance,
-            SchematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim,
-            SchematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold,
             SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing,
             CompactTransitMapFrame = options.CompactTransitMapFrame,
             EnableSchematicMapOctilinearNormalization = true,
@@ -314,7 +304,7 @@ public sealed class MetroSvgRenderer
                 "raw",
                 0,
                 [],
-                options.LayoutMode == SvgLayoutMode.SchematicLite ? "schematic-lite" : null);
+                null);
         }
 
         if (!options.EnableStationRouteAnchoring
@@ -552,234 +542,6 @@ public sealed class MetroSvgRenderer
         return new StationRouteAnchorMap(
             anchors.ToDictionary(pair => pair.Key, pair => pair.Value.Point, StringComparer.Ordinal),
             anchors);
-    }
-
-    private static SchematicLayoutResult ApplySchematicLiteLayout(
-        Dictionary<string, SvgPoint> geographicPoints,
-        List<MetroLine> lines,
-        Dictionary<string, MetroStation> stationsById,
-        SvgRenderOptions options,
-        bool reserveLegendSpace,
-        List<string> warnings)
-    {
-        double gridSize = Math.Max(4, options.GridSize);
-        SvgRect bounds = CreateGeometryBounds(options, reserveLegendSpace);
-        Dictionary<string, SvgPoint> points = geographicPoints
-            .ToDictionary(
-                pair => pair.Key,
-                pair => SnapPointToGrid(pair.Value, gridSize, bounds),
-                StringComparer.Ordinal);
-        HashSet<string> placed = new(StringComparer.Ordinal);
-
-        foreach (MetroLine line in lines)
-        {
-            List<string> validStops = (line.Stops ?? [])
-                .Where(stopId => !string.IsNullOrWhiteSpace(stopId) && stationsById.ContainsKey(stopId) && geographicPoints.ContainsKey(stopId))
-                .ToList();
-
-            if (validStops.Count == 0)
-            {
-                continue;
-            }
-
-            string firstStopId = validStops[0];
-            if (placed.Add(firstStopId))
-            {
-                points[firstStopId] = SnapPointToGrid(geographicPoints[firstStopId], gridSize, bounds);
-            }
-
-            for (int i = 1; i < validStops.Count; i++)
-            {
-                string previousStopId = validStops[i - 1];
-                string currentStopId = validStops[i];
-                if (string.Equals(previousStopId, currentStopId, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (!points.TryGetValue(previousStopId, out SvgPoint previousPoint))
-                {
-                    previousPoint = SnapPointToGrid(geographicPoints[previousStopId], gridSize, bounds);
-                    points[previousStopId] = previousPoint;
-                }
-
-                if (placed.Contains(currentStopId))
-                {
-                    continue;
-                }
-
-                SvgPoint desiredPoint = SnapPointToGrid(geographicPoints[currentStopId], gridSize, bounds);
-                points[currentStopId] = SnapSegmentEndpoint(previousPoint, desiredPoint, gridSize, bounds);
-                placed.Add(currentStopId);
-            }
-        }
-
-        return RelaxSchematicStationSpacing(points, lines, stationsById, bounds, options, warnings);
-    }
-
-    private static SchematicLayoutResult RelaxSchematicStationSpacing(
-        Dictionary<string, SvgPoint> snappedPoints,
-        List<MetroLine> lines,
-        Dictionary<string, MetroStation> stationsById,
-        SvgRect bounds,
-        SvgRenderOptions options,
-        List<string> warnings)
-    {
-        double gridSize = Math.Max(4, options.GridSize);
-        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
-        double minimumSpacing = options.SchematicMinimumStationSpacing > 0
-            ? options.SchematicMinimumStationSpacing
-            : Math.Max(3.0 * visualStyle.StationMarkerOuterRadius, gridSize);
-
-        Dictionary<string, SvgPoint> adjusted = snappedPoints.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        Dictionary<string, SvgPoint> original = snappedPoints.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        Dictionary<string, HashSet<string>> adjacency = BuildSchematicStationAdjacency(lines, stationsById, snappedPoints);
-        Dictionary<string, int> degreeByStation = adjacency.ToDictionary(pair => pair.Key, pair => pair.Value.Count, StringComparer.Ordinal);
-        HashSet<string> interchangeStationIds = stationsById.Values
-            .Where(station => !string.IsNullOrWhiteSpace(station.Id) && IsInterchange(station))
-            .Select(station => station.Id!)
-            .ToHashSet(StringComparer.Ordinal);
-
-        int initialConflicts = CountSchematicSpacingConflicts(adjusted, minimumSpacing);
-        if (initialConflicts == 0)
-        {
-            return new SchematicLayoutResult(
-                adjusted,
-                [],
-                [],
-                new Dictionary<string, List<string>>(StringComparer.Ordinal),
-                new Dictionary<string, SchematicV2RouteGuideMetadata>(StringComparer.Ordinal));
-        }
-
-        List<string> stationIds = adjusted.Keys.OrderBy(id => id, StringComparer.Ordinal).ToList();
-        double maxStep = Math.Max(2, gridSize * 0.18);
-        int iterations = 14;
-
-        for (int iteration = 0; iteration < iterations; iteration++)
-        {
-            bool moved = false;
-            for (int i = 0; i < stationIds.Count; i++)
-            {
-                string firstId = stationIds[i];
-                for (int j = i + 1; j < stationIds.Count; j++)
-                {
-                    string secondId = stationIds[j];
-                    SvgPoint first = adjusted[firstId];
-                    SvgPoint second = adjusted[secondId];
-                    double distance = Distance(first, second);
-                    if (distance >= minimumSpacing)
-                    {
-                        continue;
-                    }
-
-                    if (ShouldKeepSchematicStationsTogether(firstId, secondId, stationsById, interchangeStationIds, distance))
-                    {
-                        continue;
-                    }
-
-                    SvgPoint direction = GetSchematicSeparationDirection(first, second, firstId, secondId);
-                    double push = Math.Min(maxStep, (minimumSpacing - distance) * 0.5);
-                    double firstWeight = GetSchematicStationAnchorWeight(firstId, degreeByStation, interchangeStationIds);
-                    double secondWeight = GetSchematicStationAnchorWeight(secondId, degreeByStation, interchangeStationIds);
-                    double firstShare = secondWeight / (firstWeight + secondWeight);
-                    double secondShare = firstWeight / (firstWeight + secondWeight);
-
-                    SvgPoint movedFirst = new(first.X - direction.X * push * firstShare, first.Y - direction.Y * push * firstShare);
-                    SvgPoint movedSecond = new(second.X + direction.X * push * secondShare, second.Y + direction.Y * push * secondShare);
-
-                    adjusted[firstId] = ClampSchematicStationMovement(movedFirst, original[firstId], bounds, gridSize, firstId, degreeByStation, interchangeStationIds);
-                    adjusted[secondId] = ClampSchematicStationMovement(movedSecond, original[secondId], bounds, gridSize, secondId, degreeByStation, interchangeStationIds);
-                    moved = true;
-                }
-            }
-
-            if (!moved)
-            {
-                break;
-            }
-        }
-
-        double halfGrid = Math.Max(2, gridSize / 2);
-        foreach (string stationId in stationIds)
-        {
-            SvgPoint snapped = SnapPointToGrid(adjusted[stationId], halfGrid, bounds);
-            adjusted[stationId] = ClampSchematicStationMovement(snapped, original[stationId], bounds, gridSize, stationId, degreeByStation, interchangeStationIds);
-        }
-
-        Dictionary<string, SchematicStationAdjustment> adjustments = [];
-        foreach (string stationId in stationIds)
-        {
-            double distance = Distance(original[stationId], adjusted[stationId]);
-            if (distance <= 0.001)
-            {
-                continue;
-            }
-
-            adjustments[stationId] = new SchematicStationAdjustment(stationId, original[stationId], adjusted[stationId], distance, "min-spacing");
-        }
-
-        int remainingConflicts = CountSchematicSpacingConflicts(adjusted, minimumSpacing);
-        double maxAdjustment = adjustments.Values.Select(adjustment => adjustment.Distance).DefaultIfEmpty(0).Max();
-        warnings.Add($"Schematic station spacing conflicts: {initialConflicts}; adjusted stations: {adjustments.Count}; max adjustment distance: {Format(maxAdjustment)}; remaining spacing conflicts: {remainingConflicts}.");
-        return new SchematicLayoutResult(
-            adjusted,
-            adjustments,
-            [],
-            new Dictionary<string, List<string>>(StringComparer.Ordinal),
-            new Dictionary<string, SchematicV2RouteGuideMetadata>(StringComparer.Ordinal));
-    }
-
-    private static Dictionary<string, HashSet<string>> BuildSchematicStationAdjacency(
-        List<MetroLine> lines,
-        Dictionary<string, MetroStation> stationsById,
-        Dictionary<string, SvgPoint> stationPoints)
-    {
-        Dictionary<string, HashSet<string>> adjacency = stationPoints.Keys
-            .ToDictionary(id => id, _ => new HashSet<string>(StringComparer.Ordinal), StringComparer.Ordinal);
-
-        foreach (MetroLine line in lines)
-        {
-            List<string> validStops = (line.Stops ?? [])
-                .Where(stopId => !string.IsNullOrWhiteSpace(stopId) && stationsById.ContainsKey(stopId) && stationPoints.ContainsKey(stopId))
-                .ToList();
-            for (int i = 1; i < validStops.Count; i++)
-            {
-                string a = validStops[i - 1];
-                string b = validStops[i];
-                if (string.Equals(a, b, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                adjacency[a].Add(b);
-                adjacency[b].Add(a);
-            }
-        }
-
-        return adjacency;
-    }
-
-    private static bool ShouldKeepSchematicStationsTogether(
-        string firstId,
-        string secondId,
-        Dictionary<string, MetroStation> stationsById,
-        HashSet<string> interchangeStationIds,
-        double distance)
-    {
-        if (distance > 0.001)
-        {
-            return false;
-        }
-
-        bool bothInterchangeLike = interchangeStationIds.Contains(firstId) && interchangeStationIds.Contains(secondId);
-        if (!bothInterchangeLike)
-        {
-            return false;
-        }
-
-        string firstName = stationsById.TryGetValue(firstId, out MetroStation? first) ? first.Name ?? string.Empty : string.Empty;
-        string secondName = stationsById.TryGetValue(secondId, out MetroStation? second) ? second.Name ?? string.Empty : string.Empty;
-        return string.Equals(firstName, secondName, StringComparison.CurrentCulture);
     }
 
     private static SvgPoint GetSchematicSeparationDirection(SvgPoint first, SvgPoint second, string firstId, string secondId)
@@ -1209,10 +971,6 @@ public sealed class MetroSvgRenderer
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
             StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,
-            EnableSchematicSegmentOverlapResolver = options.EnableSchematicSegmentOverlapResolver,
-            SchematicSegmentOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance,
-            SchematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim,
-            SchematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold,
             SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing,
             CompactTransitMapFrame = options.CompactTransitMapFrame,
             EnableSchematicMapOctilinearNormalization = options.EnableSchematicMapOctilinearNormalization,
@@ -4195,54 +3953,6 @@ public sealed class MetroSvgRenderer
         return count;
     }
 
-    private static SvgPoint SnapSegmentEndpoint(SvgPoint from, SvgPoint desired, double gridSize, SvgRect bounds)
-    {
-        double dx = desired.X - from.X;
-        double dy = desired.Y - from.Y;
-        if (Math.Abs(dx) < 0.001 && Math.Abs(dy) < 0.001)
-        {
-            return SnapPointToGrid(desired, gridSize, bounds);
-        }
-
-        double signX = dx < 0 ? -1 : 1;
-        double signY = dy < 0 ? -1 : 1;
-        double horizontalLength = SnapLength(Math.Abs(dx), gridSize);
-        double verticalLength = SnapLength(Math.Abs(dy), gridSize);
-        double diagonalLength = SnapLength(Math.Max(Math.Abs(dx), Math.Abs(dy)), gridSize);
-
-        List<SvgPoint> candidates =
-        [
-            new(from.X + signX * horizontalLength, from.Y),
-            new(from.X, from.Y + signY * verticalLength),
-            new(from.X + signX * diagonalLength, from.Y + signY * diagonalLength)
-        ];
-
-        SvgPoint best = desired;
-        double bestDistance = double.MaxValue;
-        foreach (SvgPoint candidate in candidates)
-        {
-            SvgPoint snappedCandidate = SnapPointToGrid(candidate, gridSize, bounds);
-            double distance = DistanceSquared(snappedCandidate, desired);
-            if (distance < bestDistance)
-            {
-                best = snappedCandidate;
-                bestDistance = distance;
-            }
-        }
-
-        if (DistanceSquared(best, from) < 0.001)
-        {
-            return SnapPointToGrid(desired, gridSize, bounds);
-        }
-
-        return best;
-    }
-
-    private static double SnapLength(double length, double gridSize)
-    {
-        return Math.Max(gridSize, Math.Round(length / gridSize) * gridSize);
-    }
-
     private static SvgPoint SnapPointToGrid(SvgPoint point, double gridSize, SvgRect bounds)
     {
         double x = Math.Round(point.X / gridSize) * gridSize;
@@ -4513,13 +4223,6 @@ public sealed class MetroSvgRenderer
             renderRoutes = ApplySharedCorridorCompositeStroke(renderRoutes, stationsById, geometry, options);
         }
 
-        Dictionary<string, SchematicSegmentOccupancy>? schematicSegmentOccupancy = null;
-        if (options.LayoutMode == SvgLayoutMode.SchematicLite
-            && options.EnableSchematicSegmentOverlapResolver)
-        {
-            schematicSegmentOccupancy = BuildSchematicSegmentOccupancy(renderRoutes);
-        }
-
         svg.AppendLine($"""<g id="routes" data-layout="{GetLayoutModeName(options.LayoutMode)}">""");
         if (useCorridorRunPipeline)
         {
@@ -4538,16 +4241,6 @@ public sealed class MetroSvgRenderer
             DisplayLineFamily family = renderRoute.Family;
             RoutePointSet routePointSet = renderRoute.RoutePointSet;
             List<RoutePolyline> routePolylines = routePointSet.Polylines;
-
-            if (schematicSegmentOccupancy is not null)
-            {
-                AppendSchematicRoutePolylines(
-                    svg,
-                    renderRoute,
-                    schematicSegmentOccupancy,
-                    options);
-                continue;
-            }
 
             for (int i = 0; i < routePolylines.Count; i++)
             {
@@ -5593,308 +5286,6 @@ public sealed class MetroSvgRenderer
     private static string CreateSchematicPointKey(SvgPoint point)
     {
         return $"{Format(point.X)},{Format(point.Y)}";
-    }
-
-    private static Dictionary<string, SchematicSegmentOccupancy> BuildSchematicSegmentOccupancy(List<RenderRoute> renderRoutes)
-    {
-        Dictionary<string, SchematicSegmentOccupancyBuilder> builders = [];
-        HashSet<string> seenFamilySegments = new(StringComparer.Ordinal);
-
-        foreach (RenderRoute renderRoute in renderRoutes)
-        {
-            string familyKey = renderRoute.Family.FamilyKey;
-            foreach (RoutePolyline polyline in renderRoute.RoutePointSet.Polylines)
-            {
-                for (int i = 1; i < polyline.Points.Count; i++)
-                {
-                    SvgPoint start = polyline.Points[i - 1];
-                    SvgPoint end = polyline.Points[i];
-                    if (Distance(start, end) <= 0.001)
-                    {
-                        continue;
-                    }
-
-                    SchematicSegmentKey segmentKey = CreateSchematicSegmentKey(start, end);
-                    string familySegmentKey = $"{segmentKey.Key}|{familyKey}";
-                    if (!seenFamilySegments.Add(familySegmentKey))
-                    {
-                        continue;
-                    }
-
-                    if (!builders.TryGetValue(segmentKey.Key, out SchematicSegmentOccupancyBuilder? builder))
-                    {
-                        builder = new SchematicSegmentOccupancyBuilder(segmentKey.Start, segmentKey.End);
-                        builders[segmentKey.Key] = builder;
-                    }
-
-                    builder.Families[familyKey] = renderRoute.Family.DisplayName;
-                }
-            }
-        }
-
-        Dictionary<string, SchematicSegmentOccupancy> result = [];
-        foreach ((string key, SchematicSegmentOccupancyBuilder builder) in builders)
-        {
-            List<string> familyKeys = builder.Families
-                .Select(pair => new
-                {
-                    FamilyKey = pair.Key,
-                    DisplayName = pair.Value,
-                    LineNumber = ExtractLineNumber(pair.Value)
-                })
-                .OrderBy(item => item.LineNumber.HasValue ? 0 : 1)
-                .ThenBy(item => item.LineNumber ?? int.MaxValue)
-                .ThenBy(item => item.DisplayName, StringComparer.CurrentCulture)
-                .ThenBy(item => item.FamilyKey, StringComparer.Ordinal)
-                .Select(item => item.FamilyKey)
-                .ToList();
-
-            result[key] = new SchematicSegmentOccupancy(key, builder.Start, builder.End, familyKeys);
-        }
-
-        return result;
-    }
-
-    private static void AppendSchematicRoutePolylines(
-        StringBuilder svg,
-        RenderRoute renderRoute,
-        Dictionary<string, SchematicSegmentOccupancy> occupancyBySegment,
-        SvgRenderOptions options)
-    {
-        MetroLine line = renderRoute.Line;
-        DisplayLineFamily family = renderRoute.Family;
-        RoutePointSet routePointSet = renderRoute.RoutePointSet;
-        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
-        double overlapOffsetDistance = visualStyle.SchematicOverlapOffsetDistance;
-        double overlapEndpointTrim = visualStyle.SchematicOverlapEndpointTrim;
-        Dictionary<string, int> schematicRenderKeyCounts = CountSchematicOverlapRenderKeys(
-            renderRoute,
-            occupancyBySegment);
-        int segmentRoutePartIndex = 0;
-        int segmentRoutePartCount = renderRoute.RoutePointSet.Polylines
-            .Sum(polyline => Math.Max(0, polyline.Points.Count - 1));
-
-        foreach (RoutePolyline polyline in routePointSet.Polylines)
-        {
-            for (int i = 1; i < polyline.Points.Count; i++)
-            {
-                SvgPoint start = polyline.Points[i - 1];
-                SvgPoint end = polyline.Points[i];
-                if (Distance(start, end) <= 0.001)
-                {
-                    continue;
-                }
-
-                segmentRoutePartIndex++;
-                List<SvgPoint> segmentPoints = [start, end];
-                SchematicSegmentKey segmentKey = CreateSchematicSegmentKey(start, end);
-                string overlapAttributes = string.Empty;
-                string routeStyle = string.Empty;
-
-                if (occupancyBySegment.TryGetValue(segmentKey.Key, out SchematicSegmentOccupancy? occupancy)
-                    && occupancy.FamilyKeys.Count > 1)
-                {
-                    int overlapIndex = occupancy.FamilyKeys.IndexOf(family.FamilyKey);
-                    if (overlapIndex < 0)
-                    {
-                        overlapAttributes = " data-schematic-overlap-fallback=\"family-not-found\"";
-                    }
-                    else
-                    {
-                        double offsetIndex = overlapIndex - (occupancy.FamilyKeys.Count - 1) / 2.0;
-                        double originalSegmentLength = Distance(start, end);
-                        SchematicOverlapSafety safety = GetSchematicOverlapSafety(
-                            start,
-                            end,
-                            occupancyBySegment,
-                            visualStyle);
-                        string renderMode = safety.SafeToOffset ? "offset" : "centered";
-                        string renderDedupeKey = CreateSchematicRenderDedupeKey(family.FamilyKey, segmentKey.Key);
-                        int renderDedupeCount = schematicRenderKeyCounts.TryGetValue(renderDedupeKey, out int count)
-                            ? count
-                            : 1;
-
-                        double offset = safety.SafeToOffset ? offsetIndex * overlapOffsetDistance : 0;
-                        string trimAttributes = string.Empty;
-                        if (safety.SafeToOffset)
-                        {
-                            SvgPoint normal = GetSegmentNormal(start, end);
-                            SchematicOverlapSegment overlapSegment = BuildSchematicOverlapSegment(
-                                start,
-                                end,
-                                normal,
-                                offset,
-                                overlapEndpointTrim);
-                            segmentPoints = overlapSegment.Points;
-                            trimAttributes = overlapSegment.TrimApplied
-                                ? $" data-schematic-overlap-trim=\"true\" data-schematic-overlap-trim-distance=\"{Format(overlapSegment.TrimDistance)}\""
-                                : string.Empty;
-                            if (overlapSegment.TrimFallback is not null)
-                            {
-                                trimAttributes += $" data-schematic-overlap-trim-fallback=\"{Escape(overlapSegment.TrimFallback)}\"";
-                            }
-                            routeStyle = "stroke-linecap: butt;";
-                        }
-
-                        string fallbackAttributes = safety.SafeToOffset
-                            ? string.Empty
-                            : $" data-schematic-overlap-fallback=\"unsafe-short-or-junction\" data-schematic-overlap-safe-offset=\"false\" data-schematic-overlap-safe-offset-reason=\"{Escape(safety.Reason)}\"";
-                        string safeOffsetAttributes = safety.SafeToOffset
-                            ? " data-schematic-overlap-safe-offset=\"true\""
-                            : string.Empty;
-                        string dedupeAttributes = renderDedupeCount > 1
-                            ? $" data-schematic-render-duplicate-count=\"{renderDedupeCount}\" data-schematic-render-dedupe-skipped=\"continuity-priority\""
-                            : string.Empty;
-                        overlapAttributes = $" data-schematic-overlap=\"true\" data-schematic-overlap-family-count=\"{occupancy.FamilyKeys.Count}\" data-schematic-overlap-index=\"{overlapIndex}\" data-schematic-overlap-offset=\"{Format(offset)}\" data-schematic-overlap-original-length=\"{Format(originalSegmentLength)}\" data-schematic-overlap-render-mode=\"{renderMode}\" data-schematic-segment-key=\"{Escape(segmentKey.Key)}\"{safeOffsetAttributes}{fallbackAttributes}{trimAttributes}{dedupeAttributes}";
-                    }
-                }
-
-                string pointList = string.Join(" ", segmentPoints.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
-                string routePartAttributes = segmentRoutePartCount > 1
-                    ? $" data-route-part-index=\"{segmentRoutePartIndex - 1}\" data-route-part-count=\"{segmentRoutePartCount}\""
-                    : string.Empty;
-                string familyAttributes = $" data-display-family-key=\"{Escape(family.FamilyKey)}\" data-display-family-member-count=\"{family.Variants.Count}\" data-display-family-primary-line-id=\"{Escape(family.PrimaryLine.Id)}\" data-display-family-merged=\"{(family.Variants.Count > 1 ? "true" : "false")}\"";
-                string colorMismatchAttribute = family.HasColorMismatch
-                    ? " data-display-family-color-mismatch=\"true\""
-                    : string.Empty;
-                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{routePartAttributes}{overlapAttributes} points=\"{pointList}\"";
-                AppendStandardRoutePolyline(svg, commonAttributes, family, options, routeStyle);
-            }
-        }
-    }
-
-    private static Dictionary<string, int> CountSchematicOverlapRenderKeys(
-        RenderRoute renderRoute,
-        Dictionary<string, SchematicSegmentOccupancy> occupancyBySegment)
-    {
-        Dictionary<string, int> counts = new(StringComparer.Ordinal);
-        string familyKey = renderRoute.Family.FamilyKey;
-
-        foreach (RoutePolyline polyline in renderRoute.RoutePointSet.Polylines)
-        {
-            for (int i = 1; i < polyline.Points.Count; i++)
-            {
-                SvgPoint start = polyline.Points[i - 1];
-                SvgPoint end = polyline.Points[i];
-                if (Distance(start, end) <= 0.001)
-                {
-                    continue;
-                }
-
-                SchematicSegmentKey segmentKey = CreateSchematicSegmentKey(start, end);
-                if (!occupancyBySegment.TryGetValue(segmentKey.Key, out SchematicSegmentOccupancy? occupancy)
-                    || occupancy.FamilyKeys.Count <= 1
-                    || !occupancy.FamilyKeys.Contains(familyKey, StringComparer.Ordinal))
-                {
-                    continue;
-                }
-
-                string key = CreateSchematicRenderDedupeKey(familyKey, segmentKey.Key);
-                counts[key] = counts.TryGetValue(key, out int count) ? count + 1 : 1;
-            }
-        }
-
-        return counts;
-    }
-
-    private static string CreateSchematicRenderDedupeKey(string familyKey, string segmentKey)
-    {
-        return $"{familyKey}|{segmentKey}";
-    }
-
-    private static SchematicOverlapSafety GetSchematicOverlapSafety(
-        SvgPoint start,
-        SvgPoint end,
-        Dictionary<string, SchematicSegmentOccupancy> occupancyBySegment,
-        SvgVisualStyle visualStyle)
-    {
-        double length = Distance(start, end);
-        if (length <= visualStyle.SchematicShortOverlapSegmentThreshold)
-        {
-            return new SchematicOverlapSafety(false, "short-segment");
-        }
-
-        double remainingLengthAfterTrim = length - visualStyle.SchematicOverlapEndpointTrim * 2;
-        if (remainingLengthAfterTrim < visualStyle.BaseRouteWidth * 2)
-        {
-            return new SchematicOverlapSafety(false, "trim-too-short");
-        }
-
-        if (IsSchematicEndpointComplex(start, occupancyBySegment)
-            || IsSchematicEndpointComplex(end, occupancyBySegment))
-        {
-            return new SchematicOverlapSafety(false, "high-degree-junction");
-        }
-
-        return new SchematicOverlapSafety(true, "safe-long-simple-segment");
-    }
-
-    private static bool IsSchematicEndpointComplex(
-        SvgPoint point,
-        Dictionary<string, SchematicSegmentOccupancy> occupancyBySegment)
-    {
-        HashSet<string> touchingSegments = new(StringComparer.Ordinal);
-        HashSet<string> touchingFamilies = new(StringComparer.Ordinal);
-
-        foreach (SchematicSegmentOccupancy occupancy in occupancyBySegment.Values)
-        {
-            if (Distance(point, occupancy.Start) > 0.001
-                && Distance(point, occupancy.End) > 0.001)
-            {
-                continue;
-            }
-
-            touchingSegments.Add(occupancy.Key);
-            foreach (string familyKey in occupancy.FamilyKeys)
-            {
-                touchingFamilies.Add(familyKey);
-            }
-        }
-
-        return touchingSegments.Count >= 3
-            || (touchingSegments.Count >= 2 && touchingFamilies.Count >= 3);
-    }
-
-    private static SchematicOverlapSegment BuildSchematicOverlapSegment(
-        SvgPoint start,
-        SvgPoint end,
-        SvgPoint normal,
-        double offset,
-        double requestedTrim)
-    {
-        double length = Distance(start, end);
-        SvgPoint direction = length <= 0.001
-            ? new SvgPoint(0, 0)
-            : new SvgPoint((end.X - start.X) / length, (end.Y - start.Y) / length);
-        SvgPoint offsetStart = new(start.X + normal.X * offset, start.Y + normal.Y * offset);
-        SvgPoint offsetEnd = new(end.X + normal.X * offset, end.Y + normal.Y * offset);
-
-        if (length <= 0.001)
-        {
-            return new SchematicOverlapSegment([offsetStart, offsetEnd], false, 0, "zero-length");
-        }
-
-        double trim = Math.Max(0, requestedTrim);
-        if (trim <= 0)
-        {
-            return new SchematicOverlapSegment([offsetStart, offsetEnd], false, 0, "disabled");
-        }
-
-        double maxTrim = Math.Max(0, (length - 1) / 2);
-        if (maxTrim <= 0)
-        {
-            return new SchematicOverlapSegment([offsetStart, offsetEnd], false, 0, "segment-too-short");
-        }
-
-        bool shortened = trim > maxTrim;
-        trim = Math.Min(trim, maxTrim);
-        SvgPoint trimmedStart = new(offsetStart.X + direction.X * trim, offsetStart.Y + direction.Y * trim);
-        SvgPoint trimmedEnd = new(offsetEnd.X - direction.X * trim, offsetEnd.Y - direction.Y * trim);
-        return new SchematicOverlapSegment(
-            [trimmedStart, trimmedEnd],
-            true,
-            trim,
-            shortened ? "segment-too-short" : null);
     }
 
     private static SchematicSegmentKey CreateSchematicSegmentKey(SvgPoint a, SvgPoint b)
@@ -8042,7 +7433,6 @@ public sealed class MetroSvgRenderer
         {
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
-            SvgLayoutMode.SchematicLite => "schematic-lite",
             _ => "geographic"
         };
     }
@@ -9083,10 +8473,7 @@ public sealed class MetroSvgRenderer
         double StationMarkerStrokeWidth,
         double InterchangeMarkerRadius,
         double InterchangeMarkerStrokeWidth,
-        double LabelHaloWidth,
-        double SchematicOverlapOffsetDistance,
-        double SchematicOverlapEndpointTrim,
-        double SchematicShortOverlapSegmentThreshold)
+        double LabelHaloWidth)
     {
         public static SvgVisualStyle From(SvgRenderOptions options)
         {
@@ -9104,15 +8491,6 @@ public sealed class MetroSvgRenderer
                 ? Math.Clamp(baseRouteWidth * 0.18, 2.2, 3.0)
                 : Math.Clamp(baseRouteWidth * 0.16, 2, 2.8);
             double labelHaloWidth = Math.Max(transitMapStyle ? 6 : 5, options.LabelFontSize * (transitMapStyle ? 0.44 : 0.38));
-            double schematicOverlapOffsetDistance = options.SchematicSegmentOverlapOffsetDistance > 0
-                ? options.SchematicSegmentOverlapOffsetDistance
-                : Math.Max(baseRouteWidth * 0.75, options.GridSize * 0.12);
-            double schematicOverlapEndpointTrim = options.SchematicOverlapEndpointTrim > 0
-                ? options.SchematicOverlapEndpointTrim
-                : stationRadius + baseRouteWidth * 0.5;
-            double schematicShortOverlapSegmentThreshold = options.SchematicShortOverlapSegmentThreshold > 0
-                ? options.SchematicShortOverlapSegmentThreshold
-                : Math.Max(2 * stationRadius + 2 * baseRouteWidth, options.GridSize * 1.5);
 
             return new SvgVisualStyle(
                 baseRouteWidth,
@@ -9123,10 +8501,7 @@ public sealed class MetroSvgRenderer
                 stationStrokeWidth,
                 interchangeRadius,
                 interchangeStrokeWidth,
-                labelHaloWidth,
-                schematicOverlapOffsetDistance,
-                schematicOverlapEndpointTrim,
-                schematicShortOverlapSegmentThreshold);
+                labelHaloWidth);
         }
     }
 
@@ -9362,30 +8737,7 @@ public sealed class MetroSvgRenderer
         string? SharedCorridorSkipped = null,
         int SyntheticBendCount = 0);
 
-    private sealed class SchematicSegmentOccupancyBuilder(SvgPoint start, SvgPoint end)
-    {
-        public SvgPoint Start { get; } = start;
-
-        public SvgPoint End { get; } = end;
-
-        public Dictionary<string, string> Families { get; } = new(StringComparer.Ordinal);
-    }
-
-    private sealed record SchematicSegmentOccupancy(
-        string Key,
-        SvgPoint Start,
-        SvgPoint End,
-        List<string> FamilyKeys);
-
     private readonly record struct SchematicSegmentKey(string Key, SvgPoint Start, SvgPoint End);
-
-    private sealed record SchematicOverlapSegment(
-        List<SvgPoint> Points,
-        bool TrimApplied,
-        double TrimDistance,
-        string? TrimFallback);
-
-    private readonly record struct SchematicOverlapSafety(bool SafeToOffset, string Reason);
 
     private sealed record SharedCorridorStroke(
         string RunId,

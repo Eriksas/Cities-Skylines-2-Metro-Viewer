@@ -74,10 +74,6 @@ $jobs = @(
     @{
         Name = '03-geographic-pathpoints-simplified.svg'
         Args = @('--layout', 'geographic', '--size', 'poster', '--use-path-points', '--simplify-path-points')
-    },
-    @{
-        Name = '04-schematic-lite.svg'
-        Args = @('--layout', 'schematic-lite', '--size', 'poster', '--hide-generic-labels', '--hide-crowded-labels')
     }
 )
 

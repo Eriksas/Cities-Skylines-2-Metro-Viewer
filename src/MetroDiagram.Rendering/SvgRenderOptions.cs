@@ -3,7 +3,6 @@ namespace MetroDiagram.Rendering;
 public enum SvgLayoutMode
 {
     Geographic,
-    SchematicLite,
     SchematicV2,
     SchematicMap
 }
@@ -111,14 +110,6 @@ public sealed class SvgRenderOptions
     public double StationRouteAnchorMaxDistance { get; init; } = 36;
 
     public double StationRouteAnchorMultiFamilyMaxSpread { get; init; } = 40;
-
-    public bool EnableSchematicSegmentOverlapResolver { get; init; } = true;
-
-    public double SchematicSegmentOverlapOffsetDistance { get; init; }
-
-    public double SchematicOverlapEndpointTrim { get; init; }
-
-    public double SchematicShortOverlapSegmentThreshold { get; init; }
 
     public double SchematicMinimumStationSpacing { get; init; }
 

@@ -134,8 +134,6 @@ This allows the CLI to generate an SVG from the remaining valid stops while stil
 - `geographic` route geometry uses raw `position.x` and `position.z` coordinates normalized into the SVG canvas.
 - When enabled by render options, `geographic` can use `line.pathPoints` for route polylines when at least two path points are present, falling back to `stops` when path data is missing or unusable.
 - Geographic path point rendering records `data-path-point-count` and `data-cleaned-path-point-count` on route polylines for quick inspection.
-- `schematic-lite` computes render-only grid-snapped coordinates from the same source positions. It does not modify JSON data.
-- `schematic-lite` continues to use station stops by default in Phase 5A.2.
 - The renderer reserves a right-side legend area so route polylines do not overlap the legend.
 - Stations shared by more than one line, or marked with `isInterchange = true`, render with a larger interchange marker.
 - Empty networks render a valid SVG with an empty-network notice.

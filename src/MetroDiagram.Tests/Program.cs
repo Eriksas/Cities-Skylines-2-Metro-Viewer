@@ -32,29 +32,8 @@ List<(string Name, Action Test)> tests =
     ("transit-map route badges avoid placed labels", TransitMapRouteBadgesAvoidPlacedLabels),
     ("transit-map route badges avoid each other", TransitMapRouteBadgesAvoidEachOther),
     ("renderer sanitizes XML text values", RendererSanitizesXmlTextValues),
-    ("schematic-lite snaps route points to grid and octilinear directions", SchematicLiteSnapsRoutePoints),
-    ("schematic-lite offsets two overlapping segments", SchematicLiteOffsetsTwoOverlappingSegments),
-    ("schematic-lite trims overlapping segment endpoints", SchematicLiteTrimsOverlappingSegmentEndpoints),
-    ("schematic-lite treats reverse segments as one overlap", SchematicLiteTreatsReverseSegmentsAsOneOverlap),
-    ("schematic-lite ignores same-family repeated segments", SchematicLiteIgnoresSameFamilyRepeatedSegments),
-    ("schematic-lite centers three-family overlap offsets", SchematicLiteCentersThreeFamilyOverlapOffsets),
-    ("schematic-lite ignores zero-length segments", SchematicLiteIgnoresZeroLengthSegments),
-    ("schematic-lite clamps trim on short overlap segments", SchematicLiteClampsTrimOnShortOverlapSegments),
-    ("schematic-lite short overlaps use centered fallback", SchematicLiteShortOverlapsUseCenteredFallback),
-    ("schematic-lite preserves reverse short overlap continuity", SchematicLitePreservesReverseShortOverlapContinuity),
-    ("schematic-lite long overlaps still use offset mode", SchematicLiteLongOverlapsStillUseOffsetMode),
-    ("schematic-lite trim does not affect non-overlap segments", SchematicLiteTrimDoesNotAffectNonOverlapSegments),
-    ("schematic-lite falls back conservatively near T junctions", SchematicLiteFallsBackConservativelyNearTJunctions),
-    ("schematic-lite overlap resolver does not affect geographic", SchematicLiteOverlapResolverDoesNotAffectGeographic),
-    ("schematic-lite station markers stay centered while routes offset", SchematicLiteStationMarkersStayCenteredWhileRoutesOffset),
-    ("schematic-lite station marker centers are unchanged by overlap resolver", SchematicLiteStationMarkerCentersUnchangedByOverlapResolver),
-    ("schematic-lite station spacing separates close stations", SchematicLiteStationSpacingSeparatesCloseStations),
-    ("schematic-lite station spacing moves markers labels and routes together", SchematicLiteStationSpacingMovesMarkersLabelsAndRoutesTogether),
-    ("schematic-lite station spacing limits high-degree station movement", SchematicLiteStationSpacingLimitsHighDegreeStationMovement),
-    ("schematic-lite overlap resolver keeps loop and branch samples valid", SchematicLiteOverlapResolverKeepsLoopAndBranchSamplesValid),
     ("schematic-v2 preserves stop order and adjacency", SchematicV2PreservesStopOrderAndAdjacency),
     ("schematic-v2 preserves interchange node", SchematicV2PreservesInterchangeNode),
-    ("schematic-v2 keeps old schematic-lite available", SchematicV2KeepsOldSchematicLiteAvailable),
     ("schematic-v2 spacing does not reverse close stations", SchematicV2SpacingDoesNotReverseCloseStations),
     ("schematic-v2 reports remaining dense station pairs", SchematicV2ReportsRemainingDenseStationPairs),
     ("schematic-v2 relaxes sharp detour station", SchematicV2RelaxesSharpDetourStation),
@@ -142,7 +121,6 @@ List<(string Name, Action Test)> tests =
     ("station route anchoring averages close interchange anchors", StationRouteAnchoringAveragesCloseInterchangeAnchors),
     ("station route anchoring rejects spread-out interchange anchors", StationRouteAnchoringRejectsSpreadOutInterchangeAnchors),
     ("station route anchoring shares marker and label anchor metadata", StationRouteAnchoringSharesMarkerAndLabelAnchorMetadata),
-    ("station route anchoring leaves schematic-lite raw", StationRouteAnchoringLeavesSchematicLiteRaw),
     ("express stripe does not change base route width", ExpressStripeDoesNotChangeBaseRouteWidth),
     ("shared corridor express conflict writes skip marker", SharedCorridorExpressConflictWritesSkipMarker),
     ("express center stripe marks express family", ExpressCenterStripeMarksExpressFamily),
@@ -464,415 +442,6 @@ static void RendererSanitizesXmlTextValues()
     Assert(xml.Descendants().Any(element => element.Value.Contains("正常站", StringComparison.Ordinal)), "Unicode station text did not round-trip through XML parsing.");
 }
 
-static void SchematicLiteSnapsRoutePoints()
-{
-    MetroExportDocument document = new()
-    {
-        City = new CityInfo { Name = "Layout City" },
-        Network = new MetroNetwork
-        {
-            Stations =
-            [
-                new MetroStation
-                {
-                    Id = "station_a",
-                    Name = "A",
-                    Position = new MetroPosition { X = 0, Z = 0 },
-                    Lines = ["line_test"]
-                },
-                new MetroStation
-                {
-                    Id = "station_b",
-                    Name = "B",
-                    Position = new MetroPosition { X = 84, Z = 29 },
-                    Lines = ["line_test"]
-                },
-                new MetroStation
-                {
-                    Id = "station_c",
-                    Name = "C",
-                    Position = new MetroPosition { X = 148, Z = 112 },
-                    Lines = ["line_test"]
-                },
-                new MetroStation
-                {
-                    Id = "station_d",
-                    Name = "D",
-                    Position = new MetroPosition { X = 210, Z = 119 },
-                    Lines = ["line_test"]
-                }
-            ],
-            Lines =
-            [
-                new MetroLine
-                {
-                    Id = "line_test",
-                    Name = "Test Line",
-                    Color = "#D71920",
-                    Stops = ["station_a", "station_b", "station_c", "station_d"]
-                }
-            ]
-        }
-    };
-
-    SvgRenderOptions options = new()
-    {
-        LayoutMode = SvgLayoutMode.SchematicLite,
-        Width = 640,
-        Height = 480,
-        Padding = 64,
-        Margin = 64,
-        LegendWidth = 160,
-        GridSize = 32,
-        SchematicMinimumStationSpacing = 1,
-        EnableSchematicSegmentOverlapResolver = false
-    };
-
-    SvgRenderResult renderResult = new MetroSvgRenderer().Render(document, options);
-    XDocument xml = XDocument.Parse(renderResult.Svg);
-    AssertValidSvg(xml, "schematic-lite layout");
-
-    XElement routes = xml
-        .Descendants()
-        .First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes");
-    Assert((string?)routes.Attribute("data-layout") == "schematic-lite", "Schematic-lite SVG did not record the layout mode.");
-
-    XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
-    Assert(points.Count == 4, "Schematic-lite route did not preserve the stop count.");
-
-    foreach ((double x, double y) in points)
-    {
-        Assert(IsOnGrid(x, options.GridSize) || IsOnGrid(x, options.GridSize / 2), $"Schematic-lite x={x:0.###} was not on the grid or half-grid.");
-        Assert(IsOnGrid(y, options.GridSize) || IsOnGrid(y, options.GridSize / 2), $"Schematic-lite y={y:0.###} was not on the grid or half-grid.");
-    }
-
-    for (int i = 1; i < points.Count; i++)
-    {
-        double dx = Math.Abs(points[i].X - points[i - 1].X);
-        double dy = Math.Abs(points[i].Y - points[i - 1].Y);
-        bool octilinear = dx < 0.001 || dy < 0.001 || Math.Abs(dx - dy) < 0.001;
-        Assert(octilinear, $"Segment {i - 1}->{i} was not horizontal, vertical, or 45-degree diagonal.");
-    }
-}
-
-static void SchematicLiteOffsetsTwoOverlappingSegments()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    IReadOnlyList<XElement> overlapRoutes = GetSchematicOverlapRouteElements(xml);
-
-    Assert(overlapRoutes.Count == 2, $"Two overlapping schematic families should render two offset segments, found {overlapRoutes.Count}.");
-    Assert(overlapRoutes.All(route => (string?)route.Attribute("data-schematic-overlap-family-count") == "2"), "Two-family schematic overlap did not record family count 2.");
-    Assert(overlapRoutes.Select(route => ReadDouble(route.Attribute("data-schematic-overlap-offset"))).Distinct().Count() == 2, "Two-family schematic overlap did not assign distinct offsets.");
-    AssertValidSvg(xml, "schematic two-family overlap SVG");
-}
-
-static void SchematicLiteTrimsOverlappingSegmentEndpoints()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    XElement stationA = GetStationCircle(xml, "station_a");
-    XElement stationB = GetStationCircle(xml, "station_b");
-    (double X, double Y) centerA = (ReadDouble(stationA.Attribute("cx")), ReadDouble(stationA.Attribute("cy")));
-    (double X, double Y) centerB = (ReadDouble(stationB.Attribute("cx")), ReadDouble(stationB.Attribute("cy")));
-
-    foreach (XElement route in GetSchematicOverlapRouteElements(xml))
-    {
-        List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
-        Assert((string?)route.Attribute("data-schematic-overlap-trim") == "true", "Overlapping schematic route did not record endpoint trimming.");
-        Assert(ReadDouble(route.Attribute("data-schematic-overlap-trim-distance")) > 0, "Schematic overlap trim distance was not recorded.");
-        Assert(Distance(points[0], centerA) > 8, "Trimmed overlap segment still begins at the station center.");
-        Assert(Distance(points[^1], centerB) > 8, "Trimmed overlap segment still ends at the station center.");
-    }
-}
-
-static void SchematicLiteTreatsReverseSegmentsAsOneOverlap()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_b", "station_a"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    IReadOnlyList<XElement> overlapRoutes = GetSchematicOverlapRouteElements(xml);
-    List<string> segmentKeys = overlapRoutes
-        .Select(route => (string?)route.Attribute("data-schematic-segment-key") ?? string.Empty)
-        .Distinct(StringComparer.Ordinal)
-        .ToList();
-
-    Assert(overlapRoutes.Count == 2, $"Reverse overlapping schematic families should render two offset segments, found {overlapRoutes.Count}.");
-    Assert(segmentKeys.Count == 1, $"Reverse direction should share one undirected schematic segment key, found {segmentKeys.Count}.");
-}
-
-static void SchematicLiteIgnoresSameFamilyRepeatedSegments()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b", "station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-
-    Assert(GetSchematicOverlapRouteElements(xml).Count == 0, "Same family repeated segment should not be counted as a multi-family schematic overlap.");
-    AssertValidSvg(xml, "schematic repeated segment SVG");
-}
-
-static void SchematicLiteCentersThreeFamilyOverlapOffsets()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_10", "Line 10", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    List<double> offsets = GetSchematicOverlapRouteElements(xml)
-        .Select(route => ReadDouble(route.Attribute("data-schematic-overlap-offset")))
-        .OrderBy(value => value)
-        .ToList();
-
-    Assert(offsets.Count == 3, $"Three-family schematic overlap should render three offset segments, found {offsets.Count}.");
-    Assert(offsets[0] < 0, "Three-family schematic overlap did not include a negative offset.");
-    AssertAlmostEqual(offsets[1], 0, "Three-family schematic overlap did not center one line.");
-    Assert(offsets[2] > 0, "Three-family schematic overlap did not include a positive offset.");
-    AssertAlmostEqual(Math.Abs(offsets[0]), offsets[2], "Three-family schematic overlap offsets were not centered.");
-}
-
-static void SchematicLiteIgnoresZeroLengthSegments()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_a"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-
-    Assert(GetRouteElements(xml).Count == 0, "Zero-length schematic segment should not render a route polyline.");
-    AssertValidSvg(xml, "schematic zero-length SVG");
-}
-
-static void SchematicLiteClampsTrimOnShortOverlapSegments()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions(endpointTrim: 10000)).Svg);
-    foreach (XElement route in GetSchematicOverlapRouteElements(xml))
-    {
-        List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
-        Assert(points.Count == 2, "Short schematic overlap fallback should still produce a two-point segment.");
-        Assert(Distance(points[0], points[1]) > 0.1, "Short schematic overlap trim produced an invalid or reversed zero-length segment.");
-        Assert((string?)route.Attribute("data-schematic-overlap-fallback") == "unsafe-short-or-junction", "Unsafe schematic overlap did not use conservative fallback.");
-        Assert((string?)route.Attribute("data-schematic-overlap-safe-offset-reason") == "trim-too-short", "Unsafe schematic overlap did not record the trim-too-short safety reason.");
-    }
-
-    AssertValidSvg(xml, "schematic short trim fallback SVG");
-}
-
-static void SchematicLiteShortOverlapsUseCenteredFallback()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions(shortThreshold: 10000)).Svg);
-    foreach (XElement route in GetSchematicOverlapRouteElements(xml))
-    {
-        Assert((string?)route.Attribute("data-schematic-overlap-fallback") == "unsafe-short-or-junction", "Short schematic overlap did not record conservative fallback.");
-        Assert((string?)route.Attribute("data-schematic-overlap-safe-offset") == "false", "Short schematic overlap should mark safe offset as false.");
-        Assert((string?)route.Attribute("data-schematic-overlap-safe-offset-reason") == "short-segment", "Short schematic overlap did not record short-segment safety reason.");
-        Assert((string?)route.Attribute("data-schematic-overlap-render-mode") == "centered", "Short schematic overlap did not switch to centered render mode.");
-        AssertAlmostEqual(ReadDouble(route.Attribute("data-schematic-overlap-offset")), 0, "Short schematic overlap should not apply parallel offset.");
-    }
-
-    AssertValidSvg(xml, "schematic short overlap centered fallback SVG");
-}
-
-static void SchematicLitePreservesReverseShortOverlapContinuity()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b", "station_a"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions(shortThreshold: 10000)).Svg);
-    IReadOnlyList<XElement> overlapRoutes = GetSchematicOverlapRouteElements(xml);
-    Assert(overlapRoutes.Count == 3, $"Reverse short overlap should preserve required route continuity segments, found {overlapRoutes.Count}.");
-    Assert(overlapRoutes.Any(route => (string?)route.Attribute("data-display-family-key") == "Line 2"
-        && (string?)route.Attribute("data-schematic-render-duplicate-count") == "2"
-        && (string?)route.Attribute("data-schematic-render-dedupe-skipped") == "continuity-priority"), "Same-family reverse short overlap was not marked as retained for continuity.");
-    Assert(overlapRoutes.All(route => (string?)route.Attribute("data-schematic-overlap-render-mode") == "centered"), "Short deduped overlap should remain in centered render mode.");
-    AssertValidSvg(xml, "schematic reverse duplicate short overlap SVG");
-}
-
-static void SchematicLiteLongOverlapsStillUseOffsetMode()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions(shortThreshold: 1)).Svg);
-    IReadOnlyList<XElement> overlapRoutes = GetSchematicOverlapRouteElements(xml);
-
-    Assert(overlapRoutes.Count == 2, $"Long schematic overlap should still render two offset segments, found {overlapRoutes.Count}.");
-    Assert(overlapRoutes.All(route => (string?)route.Attribute("data-schematic-overlap-render-mode") == "offset"), "Long schematic overlap should keep offset render mode.");
-    Assert(overlapRoutes.Select(route => ReadDouble(route.Attribute("data-schematic-overlap-offset"))).Distinct().Count() == 2, "Long schematic overlap did not preserve distinct offsets.");
-}
-
-static void SchematicLiteTrimDoesNotAffectNonOverlapSegments()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_b", "station_c"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-
-    Assert(GetRouteElements(xml).All(route => route.Attribute("data-schematic-overlap-trim") is null), "Non-overlap schematic segment unexpectedly received trim metadata.");
-    Assert(GetRouteElements(xml).All(route => route.Attribute("data-schematic-overlap") is null), "Non-overlap schematic segment unexpectedly received overlap metadata.");
-}
-
-static void SchematicLiteFallsBackConservativelyNearTJunctions()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_10", "Line 10", ["station_b", "station_c"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    XElement stationB = GetStationCircle(xml, "station_b");
-    (double X, double Y) junctionCenter = (ReadDouble(stationB.Attribute("cx")), ReadDouble(stationB.Attribute("cy")));
-
-    foreach (XElement route in GetSchematicOverlapRouteElements(xml))
-    {
-        List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
-        Assert(points.Any(point => Distance(point, junctionCenter) < 0.001), "Conservative T-junction fallback should preserve a centered connection into the station.");
-        Assert((string?)route.Attribute("data-schematic-overlap-fallback") == "unsafe-short-or-junction", "T-junction overlap did not use conservative fallback.");
-        Assert((string?)route.Attribute("data-schematic-overlap-safe-offset-reason") == "high-degree-junction", "T-junction overlap did not record the high-degree junction reason.");
-    }
-
-    Assert(HasStationCircle(xml, "station_b"), "T-junction station marker disappeared.");
-}
-
-static void SchematicLiteOverlapResolverDoesNotAffectGeographic()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.Geographic);
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
-
-    Assert(GetRouteElements(xml).All(route => route.Attribute("data-schematic-overlap") is null), "Geographic output should not include schematic overlap attributes.");
-    Assert(GetRouteElements(xml).Count == 2, "Geographic output should keep normal route-level polylines for this test.");
-}
-
-static void SchematicLiteStationMarkersStayCenteredWhileRoutesOffset()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions()).Svg);
-    XElement station = GetStationCircle(xml, "station_a");
-    List<XElement> overlapRoutes = GetSchematicOverlapRouteElements(xml).ToList();
-    List<(double X, double Y)> routeStarts = overlapRoutes
-        .Select(route => SplitPoints((string?)route.Attribute("points")).First())
-        .ToList();
-
-    double stationX = ReadDouble(station.Attribute("cx"));
-    double stationY = ReadDouble(station.Attribute("cy"));
-    Assert(routeStarts.All(point => Distance(point, (stationX, stationY)) > 8), "Offset schematic routes should be trimmed away from the station center.");
-    AssertAlmostEqual(stationY, routeStarts.Average(point => point.Y), "Station marker Y should stay centered between offset schematic routes.");
-}
-
-static void SchematicLiteStationMarkerCentersUnchangedByOverlapResolver()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_8", "Line 8", ["station_a", "station_b"]),
-        new SchematicLineSpec("line_10", "Line 10", ["station_b", "station_c"]));
-
-    SvgRenderOptions resolverOff = CreateSchematicOverlapTestOptions(enableResolver: false);
-    SvgRenderOptions resolverOn = CreateSchematicOverlapTestOptions();
-
-    XDocument offXml = XDocument.Parse(new MetroSvgRenderer().Render(document, resolverOff).Svg);
-    XDocument onXml = XDocument.Parse(new MetroSvgRenderer().Render(document, resolverOn).Svg);
-
-    foreach (string stationId in new[] { "station_a", "station_b", "station_c" })
-    {
-        XElement offStation = GetStationCircle(offXml, stationId);
-        XElement onStation = GetStationCircle(onXml, stationId);
-        AssertAlmostEqual(ReadDouble(offStation.Attribute("cx")), ReadDouble(onStation.Attribute("cx")), $"Station {stationId} cx changed after overlap resolver.");
-        AssertAlmostEqual(ReadDouble(offStation.Attribute("cy")), ReadDouble(onStation.Attribute("cy")), $"Station {stationId} cy changed after overlap resolver.");
-    }
-}
-
-static void SchematicLiteStationSpacingSeparatesCloseStations()
-{
-    MetroExportDocument document = CreateCloseSchematicStationDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(width: 700, height: 460, legendWidth: 160, minStationSpacing: 40);
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
-
-    XElement stationA = GetStationCircle(xml, "station_a");
-    XElement stationB = GetStationCircle(xml, "station_b");
-    (double X, double Y) centerA = (ReadDouble(stationA.Attribute("cx")), ReadDouble(stationA.Attribute("cy")));
-    (double X, double Y) centerB = (ReadDouble(stationB.Attribute("cx")), ReadDouble(stationB.Attribute("cy")));
-
-    Assert(Distance(centerA, centerB) >= 39.9, "Schematic station spacing did not separate close stations to the requested minimum.");
-    Assert((string?)stationA.Attribute("data-schematic-station-adjusted") == "true"
-        || (string?)stationB.Attribute("data-schematic-station-adjusted") == "true", "Adjusted station marker did not record spacing metadata.");
-    AssertValidSvg(xml, "schematic station spacing SVG");
-}
-
-static void SchematicLiteStationSpacingMovesMarkersLabelsAndRoutesTogether()
-{
-    MetroExportDocument document = CreateCloseSchematicStationDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(width: 700, height: 460, legendWidth: 160, minStationSpacing: 40);
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
-
-    XElement stationA = GetStationCircle(xml, "station_a");
-    XElement stationB = GetStationCircle(xml, "station_b");
-    XElement adjustedStation = (string?)stationB.Attribute("data-schematic-station-adjusted") == "true" ? stationB : stationA;
-    string adjustedStationId = (string?)adjustedStation.Attribute("data-station-id") ?? "station_a";
-    (double X, double Y) adjustedCenter = (ReadDouble(adjustedStation.Attribute("cx")), ReadDouble(adjustedStation.Attribute("cy")));
-    XElement adjustedLabel = xml.Descendants()
-        .First(element => element.Name.LocalName == "text"
-            && (string?)element.Attribute("data-station-id") == adjustedStationId
-            && (string?)element.Attribute("class") == "station-label");
-    XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
-
-    Assert(routePoints.Any(point => Distance(point, adjustedCenter) < 0.001), "Schematic route did not use the adjusted station position.");
-    Assert((string?)adjustedLabel.Attribute("data-schematic-station-adjusted") == "true", "Station label did not carry schematic adjustment metadata.");
-    Assert(Math.Abs(ReadDouble(adjustedLabel.Attribute("y")) - adjustedCenter.Y) < 28, "Station label was not placed from the adjusted station position.");
-}
-
-static void SchematicLiteStationSpacingLimitsHighDegreeStationMovement()
-{
-    MetroExportDocument document = CreateHighDegreeCloseSchematicStationDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(width: 760, height: 520, legendWidth: 180, minStationSpacing: 100);
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
-
-    XElement hub = GetStationCircle(xml, "hub");
-    double adjustment = ReadDouble(hub.Attribute("data-schematic-station-adjustment-distance"));
-    Assert(adjustment <= options.GridSize * 0.75 + 0.001, "High-degree schematic station moved beyond the conservative cap.");
-    AssertValidSvg(xml, "schematic high-degree station spacing SVG");
-}
-
-static void SchematicLiteOverlapResolverKeepsLoopAndBranchSamplesValid()
-{
-    foreach (string sample in new[] { "sample-metro-loop.json", "sample-metro-branch.json" })
-    {
-        string samplePath = Path.Combine(FindRepositoryRoot(), "samples", sample);
-        MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
-        Assert(loadResult.Document is not null, $"{sample}: sample did not load.");
-        SvgRenderOptions options = CreateSchematicOverlapTestOptions(width: 1200, height: 800, legendWidth: 280);
-        XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(loadResult.Document!, options).Svg);
-        AssertValidSvg(xml, $"{sample} schematic overlap resolver");
-    }
-}
-
 static void SchematicV2PreservesStopOrderAndAdjacency()
 {
     MetroExportDocument document = CreateSchematicOverlapDocument(
@@ -905,16 +474,6 @@ static void SchematicV2PreservesInterchangeNode()
     {
         Assert(SplitPoints((string?)route.Attribute("points")).Any(point => Distance(point, interchange) < 0.001), "Schematic-v2 route did not use the shared interchange node.");
     }
-}
-
-static void SchematicV2KeepsOldSchematicLiteAvailable()
-{
-    MetroExportDocument document = CreateSchematicOverlapDocument(
-        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]));
-
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicLite)).Svg);
-    XElement routes = xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes");
-    Assert((string?)routes.Attribute("data-layout") == "schematic-lite", "Old schematic-lite layout mode is no longer available.");
 }
 
 static void SchematicV2SpacingDoesNotReverseCloseStations()
@@ -2077,11 +1636,6 @@ static void GeographicUsesPathPointsWhenEnabled()
     XElement pathRoute = GetRouteElements(pathXml).Single();
     Assert((string?)pathRoute.Attribute("data-route-source") == "pathPoints", "Geographic route did not use pathPoints when enabled.");
     Assert(SplitPoints((string?)pathRoute.Attribute("points")).Count() == 3, "Path route did not preserve the three path points.");
-
-    SvgRenderOptions schematicOptions = new() { LayoutMode = SvgLayoutMode.SchematicLite, UsePathPoints = true };
-    XDocument schematicXml = XDocument.Parse(new MetroSvgRenderer().Render(document, schematicOptions).Svg);
-    XElement schematicRoute = GetRouteElements(schematicXml).Single();
-    Assert((string?)schematicRoute.Attribute("data-route-source") == "stops", "Schematic-lite should continue to render from stops by default.");
 }
 
 static void PathPointsDeduplicationNormalizesConsecutiveDuplicates()
@@ -2694,20 +2248,6 @@ static void StationRouteAnchoringSharesMarkerAndLabelAnchorMetadata()
 
     Assert((string?)label.Attribute("data-station-anchor") == (string?)station.Attribute("data-station-anchor"), "Label did not use the same anchor source metadata as the marker.");
     Assert((string?)label.Attribute("data-station-anchor-distance") == (string?)station.Attribute("data-station-anchor-distance"), "Label did not use the same anchor distance metadata as the marker.");
-}
-
-static void StationRouteAnchoringLeavesSchematicLiteRaw()
-{
-    MetroExportDocument document = CreateStationAnchorDocument(
-        new StationAnchorSpec("station_a", 50, 8, ["line_10"]),
-        [new ServiceLineSpec("line_10", "10号线", ["station_a"], [new MetroPathPoint { X = 0, Z = 0 }, new MetroPathPoint { X = 100, Z = 0 }])]);
-
-    SvgRenderOptions options = CreateAnchorTestOptions(layoutMode: SvgLayoutMode.SchematicLite);
-    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
-    XElement station = GetStationCircle(xml, "station_a");
-
-    Assert((string?)station.Attribute("data-station-anchor") == "raw", "Schematic-lite station anchoring should keep the existing raw/schematic station point.");
-    Assert((string?)station.Attribute("data-station-anchor-fallback") == "schematic-lite", "Schematic-lite station anchoring did not record the expected fallback reason.");
 }
 
 static void ExpressStripeDoesNotChangeBaseRouteWidth()
@@ -4911,55 +4451,6 @@ static MetroExportDocument CreateSchematicMapStationCrossingDocument()
     };
 }
 
-static MetroExportDocument CreateHighDegreeCloseSchematicStationDocument()
-{
-    return new MetroExportDocument
-    {
-        City = new CityInfo { Name = "High Degree Schematic City" },
-        Network = new MetroNetwork
-        {
-            Stations =
-            [
-                new MetroStation
-                {
-                    Id = "hub",
-                    Name = "Hub",
-                    IsInterchange = true,
-                    Position = new MetroPosition { X = 0, Z = 0 },
-                    Lines = ["line_a", "line_b", "line_c"]
-                },
-                new MetroStation
-                {
-                    Id = "near",
-                    Name = "Near",
-                    Position = new MetroPosition { X = 24, Z = 0 },
-                    Lines = ["line_a"]
-                },
-                new MetroStation
-                {
-                    Id = "north",
-                    Name = "North",
-                    Position = new MetroPosition { X = 0, Z = 100 },
-                    Lines = ["line_b"]
-                },
-                new MetroStation
-                {
-                    Id = "south",
-                    Name = "South",
-                    Position = new MetroPosition { X = 0, Z = -100 },
-                    Lines = ["line_c"]
-                }
-            ],
-            Lines =
-            [
-                new MetroLine { Id = "line_a", Name = "Line A", Color = "#005EB8", Mode = "metro", Stops = ["hub", "near"] },
-                new MetroLine { Id = "line_b", Name = "Line B", Color = "#00A859", Mode = "metro", Stops = ["hub", "north"] },
-                new MetroLine { Id = "line_c", Name = "Line C", Color = "#D71920", Mode = "metro", Stops = ["hub", "south"] }
-            ]
-        }
-    };
-}
-
 static MetroExportDocument CreateStationAnchorDocument(StationAnchorSpec station, ServiceLineSpec[] lineSpecs)
 {
     MetroNetwork network = new()
@@ -5140,13 +4631,10 @@ static SvgRenderOptions CreateCompositeTestOptions(bool enableExpressCenterStrip
 }
 
 static SvgRenderOptions CreateSchematicOverlapTestOptions(
-    SvgLayoutMode layoutMode = SvgLayoutMode.SchematicLite,
+    SvgLayoutMode layoutMode = SvgLayoutMode.SchematicV2,
     int width = 900,
     int height = 520,
     int legendWidth = 220,
-    double endpointTrim = 0,
-    double shortThreshold = 0,
-    bool enableResolver = true,
     double minStationSpacing = 0,
     SvgMapStyle mapStyle = SvgMapStyle.Standard,
     LayoutOverrideDocument? layoutOverrides = null)
@@ -5157,8 +4645,6 @@ static SvgRenderOptions CreateSchematicOverlapTestOptions(
         MapStyle = mapStyle,
         UsePathPoints = false,
         EnableServiceFamilyMerge = true,
-        EnableSchematicSegmentOverlapResolver = enableResolver,
-        SchematicSegmentOverlapOffsetDistance = 12,
         Width = width,
         Height = height,
         Padding = 80,
@@ -5166,8 +4652,6 @@ static SvgRenderOptions CreateSchematicOverlapTestOptions(
         LegendWidth = legendWidth,
         GridSize = 40,
         LineWidth = 14,
-        SchematicOverlapEndpointTrim = endpointTrim,
-        SchematicShortOverlapSegmentThreshold = shortThreshold,
         SchematicMinimumStationSpacing = minStationSpacing,
         LayoutOverrides = layoutOverrides
     };
@@ -5293,15 +4777,6 @@ static IReadOnlyList<XElement> GetSharedCorridorRouteElements(XDocument xml)
         .Descendants()
         .Where(element => element.Name.LocalName == "polyline"
             && (string?)element.Attribute("data-shared-corridor") == "true")
-        .ToList();
-}
-
-static IReadOnlyList<XElement> GetSchematicOverlapRouteElements(XDocument xml)
-{
-    return xml
-        .Descendants()
-        .Where(element => element.Name.LocalName == "polyline"
-            && (string?)element.Attribute("data-schematic-overlap") == "true")
         .ToList();
 }
 
@@ -5534,11 +5009,6 @@ static void AssertAlmostEqual(double actual, double expected, string message)
 static int ReadInt(XAttribute? attribute)
 {
     return int.Parse(attribute?.Value ?? "0", CultureInfo.InvariantCulture);
-}
-
-static bool IsOnGrid(double value, double gridSize)
-{
-    return Math.Abs(value / gridSize - Math.Round(value / gridSize)) < 0.001;
 }
 
 static void Assert(bool condition, string message)

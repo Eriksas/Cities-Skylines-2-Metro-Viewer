@@ -32,7 +32,7 @@ Current schematic directions:
 
 - `schematic-map` - product-facing official-map style experiment; current active polish target.
 - `schematic-v2` - topology/diagnostic schematic base; still experimental.
-- `schematic-lite` - retired from Viewer and kept only for CLI/script historical comparison.
+- `schematic-lite` - removed from the toolchain (2026-07). History remains in git.
 
 The latest notable product candidate is:
 
@@ -138,7 +138,7 @@ artifacts\schematic-regression\20260619-215440
   the preview/edit surface.
 - CLI supports `--overrides <path>` for render-time station/label nudges.
 - Viewer supports in-app SVG preview, export data inspection, Chinese/English UI, render settings, and save SVG.
-- Viewer no longer exposes legacy `schematic-lite`.
+- Legacy `schematic-lite` has been removed from the toolchain.
 - Alpha validation bundles and product-candidate bundles can be generated for repeatable review.
 - `schematic-map` uses render-time route grammar safeguards so map size changes
   should scale the same schematic content instead of changing route shape.

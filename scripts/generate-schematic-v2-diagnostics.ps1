@@ -892,22 +892,20 @@ $stationDegreeRows = foreach ($station in $stations) {
     }
 }
 
-$schematicLiteSvg = Join-Path $outputPath 'schematic-lite-v1.svg'
 $schematicV2Svg = Join-Path $outputPath 'schematic-topology-debug.svg'
-Invoke-CliRender -RepoRoot $repoRoot -InputPath $inputPath -OutputPath $schematicLiteSvg -Layout 'schematic-lite'
 Invoke-CliRender -RepoRoot $repoRoot -InputPath $inputPath -OutputPath $schematicV2Svg -Layout 'schematic-v2'
 Copy-Item -LiteralPath $schematicV2Svg -Destination (Join-Path $outputPath 'schematic-v2-service-simplified.svg') -Force
 Copy-Item -LiteralPath $schematicV2Svg -Destination (Join-Path $outputPath 'schematic-v2-service-simplified-debug.svg') -Force
 
-$liteStations = Get-SvgStations -SvgPath $schematicLiteSvg
+$layoutStations = Get-SvgStations -SvgPath $schematicV2Svg
 $v2Stations = Get-SvgStations -SvgPath $schematicV2Svg
 $minSpacing = 32
 $denseRows = New-Object System.Collections.ArrayList
-$ids = @($liteStations.Keys)
+$ids = @($layoutStations.Keys)
 for ($i = 0; $i -lt $ids.Count; $i++) {
     for ($j = $i + 1; $j -lt $ids.Count; $j++) {
-        $a = $liteStations[$ids[$i]]
-        $b = $liteStations[$ids[$j]]
+        $a = $layoutStations[$ids[$i]]
+        $b = $layoutStations[$ids[$j]]
         $dx = $a.X - $b.X
         $dy = $a.Y - $b.Y
         $distance = [Math]::Sqrt($dx * $dx + $dy * $dy)
@@ -917,7 +915,7 @@ for ($i = 0; $i -lt $ids.Count; $i++) {
                 stationAName = Get-StationName $stationsById $ids[$i]
                 stationB = $ids[$j]
                 stationBName = Get-StationName $stationsById $ids[$j]
-                schematicLiteDistance = [Math]::Round($distance, 3)
+                layoutDistance = [Math]::Round($distance, 3)
             })
         }
     }
@@ -1108,12 +1106,12 @@ $geometryDebugSvg | Set-Content -LiteralPath (Join-Path $outputPath 'geometry-sh
 
 $shortEdgeLines = New-Object System.Collections.ArrayList
 foreach ($edge in $edgeRows) {
-    if (-not $liteStations.ContainsKey($edge.fromId) -or -not $liteStations.ContainsKey($edge.toId)) {
+    if (-not $layoutStations.ContainsKey($edge.fromId) -or -not $layoutStations.ContainsKey($edge.toId)) {
         continue
     }
 
-    $a = $liteStations[$edge.fromId]
-    $b = $liteStations[$edge.toId]
+    $a = $layoutStations[$edge.fromId]
+    $b = $layoutStations[$edge.toId]
     $dx = $a.X - $b.X
     $dy = $a.Y - $b.Y
     $distance = [Math]::Sqrt($dx * $dx + $dy * $dy)
@@ -1123,9 +1121,9 @@ foreach ($edge in $edgeRows) {
 }
 
 if ($shortEdgeLines.Count -eq 0) {
-    [void] $shortEdgeLines.Add('No schematic-lite adjacency edges below the diagnostic threshold.')
+    [void] $shortEdgeLines.Add('No adjacency edges below the diagnostic threshold.')
 }
-$shortEdgeLines | Set-Content -LiteralPath (Join-Path $outputPath 'schematic-lite-edge-check.txt') -Encoding UTF8
+$shortEdgeLines | Set-Content -LiteralPath (Join-Path $outputPath 'schematic-layout-edge-check.txt') -Encoding UTF8
 
 $summary = @(
     '# Schematic v2 Topology Summary',
@@ -1139,7 +1137,7 @@ $summary = @(
     "Geometry shared corridor runs: $($geometrySharedCorridorRows.Count)",
     "Schematic-v2 route guides: $($routeGuideRows.Count)",
     "Schematic-v2 parallel corridors: $($parallelCorridorRows.Count)",
-    "Schematic-lite dense station pairs under ${minSpacing}px: $($denseRows.Count)",
+    "Dense station pairs under ${minSpacing}px: $($denseRows.Count)",
     "Schematic-v2 adjusted stations in debug SVG: $(@($v2Stations.Values | Where-Object { $_.Adjusted -eq 'true' }).Count)",
     '',
     'Principle: A schematic map may distort geography, but it must not distort topology.',
@@ -1150,7 +1148,7 @@ $summary = @(
     '- adjacency-edges.csv',
     '- station-degree.csv',
     '- dense-junctions.csv',
-    '- schematic-lite-edge-check.txt',
+    '- schematic-layout-edge-check.txt',
     '- schematic-v2-family-topology-lines.csv',
     '- service-family-simplification.txt',
     '- service-family-simplification.csv',

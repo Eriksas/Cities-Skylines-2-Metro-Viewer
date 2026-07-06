@@ -22,13 +22,13 @@ Reason: the exporter and `metro-export.json` schema are already useful and shoul
 
 Consequence: do not modify `RealMetroJsonExporter`, raw `line.stops`, raw `line.pathPoints`, or schema for layout polish.
 
-## Retire Schematic-lite From Viewer
+## Remove Schematic-lite Entirely
 
-Decision: remove legacy `schematic-lite` from the Viewer layout choices.
+Decision: delete legacy `schematic-lite` from the renderer, CLI, tests, and scripts (2026-07-06). It was previously retired from the Viewer.
 
-Reason: schematic-lite became a patch-based dead end and is less useful than schematic-v2/schematic-map.
+Reason: schematic-lite became a patch-based dead end; keeping it "for historical comparison" cost ~700 lines of renderer code plus 21 tests while git history already preserves it.
 
-Consequence: schematic-lite remains available through CLI/scripts for historical comparison only.
+Consequence: `--layout schematic-lite` is no longer accepted. Old Viewer settings that referenced it are migrated to `schematic-v2` on load.
 
 ## Use Schematic-v2 As Diagnostic Base
 

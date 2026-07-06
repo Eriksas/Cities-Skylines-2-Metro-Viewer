@@ -240,7 +240,7 @@ $warningText
 - Express stripe: disabled
 - Size preset: poster
 - Label filters: hide generic labels, hide crowded labels
-- Comparison layouts: schematic-lite, schematic-v2
+- Comparison layouts: schematic-v2
 - Product candidate layout: schematic-map
 - Schematic-v2 status: experimental
 - Schematic-map status: product-facing experimental candidate
@@ -265,8 +265,6 @@ $warningText
 - baseline-geographic.full.png, unless -SkipPng was used
 - visual-continuity-summary.txt
 - visual-continuity-debug.svg
-- schematic-lite.svg
-- schematic-lite.full.png, unless -SkipPng was used
 - schematic-v2.svg
 - schematic-v2.full.png, unless -SkipPng was used
 - schematic-map.svg
@@ -327,7 +325,7 @@ $warningText
 
 ## Viewer Settings
 
-- Layout mode: geographic / schematic-lite / schematic-v2
+- Layout mode: geographic / schematic-v2
 - Width:
 - Height:
 - Label font size:
@@ -381,7 +379,6 @@ function Write-BundleManifest {
             'baseline-geographic.full.png',
             'schematic-map.full.png',
             'schematic-v2.full.png',
-            'schematic-lite.full.png',
             'visual-continuity-summary.txt',
             'schematic-v2-diagnostics\topology-summary.txt',
             'notes.md'
@@ -391,8 +388,6 @@ function Write-BundleManifest {
             exportDiagnostics = 'metro-export-diagnostics.txt'
             geographicSvg = 'baseline-geographic.svg'
             geographicPng = 'baseline-geographic.full.png'
-            schematicLiteSvg = 'schematic-lite.svg'
-            schematicLitePng = 'schematic-lite.full.png'
             schematicV2Svg = 'schematic-v2.svg'
             schematicV2Png = 'schematic-v2.full.png'
             schematicMapSvg = 'schematic-map.svg'
@@ -416,7 +411,7 @@ function Write-BundleManifest {
                 size = 'poster'
                 status = 'product-facing experimental candidate'
             }
-            comparisons = @('schematic-lite', 'schematic-v2')
+            comparisons = @('schematic-v2')
             screenshotsGenerated = $ScreenshotsGenerated
         }
         validationWarnings = $ValidationWarnings
@@ -489,8 +484,6 @@ try {
 
     $baselineSvg = Join-Path $tempBundlePath 'baseline-geographic.svg'
     $baselinePng = Join-Path $tempBundlePath 'baseline-geographic.full.png'
-    $schematicLiteSvg = Join-Path $tempBundlePath 'schematic-lite.svg'
-    $schematicLitePng = Join-Path $tempBundlePath 'schematic-lite.full.png'
     $schematicV2Svg = Join-Path $tempBundlePath 'schematic-v2.svg'
     $schematicV2Png = Join-Path $tempBundlePath 'schematic-v2.full.png'
     $schematicMapSvg = Join-Path $tempBundlePath 'schematic-map.svg'
@@ -499,7 +492,6 @@ try {
     $visualDebugSvg = Join-Path $tempBundlePath 'visual-continuity-debug.svg'
 
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $baselineSvg -Layout 'geographic' -UsePathPoints
-    Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicLiteSvg -Layout 'schematic-lite'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicV2Svg -Layout 'schematic-v2'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicMapSvg -Layout 'schematic-map' -UsePathPoints
 
@@ -508,7 +500,6 @@ try {
     }
     else {
         Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
-        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicLiteSvg -OutputPng $schematicLitePng
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
     }

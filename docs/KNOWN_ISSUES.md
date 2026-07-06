@@ -6,7 +6,7 @@ This is an alpha build. It is intended for testing and feedback, not production 
 
 - Only metro/subway networks are supported.
 - Offline save parsing is not supported. You must load a city and export from inside Cities: Skylines II.
-- `schematic-lite` is not a professional-grade automatic schematic layout. It is now kept as a CLI/regression comparison mode and is no longer exposed in the Viewer.
+- Legacy `schematic-lite` has been removed from the toolchain. Historical outputs remain in old validation bundles and git history.
 - `schematic-v2` is experimental. It is a topology-first diagnostic base intended to preserve stop order, adjacency, interchange nodes, exact shared station-edge corridors, and pathPoints-based physical corridor hints before visual polish. It is not the alpha default.
 - `schematic-map` is the newer product-facing schematic mode. It builds on schematic-v2 and applies transit-map presentation defaults plus the Phase 5C.2 cartographic hierarchy polish, but still needs broader multi-city validation before replacing the geographic alpha recommendation.
 - `schematic-map` currently renders non-station route crossings as direct pass-through intersections. The exported JSON does not yet include real CS2 track elevation or layer order, so factual over/under styling is not available.
