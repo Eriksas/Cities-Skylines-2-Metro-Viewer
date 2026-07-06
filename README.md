@@ -31,6 +31,18 @@ horizontal, vertical, or 45-degree, while preserving exported data unchanged.
 
 `schematic-v2` remains available as a topology/diagnostic schematic mode.
 
+`schematic-anneal` is a new CLI-only experiment that lays out the schematic
+with a single global quality cost and deterministic simulated annealing
+instead of local repair passes. Compare it against `schematic-map` over the
+whole sample corpus with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-schematic-layouts.ps1
+```
+
+Every CLI render can also emit objective layout metrics via
+`--emit-layout-score path.csv`.
+
 Near-term work is focused on alpha.2 validation bundles and small, evidence-led
 schematic-map fixes. Larger items such as smaller Viewer packages, PNG export,
 style presets, and manual editing are tracked in [docs/ROADMAP.md](docs/ROADMAP.md).

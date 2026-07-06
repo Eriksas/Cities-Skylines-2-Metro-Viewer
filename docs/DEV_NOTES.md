@@ -916,3 +916,23 @@ generated schematic-map segment is almost horizontal/vertical but visually
 awkward. Longer-term manual editing should continue to build on the same
 sidecar layer, adding explicit bend/route-handle overrides only after the
 station/segment workflow is stable.
+
+## Schematic-anneal Experiment - 2026-07-06
+
+`schematic-anneal` is a CLI-only experimental layout mode that replaces the
+schematic-map local repair passes with one global quality cost (octilinearity,
+edge-length uniformity, bends, crossings, clearance) minimized by
+deterministic, grid-constrained simulated annealing. Key properties:
+
+- Renderer-only; no exporter or JSON schema changes.
+- Deterministic: fixed seed and schedule, identical input -> identical SVG.
+- Emits a `Schematic-anneal audit` warning with cost/crossing movement.
+- Every render now exposes objective layout metrics; the CLI writes them with
+  `--emit-layout-score path.csv`.
+
+Layout acceptance rule going forward: run
+`scripts\compare-schematic-layouts.ps1` and judge corpus medians plus worst
+case. Do not tune layout coefficients against a single map. First corpus run
+(2026-07-06, 9 samples): schematic-map slightly ahead on simple-map medians;
+schematic-anneal far ahead on worst case (bends 7 vs 15, crossings 0 vs 1,
+spacing violations 0 vs 19, weighted cost 18.7 vs 216.6).

@@ -24,6 +24,7 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 - `generate-primary-city-baseline.ps1` - refreshes the primary city regression baseline.
 - `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, usually `schematic-map + ultra`, for human review of the current best map output.
 - `compare-product-candidates.ps1` - creates an HTML/Markdown/CSV side-by-side comparison of recent product candidate PNGs plus schematic-map score/audit metrics.
+- `compare-schematic-layouts.ps1` - renders the sample corpus (plus optional real exports via `-ExtraInputJson`) in `schematic-map` and `schematic-anneal`, collects the shared CLI layout scores, and writes corpus median/worst comparison tables to `artifacts\layout-comparison\<timestamp>`. This is the acceptance evidence for layout changes.
 
 ## Route Geometry And Schematic Diagnostics
 

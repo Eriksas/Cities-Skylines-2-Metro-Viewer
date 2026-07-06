@@ -30,6 +30,14 @@ Reason: schematic-lite became a patch-based dead end; keeping it "for historical
 
 Consequence: `--layout schematic-lite` is no longer accepted. Old Viewer settings that referenced it are migrated to `schematic-v2` on load.
 
+## Judge Layout Changes By Corpus Scores, Not Single Maps
+
+Decision: layout quality changes are accepted or rejected based on the shared layout metrics (octilinearity, bends, crossings, spacing, clearance, weighted cost) measured across the whole sample corpus via `scripts\compare-schematic-layouts.ps1` - corpus medians must improve without making the worst case worse (2026-07-06).
+
+Reason: schematic-map polish had degraded into per-map coefficient tuning: ~40 interacting thresholds adjusted against whichever city was being looked at, with no protection against regressing other cities.
+
+Consequence: the metrics live in one place (`MetroSvgRenderer.LayoutMetrics.cs`) and drive both the CLI `--emit-layout-score` output and the experimental `schematic-anneal` mode, which minimizes exactly this cost globally with deterministic simulated annealing. `schematic-anneal` is the challenger to the schematic-map pass stack; whichever wins on corpus evidence becomes the product direction.
+
 ## Use Schematic-v2 As Diagnostic Base
 
 Decision: keep `schematic-v2` as an experimental topology/corridor diagnostic layout.
