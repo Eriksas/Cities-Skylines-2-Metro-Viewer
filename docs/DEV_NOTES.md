@@ -953,3 +953,23 @@ The default schematic-anneal mode now adapts the output canvas and fills it:
 Real-city fill went from ~60% to ~93% of the width. The clearance metric now
 exempts same-line station/edge pairs, so out-and-back lines stay straight
 (fixed the Sheffield line-1 kink at 谢菲尔德二中站).
+
+## Schematic-anneal Parallel Corridors - 2026-07-06
+
+Lines that share a station-to-station edge now render side by side in
+schematic-anneal (`MetroSvgRenderer.AnnealParallel.cs`) instead of stacking.
+
+- Shared edges are found by canonical rounded render-point-pair, so out-and-back
+  lines and same-geometry shared families merge to one edge.
+- Each line gets a symmetric signed lane offset along the edge normal, ordered by
+  a STABLE global key (line number, then family key). This sidesteps the NP-hard
+  line-ordering/crossing-minimisation problem, which is fine because shared runs
+  are sparse and short (Sheffield: 5 of 81 edges). Long shared trunks that show
+  extra crossings are the place to add barycentre/median lane ordering later.
+- Vertices offset by the average of incident shared-edge offset vectors, so the
+  fan-out ramp lands on the adjacent non-shared segment.
+- Render-only: layout scores are unchanged. Synthetic doglegs are disabled for
+  anneal so route polylines stay clean station-to-station segments.
+
+Open refinements: crossing-minimising lane order for long trunks; drawing station
+ticks along a parallel bundle; tuning lane spacing vs stroke width.
