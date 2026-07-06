@@ -320,7 +320,7 @@ public sealed partial class MetroSvgRenderer
                     continue;
                 }
 
-                if (DistancePointToSegment(positions[other], positions[edge.A], positions[edge.B]) < state.Clearance)
+                if (ViolatesClearance(state.Topology, positions, other, edgeIndex, state.Clearance))
                 {
                     cost += LayoutCostWeights.Clearance;
                 }
@@ -333,14 +333,9 @@ public sealed partial class MetroSvgRenderer
         }
 
         // Moved station's own clearance against non-incident edges.
-        foreach (LayoutEdge edge in edges)
+        for (int edgeIndex = 0; edgeIndex < edges.Length; edgeIndex++)
         {
-            if (edge.A == station || edge.B == station)
-            {
-                continue;
-            }
-
-            if (DistancePointToSegment(positions[station], positions[edge.A], positions[edge.B]) < state.Clearance)
+            if (ViolatesClearance(state.Topology, positions, station, edgeIndex, state.Clearance))
             {
                 cost += LayoutCostWeights.Clearance;
             }

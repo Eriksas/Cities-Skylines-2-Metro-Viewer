@@ -26,7 +26,33 @@ public sealed partial class MetroSvgRenderer
         string[] StationIds,
         int[][] Routes,
         LayoutEdge[] Edges,
-        int[][] IncidentEdgesByStation);
+        int[][] IncidentEdgesByStation,
+        // Bit i set = station/edge belongs to the i-th line (family). Used to
+        // exempt same-line station/edge pairs from the clearance penalty: a line
+        // doubling back through its own corridor is expected, not crowding.
+        ulong[] StationLineMask,
+        ulong[] EdgeLineMask);
+
+    /// <summary>
+    /// Clearance violation only when the station is closer than <paramref name="clearance"/>
+    /// to a non-incident edge that shares no line with it. Same-line proximity
+    /// (out-and-back corridors, shared trunks) is expected and not penalized.
+    /// </summary>
+    private static bool ViolatesClearance(SchematicLayoutTopology topology, SvgPoint[] positions, int station, int edgeIndex, double clearance)
+    {
+        LayoutEdge edge = topology.Edges[edgeIndex];
+        if (edge.A == station || edge.B == station)
+        {
+            return false;
+        }
+
+        if ((topology.StationLineMask[station] & topology.EdgeLineMask[edgeIndex]) != 0)
+        {
+            return false;
+        }
+
+        return DistancePointToSegment(positions[station], positions[edge.A], positions[edge.B]) < clearance;
+    }
 
     /// <summary>
     /// Builds the station/edge topology used by both scoring and annealing:
@@ -46,6 +72,9 @@ public sealed partial class MetroSvgRenderer
 
         List<int[]> routes = [];
         HashSet<(int A, int B)> edgeSet = [];
+        ulong[] stationLineMask = new ulong[stationIds.Length];
+        Dictionary<(int A, int B), ulong> edgeLineMask = [];
+        int routeIndex = 0;
         foreach (DisplayLineFamily family in families)
         {
             List<int> route = [];
@@ -69,12 +98,22 @@ public sealed partial class MetroSvgRenderer
                 continue;
             }
 
+            // One mask bit per line; families beyond 64 share the top bit (rare,
+            // and only weakens the same-line exemption for those extras).
+            ulong lineBit = 1ul << Math.Min(routeIndex, 63);
+            routeIndex++;
             routes.Add(route.ToArray());
+            foreach (int index in route)
+            {
+                stationLineMask[index] |= lineBit;
+            }
+
             for (int i = 1; i < route.Count; i++)
             {
                 int a = Math.Min(route[i - 1], route[i]);
                 int b = Math.Max(route[i - 1], route[i]);
                 edgeSet.Add((a, b));
+                edgeLineMask[(a, b)] = edgeLineMask.GetValueOrDefault((a, b)) | lineBit;
             }
         }
 
@@ -83,6 +122,8 @@ public sealed partial class MetroSvgRenderer
             .ThenBy(edge => edge.B)
             .Select(edge => new LayoutEdge(edge.A, edge.B))
             .ToArray();
+
+        ulong[] edgeMask = edges.Select(edge => edgeLineMask[(edge.A, edge.B)]).ToArray();
 
         List<int>[] incident = new List<int>[stationIds.Length];
         for (int i = 0; i < incident.Length; i++)
@@ -100,7 +141,9 @@ public sealed partial class MetroSvgRenderer
             stationIds,
             routes.ToArray(),
             edges,
-            incident.Select(list => list.ToArray()).ToArray());
+            incident.Select(list => list.ToArray()).ToArray(),
+            stationLineMask,
+            edgeMask);
     }
 
     private static SvgPoint[] BuildLayoutPositions(SchematicLayoutTopology topology, IReadOnlyDictionary<string, SvgPoint> points)
@@ -212,19 +255,14 @@ public sealed partial class MetroSvgRenderer
         return crossings;
     }
 
-    private static int CountClearanceViolations(SvgPoint[] positions, LayoutEdge[] edges, double clearance)
+    private static int CountClearanceViolations(SchematicLayoutTopology topology, SvgPoint[] positions, double clearance)
     {
         int violations = 0;
         for (int station = 0; station < positions.Length; station++)
         {
-            foreach (LayoutEdge edge in edges)
+            for (int edgeIndex = 0; edgeIndex < topology.Edges.Length; edgeIndex++)
             {
-                if (edge.A == station || edge.B == station)
-                {
-                    continue;
-                }
-
-                if (DistancePointToSegment(positions[station], positions[edge.A], positions[edge.B]) < clearance)
+                if (ViolatesClearance(topology, positions, station, edgeIndex, clearance))
                 {
                     violations++;
                 }
@@ -277,7 +315,7 @@ public sealed partial class MetroSvgRenderer
         }
 
         cost += CountLayoutCrossings(positions, topology.Edges) * LayoutCostWeights.Crossing;
-        cost += CountClearanceViolations(positions, topology.Edges, clearance) * LayoutCostWeights.Clearance;
+        cost += CountClearanceViolations(topology, positions, clearance) * LayoutCostWeights.Clearance;
         return cost;
     }
 
@@ -369,7 +407,7 @@ public sealed partial class MetroSvgRenderer
             bendCount > 0 ? bendDegreesSum / bendCount : 0,
             CountLayoutCrossings(positions, topology.Edges),
             CountMinimumSpacingViolations(positions, minimumSpacing),
-            CountClearanceViolations(positions, topology.Edges, clearance),
+            CountClearanceViolations(topology, positions, clearance),
             ComputeLayoutQualityCost(topology, positions, preferredSpacing, clearance));
     }
 
