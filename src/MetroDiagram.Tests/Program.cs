@@ -66,6 +66,10 @@ List<(string Name, Action Test)> tests =
     ("schematic-map adds local clearance near unrelated route segments", SchematicMapAddsLocalClearanceNearUnrelatedRouteSegments),
     ("schematic-map renders non-station route crossings as direct pass-through", SchematicMapRendersNonStationRouteCrossingsAsDirectPassThrough),
     ("schematic-map does not bridge station crossings", SchematicMapDoesNotBridgeStationCrossings),
+    ("schematic-anneal renders deterministic valid svg", SchematicAnnealRendersDeterministicValidSvg),
+    ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
+    ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
+    ("layout score reports clean metrics for octilinear corner", LayoutScoreReportsCleanMetricsForOctilinearCorner),
     ("layout override loader builds default sidecar path", LayoutOverrideLoaderBuildsDefaultSidecarPath),
     ("layout overrides move station markers and routes", LayoutOverridesMoveStationMarkersAndRoutes),
     ("layout overrides move station labels independently", LayoutOverridesMoveStationLabelsIndependently),
@@ -2835,6 +2839,76 @@ static MetroExportDocument CreateParallelCorridorDocument(params List<MetroPathP
         City = new CityInfo { Name = "Parallel Corridor City" },
         Network = network
     };
+}
+
+static void SchematicAnnealRendersDeterministicValidSvg()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Large network sample did not load.");
+
+    SvgRenderOptions options = new() { LayoutMode = SvgLayoutMode.SchematicAnneal };
+    string first = new MetroSvgRenderer().Render(loadResult.Document!, options).Svg;
+    string second = new MetroSvgRenderer().Render(loadResult.Document!, options).Svg;
+    Assert(first == second, "Schematic-anneal output was not deterministic across identical renders.");
+
+    XDocument xml = XDocument.Parse(first);
+    XElement routes = xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes");
+    Assert((string?)routes.Attribute("data-layout") == "schematic-anneal", "Schematic-anneal did not record its layout mode.");
+    AssertValidSvg(xml, "schematic-anneal SVG");
+}
+
+static void SchematicAnnealEnforcesMinimumStationSpacing()
+{
+    MetroExportDocument document = CreateSchematicOverlapDocument(
+        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b", "station_c"]));
+
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicAnneal, minStationSpacing: 60);
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+
+    (double X, double Y) a = GetStationCenter(xml, "station_a");
+    (double X, double Y) b = GetStationCenter(xml, "station_b");
+    (double X, double Y) c = GetStationCenter(xml, "station_c");
+    Assert(Distance(a, b) >= 59.9, $"Schematic-anneal spacing violated between a and b: {Distance(a, b)}.");
+    Assert(Distance(b, c) >= 59.9, $"Schematic-anneal spacing violated between b and c: {Distance(b, c)}.");
+    Assert(Distance(a, c) >= 59.9, $"Schematic-anneal spacing violated between a and c: {Distance(a, c)}.");
+    AssertValidSvg(xml, "schematic-anneal spacing SVG");
+}
+
+static void SchematicAnnealAuditReportsNonIncreasingQualityCost()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Large network sample did not load.");
+
+    SvgRenderOptions options = new() { LayoutMode = SvgLayoutMode.SchematicAnneal };
+    SvgRenderResult result = new MetroSvgRenderer().Render(loadResult.Document!, options);
+    string? audit = result.Warnings.FirstOrDefault(warning => warning.StartsWith("Schematic-anneal audit: quality cost ", StringComparison.Ordinal));
+    Assert(audit is not null, "Schematic-anneal did not emit an audit warning.");
+
+    string[] costs = audit!["Schematic-anneal audit: quality cost ".Length..].Split(';')[0].Split(" -> ");
+    double initialCost = double.Parse(costs[0], CultureInfo.InvariantCulture);
+    double finalCost = double.Parse(costs[1], CultureInfo.InvariantCulture);
+    Assert(finalCost <= initialCost + 0.000001, $"Schematic-anneal increased quality cost: {initialCost} -> {finalCost}.");
+
+    Assert(result.LayoutScore is not null, "Schematic-anneal render did not compute a layout score.");
+    Assert(result.LayoutScore!.MinimumSpacingViolationCount == 0, "Schematic-anneal layout violated minimum station spacing.");
+}
+
+static void LayoutScoreReportsCleanMetricsForOctilinearCorner()
+{
+    MetroExportDocument document = CreateSchematicOverlapDocument(
+        new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b", "station_c"]));
+
+    SvgRenderResult result = new MetroSvgRenderer().Render(document, new SvgRenderOptions());
+    Assert(result.LayoutScore is not null, "Geographic render did not compute a layout score.");
+
+    SchematicLayoutScore score = result.LayoutScore!;
+    Assert(score.StationCount == 3, $"Layout score station count was {score.StationCount}, expected 3.");
+    Assert(score.EdgeCount == 2, $"Layout score edge count was {score.EdgeCount}, expected 2.");
+    Assert(score.OctilinearEdgeRatio == 1, $"Axis-aligned corner should be fully octilinear, ratio was {score.OctilinearEdgeRatio}.");
+    Assert(score.RouteCrossingCount == 0, $"Axis-aligned corner should have no crossings, found {score.RouteCrossingCount}.");
+    Assert(score.BendCount == 1, $"Axis-aligned corner should have one bend, found {score.BendCount}.");
 }
 
 static MetroExportDocument CreateSchematicOverlapDocument(params SchematicLineSpec[] lineSpecs)

@@ -6,17 +6,36 @@ using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-v2|schematic-map] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
 string inputPath = Path.GetFullPath(args[0]);
 string outputPath = Path.GetFullPath(args[1]);
 SvgRenderOptions renderOptions;
+string? layoutScorePath = null;
 
 try
 {
-    renderOptions = ParseRenderOptions(args.Skip(2).ToArray());
+    string[] optionArgs = args.Skip(2).ToArray();
+    List<string> renderOptionArgs = [];
+    for (int i = 0; i < optionArgs.Length; i++)
+    {
+        if (string.Equals(optionArgs[i], "--emit-layout-score", StringComparison.Ordinal))
+        {
+            if (i + 1 >= optionArgs.Length)
+            {
+                throw new ArgumentException("--emit-layout-score expects a CSV file path.");
+            }
+
+            layoutScorePath = Path.GetFullPath(optionArgs[++i]);
+            continue;
+        }
+
+        renderOptionArgs.Add(optionArgs[i]);
+    }
+
+    renderOptions = ParseRenderOptions(renderOptionArgs.ToArray());
 }
 catch (ArgumentException ex)
 {
@@ -55,7 +74,58 @@ if (!string.IsNullOrWhiteSpace(outputDirectory))
 
 File.WriteAllText(outputPath, renderResult.Svg, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 Console.WriteLine($"SVG written to {outputPath}");
+
+if (layoutScorePath is not null)
+{
+    if (renderResult.LayoutScore is SchematicLayoutScore score)
+    {
+        string? scoreDirectory = Path.GetDirectoryName(layoutScorePath);
+        if (!string.IsNullOrWhiteSpace(scoreDirectory))
+        {
+            Directory.CreateDirectory(scoreDirectory);
+        }
+
+        File.WriteAllText(layoutScorePath, BuildLayoutScoreCsv(renderOptions, score), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        Console.WriteLine($"Layout score written to {layoutScorePath}");
+    }
+    else
+    {
+        Console.Error.WriteLine("Warning: layout score was requested, but the network had no usable edges to score.");
+    }
+}
+
 return 0;
+
+static string BuildLayoutScoreCsv(SvgRenderOptions options, SchematicLayoutScore score)
+{
+    StringBuilder csv = new();
+    csv.AppendLine("layout,stations,edges,octilinearEdgeRatio,meanOctilinearDeviationDeg,edgeLengthCv,bendCount,meanBendAngleDeg,crossings,minSpacingViolations,clearanceViolations,weightedCost");
+    csv.AppendLine(string.Join(",",
+        LayoutModeToText(options.LayoutMode),
+        score.StationCount.ToString(CultureInfo.InvariantCulture),
+        score.EdgeCount.ToString(CultureInfo.InvariantCulture),
+        score.OctilinearEdgeRatio.ToString("0.####", CultureInfo.InvariantCulture),
+        score.MeanOctilinearDeviationDegrees.ToString("0.###", CultureInfo.InvariantCulture),
+        score.EdgeLengthCoefficientOfVariation.ToString("0.####", CultureInfo.InvariantCulture),
+        score.BendCount.ToString(CultureInfo.InvariantCulture),
+        score.MeanBendAngleDegrees.ToString("0.###", CultureInfo.InvariantCulture),
+        score.RouteCrossingCount.ToString(CultureInfo.InvariantCulture),
+        score.MinimumSpacingViolationCount.ToString(CultureInfo.InvariantCulture),
+        score.StationClearanceViolationCount.ToString(CultureInfo.InvariantCulture),
+        score.WeightedCost.ToString("0.###", CultureInfo.InvariantCulture)));
+    return csv.ToString();
+}
+
+static string LayoutModeToText(SvgLayoutMode layoutMode)
+{
+    return layoutMode switch
+    {
+        SvgLayoutMode.SchematicV2 => "schematic-v2",
+        SvgLayoutMode.SchematicMap => "schematic-map",
+        SvgLayoutMode.SchematicAnneal => "schematic-anneal",
+        _ => "geographic"
+    };
+}
 
 static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
 {
@@ -253,7 +323,8 @@ static SvgLayoutMode ReadLayoutMode(string[] args, ref int index, string option)
         "geographic" => SvgLayoutMode.Geographic,
         "schematic-v2" => SvgLayoutMode.SchematicV2,
         "schematic-map" => SvgLayoutMode.SchematicMap,
-        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-v2', or 'schematic-map'.")
+        "schematic-anneal" => SvgLayoutMode.SchematicAnneal,
+        _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-v2', 'schematic-map', or 'schematic-anneal'.")
     };
 }
 

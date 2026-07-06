@@ -515,6 +515,7 @@ public sealed partial class MetroSvgRenderer
         {
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
+            SvgLayoutMode.SchematicAnneal => "schematic-anneal",
             _ => "geographic"
         };
     }
@@ -1320,7 +1321,7 @@ public sealed partial class MetroSvgRenderer
 
     private static bool IsSchematicMapLayout(SvgRenderOptions options)
     {
-        return options.LayoutMode == SvgLayoutMode.SchematicMap;
+        return options.LayoutMode is SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal;
     }
 
     private static double GetRouteBadgeFontSize(SvgRenderOptions options)

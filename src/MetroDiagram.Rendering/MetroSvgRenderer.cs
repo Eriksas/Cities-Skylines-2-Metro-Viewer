@@ -44,7 +44,7 @@ public sealed partial class MetroSvgRenderer
         AppendLegend(svg, SortFamiliesForLegend(displayFamilies), options, hasLegend);
         AppendFooter(svg, options);
 
-        return new SvgRenderResult(svg.ToString(), warnings);
+        return new SvgRenderResult(svg.ToString(), warnings, ComputeRenderLayoutScore(displayFamilies, stationPoints, options));
     }
 
     private static RenderGeometry CreateRenderGeometry(
@@ -88,6 +88,12 @@ public sealed partial class MetroSvgRenderer
             }
 
             points[station.Id] = projector.Project(station.X, station.Z);
+        }
+
+        if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
+        {
+            SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
+            return new RenderGeometry(annealLayout.Points, projector, annealLayout.Adjustments, [], null, null);
         }
 
         if (IsSchematicV2FamilyLayout(options.LayoutMode))
@@ -199,14 +205,14 @@ public sealed partial class MetroSvgRenderer
 
     private static SvgRenderOptions ApplyLayoutPresentationDefaults(SvgRenderOptions options)
     {
-        if (options.LayoutMode != SvgLayoutMode.SchematicMap)
+        if (options.LayoutMode is not (SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal))
         {
             return options;
         }
 
         return new SvgRenderOptions
         {
-            LayoutMode = SvgLayoutMode.SchematicMap,
+            LayoutMode = options.LayoutMode,
             MapStyle = SvgMapStyle.TransitMap,
             Width = options.Width,
             Height = options.Height,

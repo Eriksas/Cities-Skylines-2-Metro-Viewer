@@ -4,7 +4,8 @@ public enum SvgLayoutMode
 {
     Geographic,
     SchematicV2,
-    SchematicMap
+    SchematicMap,
+    SchematicAnneal
 }
 
 public enum SvgRenderSizePreset

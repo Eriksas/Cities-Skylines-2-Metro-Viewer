@@ -1328,7 +1328,7 @@ public sealed partial class MetroSvgRenderer
             routeStopIds = routeGuide.ToList();
         }
 
-        if (options.LayoutMode == SvgLayoutMode.SchematicMap)
+        if (IsSchematicMapLayout(options))
         {
             routeStopIds = NormalizeSchematicMapRenderRouteChain(routeStopIds);
         }
