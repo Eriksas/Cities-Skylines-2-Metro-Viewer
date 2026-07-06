@@ -397,7 +397,10 @@ public sealed partial class MetroSvgRenderer
             SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
             EnableSchematicMapLocalClearance = true,
             SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance,
-            EnableSchematicMapSyntheticBends = true,
+            // Anneal output is already octilinear, so synthetic doglegs are not
+            // needed; keeping route polylines as pure station-to-station segments
+            // also makes parallel-corridor offsetting clean.
+            EnableSchematicMapSyntheticBends = options.LayoutMode != SvgLayoutMode.SchematicAnneal,
             SchematicMapSyntheticBendMinimumLength = Math.Min(options.SchematicMapSyntheticBendMinimumLength, 140)
         };
     }

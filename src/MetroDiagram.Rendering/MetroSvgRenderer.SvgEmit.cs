@@ -208,6 +208,10 @@ public sealed partial class MetroSvgRenderer
             return;
         }
 
+        Dictionary<ParallelEdgeKey, ParallelSharedEdge> parallelPlan = options.LayoutMode == SvgLayoutMode.SchematicAnneal
+            ? BuildParallelCorridorPlan(renderRoutes, options)
+            : [];
+
         foreach (RenderRoute renderRoute in renderRoutes)
         {
             MetroLine line = renderRoute.Line;
@@ -218,7 +222,10 @@ public sealed partial class MetroSvgRenderer
             for (int i = 0; i < routePolylines.Count; i++)
             {
                 RoutePolyline polyline = routePolylines[i];
-                string pointList = string.Join(" ", polyline.Points.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
+                List<SvgPoint> drawnPoints = parallelPlan.Count > 0
+                    ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
+                    : polyline.Points;
+                string pointList = string.Join(" ", drawnPoints.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"
                     ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""
                     : string.Empty;
