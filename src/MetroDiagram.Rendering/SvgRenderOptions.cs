@@ -46,9 +46,9 @@ public sealed class SvgRenderOptions
 
     public SvgMapStyle MapStyle { get; init; } = SvgMapStyle.Standard;
 
-    public int Width { get; init; } = 1200;
+    public int Width { get; set; } = 1200;
 
-    public int Height { get; init; } = 800;
+    public int Height { get; set; } = 800;
 
     public int Padding { get; init; } = 72;
 

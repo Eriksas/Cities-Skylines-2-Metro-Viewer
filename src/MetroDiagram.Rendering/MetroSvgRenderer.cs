@@ -23,6 +23,11 @@ public sealed partial class MetroSvgRenderer
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         List<DisplayLineFamily> displayFamilies = DisplayLineFamilyResolver.Resolve(lines, stationsById, options.EnableServiceFamilyMerge);
         options = ApplyNetworkPresentationDefaults(options, displayFamilies, stations.Count);
+        if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
+        {
+            AdaptCanvasHeightToNetwork(options, stations);
+        }
+
         CanonicalSchematicNetwork? canonicalNetwork = IsSchematicV2FamilyLayout(options.LayoutMode)
             ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
             : null;
@@ -93,8 +98,8 @@ public sealed partial class MetroSvgRenderer
         if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
         {
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
-            Dictionary<string, SvgPoint> centeredPoints = RecenterPointsToBounds(annealLayout.Points, options, reserveLegendSpace);
-            return new RenderGeometry(centeredPoints, projector, annealLayout.Adjustments, [], null, null);
+            Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(annealLayout.Points, stations, options, reserveLegendSpace);
+            return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null);
         }
 
         if (IsSchematicV2FamilyLayout(options.LayoutMode))
@@ -124,20 +129,70 @@ public sealed partial class MetroSvgRenderer
                 reserveLegendSpace,
                 warnings);
             SchematicLayoutResult targetLayout = ScaleSchematicV2LayoutToTarget(canonicalLayout, canonicalOptions, options, reserveLegendSpace);
-            Dictionary<string, SvgPoint> centeredV2Points = RecenterPointsToBounds(targetLayout.Points, options, reserveLegendSpace);
-            return new RenderGeometry(centeredV2Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
+            Dictionary<string, SvgPoint> fittedV2Points = FitPointsToBounds(targetLayout.Points, stations, options, reserveLegendSpace);
+            return new RenderGeometry(fittedV2Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
         }
 
         return new RenderGeometry(points, projector, [], [], null, null);
     }
 
+    // A fixed landscape canvas letterboxes a squarer network: the layout fills
+    // the header/footer-bounded height and leaves symmetric side margins.
+    // Adapt the canvas HEIGHT (width stays fixed) so the drawing area matches
+    // the network's geographic aspect ratio; the layout then fills both axes
+    // instead of only the height. Uses the geographic station bounding box as a
+    // proxy because it precedes the anneal, which anchors to that geometry.
+    private static void AdaptCanvasHeightToNetwork(SvgRenderOptions options, List<MetroStation> stations)
+    {
+        double minX = double.MaxValue;
+        double maxX = double.MinValue;
+        double minZ = double.MaxValue;
+        double maxZ = double.MinValue;
+        int count = 0;
+        foreach (MetroStation station in stations)
+        {
+            if (station.Position is null)
+            {
+                continue;
+            }
+
+            minX = Math.Min(minX, station.Position.X);
+            maxX = Math.Max(maxX, station.Position.X);
+            minZ = Math.Min(minZ, station.Position.Z);
+            maxZ = Math.Max(maxZ, station.Position.Z);
+            count++;
+        }
+
+        double geoWidth = maxX - minX;
+        double geoHeight = maxZ - minZ;
+        if (count < 2 || geoWidth < 0.001 || geoHeight < 0.001)
+        {
+            return;
+        }
+
+        int padding = options.EffectivePadding;
+        double drawWidth = options.Width - 2.0 * padding;
+        if (drawWidth < 1)
+        {
+            return;
+        }
+
+        double headerReserve = GetTransitMapHeaderHeight(options) + padding * 0.55;
+        double footerReserve = GetTransitMapFooterHeight(options) + padding * 0.45;
+        double desiredDrawHeight = drawWidth / (geoWidth / geoHeight);
+        double newHeight = Math.Clamp(desiredDrawHeight + headerReserve + footerReserve, options.Width * 0.6, options.Width * 1.5);
+        options.Height = (int)Math.Round(newHeight);
+    }
+
     // Schematic layouts relocate stations after projection, so their final
-    // bounding box can sit off-center in the canvas. Recenter with a pure
-    // translation (angles, spacing, and all layout metrics are preserved) so
-    // the map's margins are balanced instead of hugging one edge. Aspect-ratio
-    // whitespace that cannot be filled without distortion is left symmetric.
-    private static Dictionary<string, SvgPoint> RecenterPointsToBounds(
+    // bounding box can sit off-center and under-fill the canvas. Uniformly
+    // scale the layout up to fill the drawing area (angles, octilinearity,
+    // crossings, and bend counts are all preserved because it is a uniform
+    // similarity transform; station spacing only grows) and center it. A label
+    // margin is reserved so scaled-out stations keep room for their names.
+    private static Dictionary<string, SvgPoint> FitPointsToBounds(
         Dictionary<string, SvgPoint> points,
+        List<MetroStation> stations,
         SvgRenderOptions options,
         bool reserveLegendSpace)
     {
@@ -158,27 +213,62 @@ public sealed partial class MetroSvgRenderer
             maxY = Math.Max(maxY, point.Y);
         }
 
+        double bboxWidth = maxX - minX;
+        double bboxHeight = maxY - minY;
         SvgRect bounds = CreateGeometryBounds(options, reserveLegendSpace);
-        double dx = (bounds.Left + bounds.Right) / 2 - (minX + maxX) / 2;
-        double dy = (bounds.Top + bounds.Bottom) / 2 - (minY + maxY) / 2;
 
-        // Only recenter along an axis where the content actually fits, and never
-        // shift so far that a station leaves the drawing bounds.
-        dx = maxX - minX <= bounds.Right - bounds.Left ? Math.Clamp(dx, bounds.Left - minX, bounds.Right - maxX) : 0;
-        dy = maxY - minY <= bounds.Bottom - bounds.Top ? Math.Clamp(dy, bounds.Top - minY, bounds.Bottom - maxY) : 0;
+        // Reserve room for station labels so filling the canvas does not push
+        // outer names past the edge. Labels hug their station, so a partial
+        // reserve of the widest name (placement already flips crowded labels to
+        // the other side) balances fill against readability.
+        double maxLabelWidth = 0;
+        foreach (MetroStation station in stations)
+        {
+            string name = station.Name ?? string.Empty;
+            if (name.Length > 0)
+            {
+                maxLabelWidth = Math.Max(maxLabelWidth, EstimateTextWidth(name, options.LabelFontSize));
+            }
+        }
 
-        if (Math.Abs(dx) < 0.001 && Math.Abs(dy) < 0.001)
+        // Labels are clamped to the allowed bounds by the placement pass, so a
+        // modest reserve keeps outer names readable without wasting fill.
+        SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
+        double horizontalReserve = maxLabelWidth * 0.35 + options.LabelGap + visualStyle.InterchangeMarkerRadius;
+        double verticalReserve = options.LabelFontSize * 0.9 + visualStyle.InterchangeMarkerRadius;
+
+        double availableWidth = bounds.Right - bounds.Left - 2 * horizontalReserve;
+        double availableHeight = bounds.Bottom - bounds.Top - 2 * verticalReserve;
+
+        double scale = 1.0;
+        if (bboxWidth > 0.001 && bboxHeight > 0.001 && availableWidth > 0 && availableHeight > 0)
+        {
+            // Only ever grow the layout; shrinking would waste more space, and a
+            // hard cap avoids ballooning sparse networks past a natural size.
+            scale = Math.Clamp(Math.Min(availableWidth / bboxWidth, availableHeight / bboxHeight), 1.0, 2.5);
+        }
+
+        double sourceCenterX = (minX + maxX) / 2;
+        double sourceCenterY = (minY + maxY) / 2;
+        double targetCenterX = (bounds.Left + bounds.Right) / 2;
+        double targetCenterY = (bounds.Top + bounds.Bottom) / 2;
+
+        if (Math.Abs(scale - 1.0) < 0.001
+            && Math.Abs(targetCenterX - sourceCenterX) < 0.001
+            && Math.Abs(targetCenterY - sourceCenterY) < 0.001)
         {
             return points;
         }
 
-        Dictionary<string, SvgPoint> shifted = new(points.Count, StringComparer.Ordinal);
+        Dictionary<string, SvgPoint> transformed = new(points.Count, StringComparer.Ordinal);
         foreach ((string id, SvgPoint point) in points)
         {
-            shifted[id] = new SvgPoint(point.X + dx, point.Y + dy);
+            transformed[id] = new SvgPoint(
+                targetCenterX + (point.X - sourceCenterX) * scale,
+                targetCenterY + (point.Y - sourceCenterY) * scale);
         }
 
-        return shifted;
+        return transformed;
     }
 
     private static RenderGeometry ApplyLayoutOverridesToGeometry(
