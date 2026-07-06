@@ -84,8 +84,9 @@ schematic-lite
   - CLI flag: `--overrides <path>`
   - Viewer: auto-loads sibling sidecar when opening JSON
   - Viewer: `Manual edit` mode can drag station circles, drag labels,
-    hide/show selected labels, reset selected edits, clear all edits, and open
-    the sidecar file
+    drag route-segment endpoint station anchors together, align the selected
+    station or segment horizontally/vertically, hide/show selected labels, reset
+    selected edits, clear all edits, and open the sidecar file
 - Latest product-candidate comparison:
   - `artifacts\product-candidate-comparison\20260622-155000`
 - Latest sample smoke regression gate:

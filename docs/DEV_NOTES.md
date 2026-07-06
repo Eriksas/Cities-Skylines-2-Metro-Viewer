@@ -892,3 +892,28 @@ Drag responsiveness is intentionally split into two layers:
 - On mouse release, WPF saves the sidecar override and schedules a short delayed
   renderer refresh. The full refresh is still authoritative for final route,
   label, and diagnostic output.
+
+## Viewer Segment Manual Editing - 2026-07-01
+
+The Viewer manual-edit layer now supports route segment selection and drag in
+addition to station and label editing. Segment edits are intentionally stored as
+station endpoint overrides in the existing layout sidecar:
+
+- No exporter logic changes.
+- No `metro-export.json` schema changes.
+- No raw `line.stops`, `line.pathPoints`, or station coordinates are mutated.
+- If the preview script cannot identify two nearby endpoint stations for the
+  clicked SVG route segment, the drag is ignored rather than guessed.
+
+`Align H` and `Align V` are cartographic repair tools:
+
+- With a station selected, the selected station is aligned horizontally or
+  vertically with its nearest connected stop-sequence neighbor.
+- With a segment selected, the endpoint station anchors are aligned to a shared
+  horizontal or vertical axis.
+
+This is the short-term solution for local map cleanup where an automatically
+generated schematic-map segment is almost horizontal/vertical but visually
+awkward. Longer-term manual editing should continue to build on the same
+sidecar layer, adding explicit bend/route-handle overrides only after the
+station/segment workflow is stable.

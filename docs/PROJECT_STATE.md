@@ -56,8 +56,9 @@ nudge station render positions and label positions without modifying
 `metro-export.json`, raw `station.position`, `line.stops`, or `line.pathPoints`.
 The Viewer now has `Manual edit` mode: users can drag station circles, drag
 labels, hide/show a selected label, reset the selected edit, clear all edits,
-and open the sidecar file. It is a lightweight map-polish editor, not a CS2 data
-editor.
+open the sidecar file, select a route segment, drag its endpoint station anchors
+together, and align the selected station or segment horizontally/vertically. It
+is a lightweight map-polish editor, not a CS2 data editor.
 
 The latest Phase 5C.2 corner/parallel polish pass is renderer-only. It makes
 schematic-map synthetic route doglegs context-aware so short or already readable

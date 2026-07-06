@@ -60,7 +60,10 @@
                         <ComboBox x:Name="ManualEditModeComboBox" Width="98" Margin="0,0,8,8" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
                             <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
                             <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
+                            <ComboBoxItem x:Name="ManualEditSegmentsItem" Content="Segments" Tag="segment" />
                         </ComboBox>
+                        <Button x:Name="AlignHorizontalButton" Content="Align H" MinWidth="76" Margin="0,0,8,8" Padding="10,3" Click="AlignHorizontal_Click" IsEnabled="False" />
+                        <Button x:Name="AlignVerticalButton" Content="Align V" MinWidth="76" Margin="0,0,8,8" Padding="10,3" Click="AlignVertical_Click" IsEnabled="False" />
                         <Button x:Name="ResetSelectedOverrideButton" Content="Reset Selected" MinWidth="104" Margin="0,0,8,8" Padding="10,3" Click="ResetSelectedOverride_Click" IsEnabled="False" />
                         <Button x:Name="ToggleSelectedLabelButton" Content="Hide Label" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ToggleSelectedLabel_Click" IsEnabled="False" />
                         <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ClearOverrides_Click" IsEnabled="False" />

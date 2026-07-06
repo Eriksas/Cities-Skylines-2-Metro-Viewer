@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private string? _layoutOverridePath;
     private string? _selectedOverrideKind;
     private string? _selectedOverrideStationId;
+    private IReadOnlyList<string> _selectedOverrideStationIds = [];
     private ViewerSettings _settings = new();
     private string _language = "en";
     private bool _uiReady;
@@ -93,7 +94,13 @@ public partial class MainWindow : Window
             JsonElement root = document.RootElement;
             string? type = ReadMessageString(root, "type");
             string? stationId = ReadMessageString(root, "stationId");
-            if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(stationId))
+            IReadOnlyList<string> stationIds = ReadMessageStringList(root, "stationIds");
+            if (stationIds.Count == 0 && !string.IsNullOrWhiteSpace(stationId))
+            {
+                stationIds = [stationId!];
+            }
+
+            if (string.IsNullOrWhiteSpace(type))
             {
                 return;
             }
@@ -101,23 +108,41 @@ public partial class MainWindow : Window
             switch (type)
             {
                 case "stationSelected":
-                    SelectManualEditTarget("station", stationId);
+                    if (!string.IsNullOrWhiteSpace(stationId))
+                    {
+                        SelectManualEditTarget("station", stationId);
+                    }
                     break;
                 case "labelSelected":
-                    SelectManualEditTarget("label", stationId);
+                    if (!string.IsNullOrWhiteSpace(stationId))
+                    {
+                        SelectManualEditTarget("label", stationId);
+                    }
+                    break;
+                case "segmentSelected":
+                    SelectManualEditSegment(stationIds);
                     break;
                 case "stationDragged":
-                    if (TryReadMessageDouble(root, "deltaX", out double stationDeltaX) &&
+                    if (!string.IsNullOrWhiteSpace(stationId) &&
+                        TryReadMessageDouble(root, "deltaX", out double stationDeltaX) &&
                         TryReadMessageDouble(root, "deltaY", out double stationDeltaY))
                     {
                         ApplyStationDragOverride(stationId, stationDeltaX, stationDeltaY);
                     }
                     break;
                 case "labelDragged":
-                    if (TryReadMessageDouble(root, "deltaX", out double labelDeltaX) &&
+                    if (!string.IsNullOrWhiteSpace(stationId) &&
+                        TryReadMessageDouble(root, "deltaX", out double labelDeltaX) &&
                         TryReadMessageDouble(root, "deltaY", out double labelDeltaY))
                     {
                         ApplyLabelDragOverride(stationId, labelDeltaX, labelDeltaY);
+                    }
+                    break;
+                case "segmentDragged":
+                    if (TryReadMessageDouble(root, "deltaX", out double segmentDeltaX) &&
+                        TryReadMessageDouble(root, "deltaY", out double segmentDeltaY))
+                    {
+                        ApplySegmentDragOverride(stationIds, segmentDeltaX, segmentDeltaY);
                     }
                     break;
             }
@@ -149,6 +174,36 @@ public partial class MainWindow : Window
 
         return value.ValueKind == JsonValueKind.String &&
                double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+    }
+
+    private static IReadOnlyList<string> ReadMessageStringList(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out JsonElement value))
+        {
+            return [];
+        }
+
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            return value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString())
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .Select(text => text!)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            return value.GetString()?
+                .Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .Distinct(StringComparer.Ordinal)
+                .ToList() ?? [];
+        }
+
+        return [];
     }
 
     private void OpenJson_Click(object sender, RoutedEventArgs e)
@@ -376,7 +431,7 @@ public partial class MainWindow : Window
 
         UpdateManualEditButtons();
         SetStatus(ManualEditCheckBox.IsChecked == true
-            ? string.Format(CultureInfo.CurrentCulture, T("ManualEditEnabled"), T(ReadManualEditMode() == "label" ? "ManualEditLabels" : "ManualEditStations"))
+            ? string.Format(CultureInfo.CurrentCulture, T("ManualEditEnabled"), T(GetManualEditModeResourceKey(ReadManualEditMode())))
             : T("ManualEditDisabled"));
     }
 
@@ -612,38 +667,7 @@ public partial class MainWindow : Window
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
 
-            if (!_layoutOverrides.Stations.TryGetValue(stationId, out StationLayoutOverride? stationOverride))
-            {
-                stationOverride = new StationLayoutOverride();
-                _layoutOverrides.Stations[stationId] = stationOverride;
-            }
-
-            stationOverride.Enabled = true;
-            if (stationOverride.X is not null || stationOverride.Y is not null)
-            {
-                if (stationOverride.X is not null)
-                {
-                    stationOverride.X += deltaX;
-                }
-                else
-                {
-                    stationOverride.Dx = (stationOverride.Dx ?? 0) + deltaX;
-                }
-
-                if (stationOverride.Y is not null)
-                {
-                    stationOverride.Y += deltaY;
-                }
-                else
-                {
-                    stationOverride.Dy = (stationOverride.Dy ?? 0) + deltaY;
-                }
-            }
-            else
-            {
-                stationOverride.Dx = (stationOverride.Dx ?? 0) + deltaX;
-                stationOverride.Dy = (stationOverride.Dy ?? 0) + deltaY;
-            }
+            ApplyStationOverrideDeltaCore(stationId, deltaX, deltaY);
 
             SaveOrDeleteLayoutOverrides();
             SelectManualEditTarget("station", stationId, showStatus: false);
@@ -654,6 +678,83 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             SetError(string.Format(CultureInfo.CurrentCulture, T("StationOverrideSaveFailed"), ex.Message));
+        }
+    }
+
+    private void ApplySegmentDragOverride(IReadOnlyList<string> stationIds, double deltaX, double deltaY)
+    {
+        if (_document is null || string.IsNullOrWhiteSpace(_jsonPath))
+        {
+            return;
+        }
+
+        List<string> normalizedStationIds = NormalizeStationIds(stationIds);
+        if (normalizedStationIds.Count == 0)
+        {
+            return;
+        }
+
+        if (Math.Sqrt(deltaX * deltaX + deltaY * deltaY) < 0.5)
+        {
+            return;
+        }
+
+        try
+        {
+            _layoutOverrides ??= new LayoutOverrideDocument();
+            _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
+
+            foreach (string stationId in normalizedStationIds)
+            {
+                ApplyStationOverrideDeltaCore(stationId, deltaX, deltaY);
+            }
+
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditSegment(normalizedStationIds, showStatus: false);
+            MarkPreviewDirty();
+            ScheduleManualEditPreviewRefresh();
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("SegmentOverrideSaved"), normalizedStationIds.Count, _layoutOverridePath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("StationOverrideSaveFailed"), ex.Message));
+        }
+    }
+
+    private void ApplyStationOverrideDeltaCore(string stationId, double deltaX, double deltaY)
+    {
+        _layoutOverrides ??= new LayoutOverrideDocument();
+        if (!_layoutOverrides.Stations.TryGetValue(stationId, out StationLayoutOverride? stationOverride))
+        {
+            stationOverride = new StationLayoutOverride();
+            _layoutOverrides.Stations[stationId] = stationOverride;
+        }
+
+        stationOverride.Enabled = true;
+        if (stationOverride.X is not null || stationOverride.Y is not null)
+        {
+            if (stationOverride.X is not null)
+            {
+                stationOverride.X += deltaX;
+            }
+            else
+            {
+                stationOverride.Dx = (stationOverride.Dx ?? 0) + deltaX;
+            }
+
+            if (stationOverride.Y is not null)
+            {
+                stationOverride.Y += deltaY;
+            }
+            else
+            {
+                stationOverride.Dy = (stationOverride.Dy ?? 0) + deltaY;
+            }
+        }
+        else
+        {
+            stationOverride.Dx = (stationOverride.Dx ?? 0) + deltaX;
+            stationOverride.Dy = (stationOverride.Dy ?? 0) + deltaY;
         }
     }
 
@@ -722,13 +823,30 @@ public partial class MainWindow : Window
 
     private void ResetSelectedOverride_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(_selectedOverrideStationId) || string.IsNullOrWhiteSpace(_selectedOverrideKind))
+        if (string.IsNullOrWhiteSpace(_selectedOverrideKind)
+            || (string.IsNullOrWhiteSpace(_selectedOverrideStationId) && _selectedOverrideStationIds.Count == 0))
         {
             SetStatus(T("ManualEditNoSelection"));
             return;
         }
 
-        ResetManualEditOverride(_selectedOverrideKind, _selectedOverrideStationId);
+        if (string.Equals(_selectedOverrideKind, "segment", StringComparison.Ordinal))
+        {
+            ResetManualEditSegmentOverrides(_selectedOverrideStationIds);
+            return;
+        }
+
+        ResetManualEditOverride(_selectedOverrideKind, _selectedOverrideStationId!);
+    }
+
+    private void AlignHorizontal_Click(object sender, RoutedEventArgs e)
+    {
+        ApplySelectedAlignment(horizontal: true);
+    }
+
+    private void AlignVertical_Click(object sender, RoutedEventArgs e)
+    {
+        ApplySelectedAlignment(horizontal: false);
     }
 
     private void ToggleSelectedLabel_Click(object sender, RoutedEventArgs e)
@@ -869,10 +987,157 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ResetManualEditSegmentOverrides(IReadOnlyList<string> stationIds)
+    {
+        if (_layoutOverrides is null)
+        {
+            SetStatus(T("ManualEditNoOverride"));
+            return;
+        }
+
+        List<string> normalizedStationIds = NormalizeStationIds(stationIds);
+        bool removed = false;
+        foreach (string stationId in normalizedStationIds)
+        {
+            removed |= _layoutOverrides.Stations.Remove(stationId);
+        }
+
+        if (!removed)
+        {
+            SetStatus(T("ManualEditNoOverride"));
+            return;
+        }
+
+        try
+        {
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditSegment(normalizedStationIds, showStatus: false);
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("ManualEditSegmentOverrideReset"), normalizedStationIds.Count));
+            RenderPreview();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("OverridesSaveFailed"), ex.Message));
+        }
+    }
+
+    private void ApplySelectedAlignment(bool horizontal)
+    {
+        if (_document is null || string.IsNullOrWhiteSpace(_jsonPath))
+        {
+            SetStatus(T("ManualEditNoSelection"));
+            return;
+        }
+
+        if (string.Equals(_selectedOverrideKind, "segment", StringComparison.Ordinal)
+            && _selectedOverrideStationIds.Count >= 2)
+        {
+            ApplySegmentEndpointAlignment(_selectedOverrideStationIds, horizontal);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedOverrideStationId))
+        {
+            SetStatus(T("ManualEditNoSelection"));
+            return;
+        }
+
+        ApplySingleStationAlignment(_selectedOverrideStationId, horizontal);
+    }
+
+    private void ApplySegmentEndpointAlignment(IReadOnlyList<string> stationIds, bool horizontal)
+    {
+        List<string> normalizedStationIds = NormalizeStationIds(stationIds);
+        List<(string StationId, ViewerSvgPoint Point)> points = [];
+        foreach (string stationId in normalizedStationIds)
+        {
+            if (TryReadStationSvgPoint(stationId, out ViewerSvgPoint point))
+            {
+                points.Add((stationId, point));
+            }
+        }
+
+        if (points.Count < 2)
+        {
+            SetStatus(T("ManualEditAlignmentNoPreviewPoint"));
+            return;
+        }
+
+        double target = horizontal
+            ? points.Average(point => point.Point.Y)
+            : points.Average(point => point.Point.X);
+        List<(string StationId, double DeltaX, double DeltaY)> deltas = [];
+        foreach ((string stationId, ViewerSvgPoint point) in points)
+        {
+            deltas.Add(horizontal
+                ? (stationId, 0, target - point.Y)
+                : (stationId, target - point.X, 0));
+        }
+
+        ApplyStationAlignmentDeltas(deltas, string.Format(
+            CultureInfo.CurrentCulture,
+            horizontal ? T("SegmentAlignedHorizontal") : T("SegmentAlignedVertical"),
+            points.Count));
+    }
+
+    private void ApplySingleStationAlignment(string stationId, bool horizontal)
+    {
+        if (!TryReadStationSvgPoint(stationId, out ViewerSvgPoint selectedPoint)
+            || !TryFindNearestConnectedStationPoint(stationId, selectedPoint, out string? neighborId, out ViewerSvgPoint neighborPoint))
+        {
+            SetStatus(T("ManualEditAlignmentNoNeighbor"));
+            return;
+        }
+
+        double deltaX = horizontal ? 0 : neighborPoint.X - selectedPoint.X;
+        double deltaY = horizontal ? neighborPoint.Y - selectedPoint.Y : 0;
+        ApplyStationAlignmentDeltas(
+            [(stationId, deltaX, deltaY)],
+            string.Format(
+                CultureInfo.CurrentCulture,
+                horizontal ? T("StationAlignedHorizontal") : T("StationAlignedVertical"),
+                GetStationDisplayName(stationId),
+                GetStationDisplayName(neighborId)));
+    }
+
+    private void ApplyStationAlignmentDeltas(
+        IReadOnlyList<(string StationId, double DeltaX, double DeltaY)> deltas,
+        string status)
+    {
+        List<(string StationId, double DeltaX, double DeltaY)> meaningfulDeltas = deltas
+            .Where(delta => Math.Sqrt(delta.DeltaX * delta.DeltaX + delta.DeltaY * delta.DeltaY) >= 0.1)
+            .ToList();
+        if (meaningfulDeltas.Count == 0)
+        {
+            SetStatus(T("ManualEditAlignmentNoChange"));
+            return;
+        }
+
+        try
+        {
+            _layoutOverrides ??= new LayoutOverrideDocument();
+            _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath!);
+            foreach ((string stationId, double deltaX, double deltaY) in meaningfulDeltas)
+            {
+                ApplyStationOverrideDeltaCore(stationId, deltaX, deltaY);
+            }
+
+            SaveOrDeleteLayoutOverrides();
+            MarkPreviewDirty();
+            RenderPreview();
+            SetStatus(status);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("StationOverrideSaveFailed"), ex.Message));
+        }
+    }
+
     private void SelectManualEditTarget(string kind, string stationId, bool showStatus = true)
     {
         _selectedOverrideKind = string.Equals(kind, "label", StringComparison.Ordinal) ? "label" : "station";
         _selectedOverrideStationId = stationId;
+        _selectedOverrideStationIds = [stationId];
         UpdateManualEditButtons();
         if (showStatus)
         {
@@ -883,10 +1148,29 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SelectManualEditSegment(IReadOnlyList<string> stationIds, bool showStatus = true)
+    {
+        List<string> normalizedStationIds = NormalizeStationIds(stationIds);
+        if (normalizedStationIds.Count == 0)
+        {
+            return;
+        }
+
+        _selectedOverrideKind = "segment";
+        _selectedOverrideStationId = normalizedStationIds[0];
+        _selectedOverrideStationIds = normalizedStationIds;
+        UpdateManualEditButtons();
+        if (showStatus)
+        {
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("ManualEditSegmentSelected"), normalizedStationIds.Count));
+        }
+    }
+
     private void ClearManualEditSelection()
     {
         _selectedOverrideKind = null;
         _selectedOverrideStationId = null;
+        _selectedOverrideStationIds = [];
         UpdateManualEditButtons();
     }
 
@@ -913,18 +1197,24 @@ public partial class MainWindow : Window
     private void UpdateManualEditButtons()
     {
         bool hasDocument = _document is not null;
-        bool hasSelection = hasDocument && !string.IsNullOrWhiteSpace(_selectedOverrideStationId);
+        bool hasSelection = hasDocument && (_selectedOverrideStationIds.Count > 0 || !string.IsNullOrWhiteSpace(_selectedOverrideStationId));
+        bool selectedSegment = string.Equals(_selectedOverrideKind, "segment", StringComparison.Ordinal);
         bool hasOverrides = _layoutOverrides?.IsEmpty == false;
         bool selectedLabelHidden = hasSelection
+            && !selectedSegment
             && _layoutOverrides?.Labels.TryGetValue(_selectedOverrideStationId!, out LabelLayoutOverride? labelOverride) == true
             && labelOverride.Hidden == true;
 
         ResetSelectedOverrideButton.IsEnabled = hasSelection
             && _layoutOverrides is not null
-            && (string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
-                ? _layoutOverrides.Labels.ContainsKey(_selectedOverrideStationId!)
-                : _layoutOverrides.Stations.ContainsKey(_selectedOverrideStationId!));
-        ToggleSelectedLabelButton.IsEnabled = hasSelection;
+            && (selectedSegment
+                ? _selectedOverrideStationIds.Any(stationId => _layoutOverrides.Stations.ContainsKey(stationId))
+                : string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
+                    ? _layoutOverrides.Labels.ContainsKey(_selectedOverrideStationId!)
+                    : _layoutOverrides.Stations.ContainsKey(_selectedOverrideStationId!));
+        AlignHorizontalButton.IsEnabled = hasSelection && !string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal);
+        AlignVerticalButton.IsEnabled = AlignHorizontalButton.IsEnabled;
+        ToggleSelectedLabelButton.IsEnabled = hasSelection && !selectedSegment;
         ToggleSelectedLabelButton.Content = selectedLabelHidden ? T("ShowSelectedLabel") : T("HideSelectedLabel");
         ClearOverridesButton.IsEnabled = hasOverrides || (!string.IsNullOrWhiteSpace(_layoutOverridePath) && File.Exists(_layoutOverridePath));
         OpenOverridesButton.IsEnabled = hasDocument;
@@ -933,7 +1223,118 @@ public partial class MainWindow : Window
     private string ReadManualEditMode()
     {
         string? tag = (ManualEditModeComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-        return string.Equals(tag, "label", StringComparison.Ordinal) ? "label" : "station";
+        return tag switch
+        {
+            "label" => "label",
+            "segment" => "segment",
+            _ => "station"
+        };
+    }
+
+    private static string GetManualEditModeResourceKey(string mode)
+    {
+        return mode switch
+        {
+            "label" => "ManualEditLabels",
+            "segment" => "ManualEditSegments",
+            _ => "ManualEditStations"
+        };
+    }
+
+    private static List<string> NormalizeStationIds(IEnumerable<string> stationIds)
+    {
+        return stationIds
+            .Where(stationId => !string.IsNullOrWhiteSpace(stationId))
+            .Select(stationId => stationId.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private bool TryReadStationSvgPoint(string stationId, out ViewerSvgPoint point)
+    {
+        point = default;
+        if (string.IsNullOrWhiteSpace(_currentSvg))
+        {
+            return false;
+        }
+
+        foreach (Match match in Regex.Matches(_currentSvg, "<circle\\b[^>]*>", RegexOptions.IgnoreCase))
+        {
+            string tag = match.Value;
+            string? currentStationId = ReadSvgStringAttribute(tag, "data-station-id");
+            if (!string.Equals(currentStationId, stationId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            double? x = ReadSvgLengthAttribute(tag, "cx");
+            double? y = ReadSvgLengthAttribute(tag, "cy");
+            if (x is not null && y is not null)
+            {
+                point = new ViewerSvgPoint(x.Value, y.Value);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryFindNearestConnectedStationPoint(
+        string stationId,
+        ViewerSvgPoint selectedPoint,
+        out string neighborId,
+        out ViewerSvgPoint neighborPoint)
+    {
+        neighborId = string.Empty;
+        neighborPoint = default;
+        HashSet<string> neighborIds = new(StringComparer.Ordinal);
+        foreach (MetroLine line in _document?.Network?.Lines ?? [])
+        {
+            IReadOnlyList<string> stops = line.Stops ?? [];
+            for (int index = 0; index < stops.Count; index++)
+            {
+                if (!string.Equals(stops[index], stationId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (index > 0 && !string.IsNullOrWhiteSpace(stops[index - 1]))
+                {
+                    neighborIds.Add(stops[index - 1]);
+                }
+
+                if (index + 1 < stops.Count && !string.IsNullOrWhiteSpace(stops[index + 1]))
+                {
+                    neighborIds.Add(stops[index + 1]);
+                }
+            }
+        }
+
+        double bestDistance = double.MaxValue;
+        foreach (string candidateId in neighborIds)
+        {
+            if (!TryReadStationSvgPoint(candidateId, out ViewerSvgPoint candidatePoint))
+            {
+                continue;
+            }
+
+            double distance = Distance(selectedPoint, candidatePoint);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                neighborId = candidateId;
+                neighborPoint = candidatePoint;
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(neighborId);
+    }
+
+    private static double Distance(ViewerSvgPoint first, ViewerSvgPoint second)
+    {
+        double deltaX = second.X - first.X;
+        double deltaY = second.Y - first.Y;
+        return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
     }
 
     private string GetStationDisplayName(string stationId)
@@ -1047,6 +1448,8 @@ public partial class MainWindow : Window
 
     private readonly record struct SvgPixelSize(double Width, double Height);
 
+    private readonly record struct ViewerSvgPoint(double X, double Y);
+
     private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode)
     {
         SvgPixelSize svgSize = ReadSvgPixelSize(svg);
@@ -1063,13 +1466,15 @@ public partial class MainWindow : Window
             : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
         bool editStations = enableManualEditing && string.Equals(manualEditMode, "station", StringComparison.Ordinal);
         bool editLabels = enableManualEditing && string.Equals(manualEditMode, "label", StringComparison.Ordinal);
+        bool editSegments = enableManualEditing && string.Equals(manualEditMode, "segment", StringComparison.Ordinal);
         string dragCss = enableManualEditing
             ? "    circle.station[data-station-id], text.station-label[data-station-id] { user-select: none; -ms-user-select: none; } circle.station-interchange-inner { pointer-events: none; }"
                 + (editStations ? " circle.station[data-station-id] { cursor: move; }" : string.Empty)
                 + (editLabels ? " text.station-label[data-station-id] { cursor: move; }" : string.Empty)
+                + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
             : string.Empty;
         string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText);
-        string manualEditScript = BuildManualEditScript(editStations, editLabels);
+        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments);
 
         return string.Join(Environment.NewLine,
         [
@@ -1186,23 +1591,27 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildManualEditScript(bool editStations, bool editLabels)
+    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments)
     {
-        if (!editStations && !editLabels)
+        if (!editStations && !editLabels && !editSegments)
         {
             return string.Empty;
         }
 
         string editStationsText = editStations ? "true" : "false";
         string editLabelsText = editLabels ? "true" : "false";
+        string editSegmentsText = editSegments ? "true" : "false";
         return string.Join(Environment.NewLine,
         [
             "  <script>",
             "    (function () {",
             $"      var editStations = {editStationsText};",
             $"      var editLabels = {editLabelsText};",
+            $"      var editSegments = {editSegmentsText};",
             "      var drag = null;",
             "      var routePointTolerance = 18.0;",
+            "      var routeSegmentTolerance = 24.0;",
+            "      var segmentEndpointStationTolerance = 54.0;",
             "      function hasClass(element, className) {",
             "        return (' ' + (element.getAttribute('class') || '') + ' ').indexOf(' ' + className + ' ') >= 0;",
             "      }",
@@ -1269,6 +1678,99 @@ public partial class MainWindow : Window
             "          }",
             "        }",
             "        return matches;",
+            "      }",
+            "      function stationPoints() {",
+            "        var circles = document.getElementsByTagName('circle');",
+            "        var stations = [];",
+            "        for (var i = 0; i < circles.length; i++) {",
+            "          var stationId = circles[i].getAttribute('data-station-id');",
+            "          if (!stationId || !hasClass(circles[i], 'station')) { continue; }",
+            "          stations.push({ stationId: stationId, x: parseCoordinate(circles[i].getAttribute('cx')), y: parseCoordinate(circles[i].getAttribute('cy')), element: circles[i] });",
+            "        }",
+            "        return stations;",
+            "      }",
+            "      function nearestStationToPoint(stations, point, maxDistance) {",
+            "        var best = null;",
+            "        var bestDistanceSquared = maxDistance * maxDistance;",
+            "        for (var i = 0; i < stations.length; i++) {",
+            "          var dx = stations[i].x - point.x;",
+            "          var dy = stations[i].y - point.y;",
+            "          var distanceSquared = dx * dx + dy * dy;",
+            "          if (distanceSquared <= bestDistanceSquared) {",
+            "            bestDistanceSquared = distanceSquared;",
+            "            best = stations[i];",
+            "          }",
+            "        }",
+            "        return best;",
+            "      }",
+            "      function uniqueStationIds(ids) {",
+            "        var result = [];",
+            "        for (var i = 0; i < ids.length; i++) {",
+            "          if (!ids[i] || result.indexOf(ids[i]) >= 0) { continue; }",
+            "          result.push(ids[i]);",
+            "        }",
+            "        return result;",
+            "      }",
+            "      function distanceToSegment(point, start, end) {",
+            "        var vx = end.x - start.x;",
+            "        var vy = end.y - start.y;",
+            "        var lengthSquared = vx * vx + vy * vy;",
+            "        if (lengthSquared <= 0.0001) { return { distance: Number.MAX_VALUE, x: start.x, y: start.y }; }",
+            "        var t = ((point.x - start.x) * vx + (point.y - start.y) * vy) / lengthSquared;",
+            "        if (t < 0) { t = 0; }",
+            "        if (t > 1) { t = 1; }",
+            "        var x = start.x + t * vx;",
+            "        var y = start.y + t * vy;",
+            "        var dx = point.x - x;",
+            "        var dy = point.y - y;",
+            "        return { distance: Math.sqrt(dx * dx + dy * dy), x: x, y: y };",
+            "      }",
+            "      function isRoutePolyline(element) {",
+            "        if (!element || !element.tagName || element.tagName.toLowerCase() !== 'polyline') { return false; }",
+            "        var cls = ' ' + (element.getAttribute('class') || '') + ' ';",
+            "        return cls.indexOf(' route ') >= 0 || cls.indexOf(' schematic-v2-parallel-corridor ') >= 0 || cls.indexOf(' product-line ') >= 0;",
+            "      }",
+            "      function closestRouteSegment(svg, point, preferredElement) {",
+            "        var best = null;",
+            "        var candidates = preferredElement && isRoutePolyline(preferredElement) ? [preferredElement] : routePolylines(svg);",
+            "        for (var i = 0; i < candidates.length; i++) {",
+            "          var points = candidates[i].points;",
+            "          if (!points || points.numberOfItems < 2) { continue; }",
+            "          for (var j = 0; j + 1 < points.numberOfItems; j++) {",
+            "            var first = points.getItem(j);",
+            "            var second = points.getItem(j + 1);",
+            "            var projection = distanceToSegment(point, first, second);",
+            "            if (projection.distance > routeSegmentTolerance) { continue; }",
+            "            if (!best || projection.distance < best.distance) {",
+            "              best = { element: candidates[i], index: j, distance: projection.distance, start: { x: first.x, y: first.y }, end: { x: second.x, y: second.y } };",
+            "            }",
+            "          }",
+            "        }",
+            "        if (!best && preferredElement && isRoutePolyline(preferredElement)) {",
+            "          return closestRouteSegment(svg, point, null);",
+            "        }",
+            "        return best;",
+            "      }",
+            "      function segmentEndpointStations(segment) {",
+            "        var stations = stationPoints();",
+            "        var first = nearestStationToPoint(stations, segment.start, segmentEndpointStationTolerance);",
+            "        var second = nearestStationToPoint(stations, segment.end, segmentEndpointStationTolerance);",
+            "        if (!first || !second || first.stationId === second.stationId) { return []; }",
+            "        return uniqueStationIds([first.stationId, second.stationId]);",
+            "      }",
+            "      function elementsForStationIds(stationIds, kind) {",
+            "        var matches = [];",
+            "        for (var i = 0; i < stationIds.length; i++) {",
+            "          var elements = editableElements(kind, stationIds[i]);",
+            "          for (var j = 0; j < elements.length; j++) { matches.push(elements[j]); }",
+            "        }",
+            "        return matches;",
+            "      }",
+            "      function routeSegmentPointMatches(segment) {",
+            "        return [",
+            "          { element: segment.element, index: segment.index, startX: segment.start.x, startY: segment.start.y },",
+            "          { element: segment.element, index: segment.index + 1, startX: segment.end.x, startY: segment.end.y }",
+            "        ];",
             "      }",
             "      function movePreview(matches, names, deltaX, deltaY) {",
             "        for (var i = 0; i < matches.length; i++) {",
@@ -1345,6 +1847,16 @@ public partial class MainWindow : Window
             "        var dy = String(Math.round(deltaY * 1000) / 1000);",
             "        postViewerMessage({ type: kind === 'label' ? 'labelDragged' : 'stationDragged', stationId: String(stationId), deltaX: dx, deltaY: dy });",
             "      }",
+            "      function externalSegmentSelect(stationIds) {",
+            "        if (!stationIds || !stationIds.length) { return; }",
+            "        postViewerMessage({ type: 'segmentSelected', stationId: String(stationIds[0]), stationIds: stationIds.join('|') });",
+            "      }",
+            "      function externalSegmentDrag(stationIds, deltaX, deltaY) {",
+            "        if (!stationIds || !stationIds.length) { return; }",
+            "        var dx = String(Math.round(deltaX * 1000) / 1000);",
+            "        var dy = String(Math.round(deltaY * 1000) / 1000);",
+            "        postViewerMessage({ type: 'segmentDragged', stationId: String(stationIds[0]), stationIds: stationIds.join('|'), deltaX: dx, deltaY: dy });",
+            "      }",
             "      function selectTarget(kind, stationId) {",
             "        externalSelect(kind, stationId);",
             "      }",
@@ -1356,12 +1868,30 @@ public partial class MainWindow : Window
             "        var kind = null;",
             "        if (editStations && tagName === 'circle' && hasClass(target, 'station')) { kind = 'station'; }",
             "        if (editLabels && tagName === 'text' && hasClass(target, 'station-label')) { kind = 'label'; }",
+            "        if (editSegments && tagName === 'polyline' && isRoutePolyline(target)) { kind = 'segment'; }",
             "        if (!kind) { return; }",
-            "        var stationId = target.getAttribute('data-station-id');",
             "        var svg = document.getElementsByTagName('svg')[0];",
             "        var start = svgPoint(svg, evt);",
-            "        if (!stationId || !start) { return; }",
+            "        if (!start) { return; }",
             "        var matrix = svg.getScreenCTM().inverse();",
+            "        if (kind === 'segment') {",
+            "          var segment = closestRouteSegment(svg, start, target);",
+            "          if (!segment) { return; }",
+            "          var segmentStationIds = segmentEndpointStations(segment);",
+            "          if (segmentStationIds.length < 2) { return; }",
+            "          var segmentStationMatches = elementsForStationIds(segmentStationIds, 'station');",
+            "          var segmentLabelMatches = elementsForStationIds(segmentStationIds, 'label');",
+            "          var segmentRouteMatches = routeSegmentPointMatches(segment);",
+            "          if (!segmentStationMatches.length) { return; }",
+            "          externalSegmentSelect(segmentStationIds);",
+            "          setDragStart(segmentStationMatches, { x: 'cx', y: 'cy' });",
+            "          setDragStart(segmentLabelMatches, { x: 'x', y: 'y' });",
+            "          drag = { kind: kind, stationId: segmentStationIds[0], stationIds: segmentStationIds, svg: svg, matches: segmentStationMatches, names: { x: 'cx', y: 'cy' }, labelMatches: segmentLabelMatches, routeMatches: segmentRouteMatches, startX: start.x, startY: start.y, startClientX: evt.clientX, startClientY: evt.clientY, matrixA: matrix.a, matrixB: matrix.b, matrixC: matrix.c, matrixD: matrix.d, deltaX: 0, deltaY: 0, lastPreviewAt: 0, previewPending: false };",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
+            "        var stationId = target.getAttribute('data-station-id');",
+            "        if (!stationId) { return; }",
             "        var matches = editableElements(kind, stationId);",
             "        if (!matches.length) { return; }",
             "        var names = attributeNames(kind);",
@@ -1395,7 +1925,11 @@ public partial class MainWindow : Window
             "        clearDragStart(completed.matches);",
             "        if (completed.labelMatches && completed.labelMatches.length) { clearDragStart(completed.labelMatches); }",
             "        if (Math.sqrt(completed.deltaX * completed.deltaX + completed.deltaY * completed.deltaY) < 0.5) { return; }",
-            "        externalDrag(completed.kind, completed.stationId, completed.deltaX, completed.deltaY);",
+            "        if (completed.kind === 'segment') {",
+            "          externalSegmentDrag(completed.stationIds, completed.deltaX, completed.deltaY);",
+            "        } else {",
+            "          externalDrag(completed.kind, completed.stationId, completed.deltaX, completed.deltaY);",
+            "        }",
             "      }",
             "      if (document.attachEvent) {",
             "        document.attachEvent('onmousedown', beginDrag);",
@@ -1447,6 +1981,17 @@ public partial class MainWindow : Window
 
         return double.TryParse(match.Groups["value"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
             ? value
+            : null;
+    }
+
+    private static string? ReadSvgStringAttribute(string svgTag, string attributeName)
+    {
+        Match match = Regex.Match(
+            svgTag,
+            $@"\b{Regex.Escape(attributeName)}\s*=\s*[""'](?<value>[^""']*)[""']",
+            RegexOptions.IgnoreCase);
+        return match.Success
+            ? System.Net.WebUtility.HtmlDecode(match.Groups["value"].Value)
             : null;
     }
 
@@ -1705,6 +2250,9 @@ public partial class MainWindow : Window
         ManualEditCheckBox.Content = T("ManualEdit");
         ManualEditStationsItem.Content = T("ManualEditStations");
         ManualEditLabelsItem.Content = T("ManualEditLabels");
+        ManualEditSegmentsItem.Content = T("ManualEditSegments");
+        AlignHorizontalButton.Content = T("AlignHorizontal");
+        AlignVerticalButton.Content = T("AlignVertical");
         ResetSelectedOverrideButton.Content = T("ResetSelectedOverride");
         ToggleSelectedLabelButton.Content = T("HideSelectedLabel");
         ClearOverridesButton.Content = T("ClearOverrides");

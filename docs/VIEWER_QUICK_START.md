@@ -98,6 +98,28 @@ To move a label:
 Label dragging moves only the label text. The station marker and routes stay in
 place.
 
+To adjust a route segment:
+
+1. Enable `Manual edit`.
+2. Choose `Segments`.
+3. Drag a visible route segment in the preview.
+4. Release the mouse button.
+
+Segment dragging moves the segment endpoint station anchors together. It is a
+sidecar-only edit, so the source export JSON is unchanged. If the Viewer cannot
+identify two nearby endpoint stations for the clicked segment, it will ignore the
+drag rather than guessing and risking a topology edit.
+
+Use `Align H` or `Align V` after selecting a station or segment:
+
+- With a station selected, the station aligns horizontally or vertically to the
+  nearest connected neighbor station.
+- With a segment selected, the two endpoint station anchors align to a shared
+  horizontal or vertical axis.
+
+These controls are intended for small cartographic corrections such as making a
+nearly horizontal or vertical route segment read cleanly.
+
 Useful manual-edit buttons:
 
 - `Hide Label` / `Show Label`: hide or restore the selected station label.
