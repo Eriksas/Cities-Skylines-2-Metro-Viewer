@@ -93,7 +93,8 @@ public sealed partial class MetroSvgRenderer
         if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
         {
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
-            return new RenderGeometry(annealLayout.Points, projector, annealLayout.Adjustments, [], null, null);
+            Dictionary<string, SvgPoint> centeredPoints = RecenterPointsToBounds(annealLayout.Points, options, reserveLegendSpace);
+            return new RenderGeometry(centeredPoints, projector, annealLayout.Adjustments, [], null, null);
         }
 
         if (IsSchematicV2FamilyLayout(options.LayoutMode))
@@ -123,10 +124,61 @@ public sealed partial class MetroSvgRenderer
                 reserveLegendSpace,
                 warnings);
             SchematicLayoutResult targetLayout = ScaleSchematicV2LayoutToTarget(canonicalLayout, canonicalOptions, options, reserveLegendSpace);
-            return new RenderGeometry(targetLayout.Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
+            Dictionary<string, SvgPoint> centeredV2Points = RecenterPointsToBounds(targetLayout.Points, options, reserveLegendSpace);
+            return new RenderGeometry(centeredV2Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
         }
 
         return new RenderGeometry(points, projector, [], [], null, null);
+    }
+
+    // Schematic layouts relocate stations after projection, so their final
+    // bounding box can sit off-center in the canvas. Recenter with a pure
+    // translation (angles, spacing, and all layout metrics are preserved) so
+    // the map's margins are balanced instead of hugging one edge. Aspect-ratio
+    // whitespace that cannot be filled without distortion is left symmetric.
+    private static Dictionary<string, SvgPoint> RecenterPointsToBounds(
+        Dictionary<string, SvgPoint> points,
+        SvgRenderOptions options,
+        bool reserveLegendSpace)
+    {
+        if (points.Count == 0)
+        {
+            return points;
+        }
+
+        double minX = double.MaxValue;
+        double minY = double.MaxValue;
+        double maxX = double.MinValue;
+        double maxY = double.MinValue;
+        foreach (SvgPoint point in points.Values)
+        {
+            minX = Math.Min(minX, point.X);
+            maxX = Math.Max(maxX, point.X);
+            minY = Math.Min(minY, point.Y);
+            maxY = Math.Max(maxY, point.Y);
+        }
+
+        SvgRect bounds = CreateGeometryBounds(options, reserveLegendSpace);
+        double dx = (bounds.Left + bounds.Right) / 2 - (minX + maxX) / 2;
+        double dy = (bounds.Top + bounds.Bottom) / 2 - (minY + maxY) / 2;
+
+        // Only recenter along an axis where the content actually fits, and never
+        // shift so far that a station leaves the drawing bounds.
+        dx = maxX - minX <= bounds.Right - bounds.Left ? Math.Clamp(dx, bounds.Left - minX, bounds.Right - maxX) : 0;
+        dy = maxY - minY <= bounds.Bottom - bounds.Top ? Math.Clamp(dy, bounds.Top - minY, bounds.Bottom - maxY) : 0;
+
+        if (Math.Abs(dx) < 0.001 && Math.Abs(dy) < 0.001)
+        {
+            return points;
+        }
+
+        Dictionary<string, SvgPoint> shifted = new(points.Count, StringComparer.Ordinal);
+        foreach ((string id, SvgPoint point) in points)
+        {
+            shifted[id] = new SvgPoint(point.X + dx, point.Y + dy);
+        }
+
+        return shifted;
     }
 
     private static RenderGeometry ApplyLayoutOverridesToGeometry(
