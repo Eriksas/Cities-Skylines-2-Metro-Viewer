@@ -936,3 +936,20 @@ case. Do not tune layout coefficients against a single map. First corpus run
 (2026-07-06, 9 samples): schematic-map slightly ahead on simple-map medians;
 schematic-anneal far ahead on worst case (bends 7 vs 15, crossings 0 vs 1,
 spacing violations 0 vs 19, weighted cost 18.7 vs 216.6).
+
+## Schematic-anneal Canvas Fit - 2026-07-06
+
+The default schematic-anneal mode now adapts the output canvas and fills it:
+
+- `AdaptCanvasHeightToNetwork` sets the canvas height (width fixed) so the
+  drawing area matches the network's geographic bounding-box aspect ratio,
+  clamped to [0.6, 1.5] x width. This means a `--size poster` anneal render is
+  no longer a fixed 3200x2000 - the height varies with the city shape so the
+  map is not letterboxed. Set a mode other than schematic-anneal if you need
+  exact fixed dimensions.
+- `FitPointsToBounds` uniformly scales + centers the final layout (angles and
+  all layout metrics preserved) within a label-reserved drawing area.
+
+Real-city fill went from ~60% to ~93% of the width. The clearance metric now
+exempts same-line station/edge pairs, so out-and-back lines stay straight
+(fixed the Sheffield line-1 kink at 谢菲尔德二中站).
