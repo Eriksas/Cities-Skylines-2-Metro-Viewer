@@ -7,10 +7,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-FullPath {
-    param([Parameter(Mandatory = $true)][string] $Path)
-    return [System.IO.Path]::GetFullPath($Path)
-}
+Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
 
 function Get-FamilyKey {
     param([string] $Name, [string] $Id)

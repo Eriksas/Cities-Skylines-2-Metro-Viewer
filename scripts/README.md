@@ -2,6 +2,10 @@
 
 PowerShell scripts are grouped by workflow. Run scripts from the repository root unless a script says otherwise.
 
+## Shared Helpers
+
+- `MetroScriptCommon.psm1` - shared helpers imported by the diagnostic/validation scripts, so the same logic is not copy-pasted. Contains the SVG-geometry scoring primitives (`Parse-Points`, `Get-Distance`, `Get-AngleDegrees`, `Get-OctilinearDelta`, `Get-SegmentIntersection`) plus small filesystem/naming utilities (`Get-FullPath`, `Convert-ToDouble`, `Convert-ToSafeName`). The authoritative layout score is produced by the C# CLI (`MetroDiagram.Cli --emit-layout-score`); these SVG-level primitives remain only for auditing that the CLI does not emit (debug overlays, stroke-width checks).
+
 ## Build, Publish, Release
 
 - `validate-local.ps1` - runs the normal local validation flow: offline solution build plus offline tests. Add `-IncludeModBuild` to also build the CS2 mod project when the CS2 modding toolchain environment is configured.
