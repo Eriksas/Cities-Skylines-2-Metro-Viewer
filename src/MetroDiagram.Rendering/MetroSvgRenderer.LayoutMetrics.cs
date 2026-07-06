@@ -9,7 +9,7 @@ public sealed partial class MetroSvgRenderer
     // never against a single map.
     private static class LayoutCostWeights
     {
-        public const double Octilinear = 3.0;
+        public const double Octilinear = 4.5;
         public const double ShortEdge = 2.0;
         public const double LongEdge = 0.5;
         public const double Bend = 1.5;
@@ -281,12 +281,15 @@ public sealed partial class MetroSvgRenderer
         return cost;
     }
 
+    // Preferred spacing follows the map's own scale (median edge length) with
+    // only a lower bound. An upper cap would put a fixed, unoptimizable "long
+    // edge" penalty on every edge of sparse networks, drowning the real signal.
     private static double ResolveLayoutPreferredSpacing(SchematicLayoutTopology topology, SvgPoint[] positions, SvgRenderOptions options)
     {
         double grid = Math.Max(8, options.GridSize);
         if (options.SchematicMapPreferredStationSpacing > 0)
         {
-            return Math.Clamp(options.SchematicMapPreferredStationSpacing, grid, grid * 8);
+            return Math.Max(options.SchematicMapPreferredStationSpacing, grid);
         }
 
         List<double> lengths = topology.Edges
@@ -294,7 +297,7 @@ public sealed partial class MetroSvgRenderer
             .Where(length => length > 0.001)
             .ToList();
         double median = Median(lengths);
-        return Math.Clamp(median > 0 ? median : grid * 3, grid * 2, grid * 5);
+        return Math.Max(median > 0 ? median : grid * 3, grid * 2);
     }
 
     private static double ResolveLayoutMinimumSpacing(SvgRenderOptions options)

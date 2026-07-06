@@ -52,11 +52,12 @@ public sealed partial class MetroSvgRenderer
 
         AnnealState state = new(topology, positions, anchors, preferredSpacing, minimumSpacing, clearance, grid, bounds);
         (int attempts, int accepted) = RunAnnealSchedule(state, initialCost);
+        int polishSweeps = RunGreedyPolish(state);
 
         double finalCost = ComputeLayoutQualityCost(topology, state.BestPositions, preferredSpacing, clearance);
         int finalCrossings = CountLayoutCrossings(state.BestPositions, topology.Edges);
         warnings.Add(
-            $"Schematic-anneal audit: quality cost {Format(initialCost)} -> {Format(finalCost)}; crossings {initialCrossings} -> {finalCrossings}; accepted {accepted}/{attempts} moves.");
+            $"Schematic-anneal audit: quality cost {Format(initialCost)} -> {Format(finalCost)}; crossings {initialCrossings} -> {finalCrossings}; accepted {accepted}/{attempts} moves; polish sweeps {polishSweeps}.");
 
         Dictionary<string, SvgPoint> result = new(StringComparer.Ordinal);
         foreach ((string stationId, SvgPoint point) in geographicPoints)
@@ -191,6 +192,68 @@ public sealed partial class MetroSvgRenderer
         }
 
         return (attempts, accepted);
+    }
+
+    /// <summary>
+    /// Deterministic zero-temperature finisher over the annealer's best state:
+    /// visit stations in index order, try every grid offset within range 2, and
+    /// accept strictly improving moves of the SAME global cost until a full
+    /// sweep changes nothing. Escapes shallow local minima the stochastic
+    /// schedule can leave behind on small maps.
+    /// </summary>
+    private static int RunGreedyPolish(AnnealState state)
+    {
+        Array.Copy(state.BestPositions, state.Positions, state.Positions.Length);
+
+        const int maxSweeps = 60;
+        int sweeps = 0;
+        bool improvedInSweep = true;
+        while (improvedInSweep && sweeps < maxSweeps)
+        {
+            improvedInSweep = false;
+            sweeps++;
+            for (int station = 0; station < state.Positions.Length; station++)
+            {
+                SvgPoint bestPoint = state.Positions[station];
+                double bestDelta = -0.000001;
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    for (int dy = -2; dy <= 2; dy++)
+                    {
+                        if (dx == 0 && dy == 0)
+                        {
+                            continue;
+                        }
+
+                        SvgPoint current = state.Positions[station];
+                        SvgPoint candidate = SnapPointToGrid(
+                            new SvgPoint(current.X + dx * state.Grid, current.Y + dy * state.Grid),
+                            state.Grid,
+                            state.Bounds);
+                        if (Distance(candidate, current) < 0.001 || ViolatesMinimumSpacing(state, station, candidate))
+                        {
+                            continue;
+                        }
+
+                        double delta = LocalCostDelta(state, station, candidate);
+                        if (delta < bestDelta)
+                        {
+                            bestDelta = delta;
+                            bestPoint = candidate;
+                        }
+                    }
+                }
+
+                if (bestDelta < -0.000001)
+                {
+                    state.Positions[station] = bestPoint;
+                    improvedInSweep = true;
+                }
+            }
+        }
+
+        Array.Copy(state.Positions, state.BestPositions, state.Positions.Length);
+        return sweeps;
     }
 
     private static bool ViolatesMinimumSpacing(AnnealState state, int station, SvgPoint candidate)
