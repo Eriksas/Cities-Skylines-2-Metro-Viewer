@@ -16,22 +16,19 @@ The project is in multi-city alpha validation and schematic-map refinement.
 - Paradox Mods version: `0.1.0-alpha.2-candidate`
 - Paradox Mods access level: `Unlisted`
 
-Recommended alpha default:
+Default product mode: `schematic-anneal` (the Viewer opens on it). It won every
+layout metric on both median and worst case across the current corpus (9 samples
++ 2 real cities), so it is the default schematic direction pending broader
+multi-city validation.
 
-```text
-layout = geographic
-UsePathPoints = true
-service family merge = enabled
-shared corridor = disabled
-express stripe = disabled
-```
-
-`geographic` remains the safest default because it preserves exported route geometry most reliably.
+`geographic` remains the most faithful render of exported route geometry and is
+available for anyone who wants true geometry rather than a schematic
+(`layout = geographic`, `UsePathPoints = true`, service family merge enabled).
 
 Current schematic directions:
 
-- `schematic-map` - product-facing official-map style experiment; current active polish target.
-- `schematic-anneal` - global-optimization layout (single cost function + deterministic simulated annealing). On the current corpus (9 samples + 2 real cities) it wins every layout metric on both median and worst case, so it is now selectable in the Viewer alongside the other modes.
+- `schematic-anneal` - DEFAULT. Global-optimization layout (single cost function + deterministic simulated annealing). Wins every layout metric on the corpus; same-line clearance exemption keeps out-and-back lines straight; output is recentered in the canvas.
+- `schematic-map` - previous product-facing pass-stack schematic; retained for comparison until anneal has broader validation.
 - `schematic-v2` - topology/diagnostic schematic base; still experimental.
 - `schematic-lite` - removed from the toolchain (2026-07). History remains in git.
 

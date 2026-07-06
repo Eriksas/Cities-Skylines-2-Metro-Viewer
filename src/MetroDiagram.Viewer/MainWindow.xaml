@@ -27,10 +27,10 @@
 
                         <TextBlock x:Name="LayoutLabelTextBlock" Text="Layout" VerticalAlignment="Center" Margin="0,0,6,8" />
                         <ComboBox x:Name="LayoutComboBox" Width="150" Margin="0,0,12,8" SelectionChanged="LayoutComboBox_SelectionChanged">
-                            <ComboBoxItem Content="geographic" Tag="geographic" IsSelected="True" />
+                            <ComboBoxItem Content="geographic" Tag="geographic" />
                             <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                             <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
-                            <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" />
+                            <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" IsSelected="True" />
                         </ComboBox>
 
                         <TextBlock x:Name="SizePresetLabelTextBlock" Text="Size" VerticalAlignment="Center" Margin="0,0,6,8" />

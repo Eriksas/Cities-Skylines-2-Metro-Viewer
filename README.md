@@ -17,25 +17,27 @@ Current version: `v0.1.0-alpha.2-candidate`
 
 ## Current Status
 
-The recommended alpha output is still the geographic renderer:
+`schematic-anneal` is the default product-facing schematic mode. It lays out
+the schematic with a single global quality cost and deterministic simulated
+annealing instead of stacked local repair passes, and it won every layout
+metric (octilinearity, bends, crossings, spacing, clearance, weighted cost) on
+both median and worst case across the current corpus of samples plus real-city
+exports. It is the default selection in the Viewer.
 
 ```text
-geographic + exported path geometry + service family merge
+schematic-anneal (default) — global-optimization octilinear schematic
 ```
 
-The newer `schematic-map` mode is the product-facing schematic direction. It is
-being developed toward a cleaner official metro-map style, but it is still
-experimental and should be reviewed through validation bundles.
-It uses render-time route grammar safeguards to keep schematic output mostly
-horizontal, vertical, or 45-degree, while preserving exported data unchanged.
+`geographic` remains available as the most faithful render of the exported CS2
+route geometry (`geographic + exported path geometry + service family merge`);
+use it when you want true geometry rather than a schematic.
 
-`schematic-v2` remains available as a topology/diagnostic schematic mode.
+`schematic-map` is the previous product-facing schematic (a stack of render-time
+route-grammar repair passes); it is retained for comparison until
+`schematic-anneal` has broader multi-city validation. `schematic-v2` remains a
+topology/diagnostic schematic mode.
 
-`schematic-anneal` lays out the schematic with a single global quality cost
-and deterministic simulated annealing instead of local repair passes. It is
-selectable in the Viewer and CLI. It won every layout metric (median and
-worst case) on the current corpus of samples plus real-city exports. Compare
-the two modes over the whole sample corpus with:
+Compare the two schematic directions over the whole sample corpus with:
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-schematic-layouts.ps1

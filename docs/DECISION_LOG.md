@@ -6,13 +6,13 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
-## Keep Geographic As Alpha Default
+## Default To Schematic-anneal (Supersedes Geographic Default)
 
-Decision: `geographic + UsePathPoints + service family merge` remains the alpha recommended output.
+Decision: `schematic-anneal` is the default product mode; the Viewer opens on it (2026-07-06). `geographic` remains available and unchanged as the faithful-geometry render.
 
-Reason: it is the most faithful to exported CS2 geometry and has passed the broadest manual validation.
+Reason: on the current corpus (9 samples + Sheffield/Zhaoqing real exports) schematic-anneal wins every layout metric on both median and worst case, and the same-line clearance fix plus canvas recentering removed the last obvious artifacts. A schematic is the product goal; geographic is the reference render, not the product.
 
-Consequence: schematic modes must not break or replace geographic behavior.
+Consequence: `geographic` behavior must stay byte-identical (it is the reference). This decision is provisional pending broader multi-city validation; if anneal regresses on more cities, the default can revert. The earlier "keep geographic as default" decision is superseded for the product mode only.
 
 ## Treat Schematic Work As Render-only
 

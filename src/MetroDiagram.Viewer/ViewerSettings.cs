@@ -13,7 +13,7 @@ public sealed class ViewerSettings
     public string Language { get; set; } = "en";
 
     [JsonPropertyName("layoutMode")]
-    public string LayoutMode { get; set; } = "geographic";
+    public string LayoutMode { get; set; } = "schematic-anneal";
 
     [JsonPropertyName("sizePreset")]
     public string SizePreset { get; set; } = "custom";
