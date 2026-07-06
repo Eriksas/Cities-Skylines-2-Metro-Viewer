@@ -43,7 +43,7 @@ public sealed partial class MetroSvgRenderer
 
         if (options.PathPointSimplificationEnabled)
         {
-            cleaned = RemoveShortSvgSegments(cleaned, minSegmentLength, stationPoints, options);
+            cleaned = RemoveShortSvgSegments(cleaned, minSegmentLength);
             metrics = MeasurePathPoints(cleaned, options);
             effectiveTolerance = ResolvePathSimplificationTolerance(metrics, options);
             cleaned = SimplifyProjectedPathPoints(cleaned, stationPoints, metrics.SuspiciousJumpStartIndices, effectiveTolerance, options);
@@ -62,6 +62,38 @@ public sealed partial class MetroSvgRenderer
             effectiveTolerance);
     }
 
+    private static List<int> RemoveConsecutiveDuplicateIndices(IReadOnlyList<SvgPoint> points, double epsilon)
+    {
+        double epsilonSquared = epsilon * epsilon;
+        List<int> kept = [0];
+        for (int i = 1; i < points.Count - 1; i++)
+        {
+            if (DistanceSquared(points[i], points[kept[^1]]) > epsilonSquared)
+            {
+                kept.Add(i);
+            }
+        }
+
+        int last = points.Count - 1;
+        if (DistanceSquared(points[last], points[kept[^1]]) <= epsilonSquared)
+        {
+            if (kept.Count == 1)
+            {
+                kept.Add(last);
+            }
+            else
+            {
+                kept[^1] = last;
+            }
+        }
+        else
+        {
+            kept.Add(last);
+        }
+
+        return kept;
+    }
+
     private static List<SvgPoint> RemoveConsecutiveDuplicateSvgPoints(List<SvgPoint> points, double epsilon)
     {
         if (points.Count <= 1)
@@ -69,68 +101,43 @@ public sealed partial class MetroSvgRenderer
             return points.ToList();
         }
 
-        double epsilonSquared = epsilon * epsilon;
-        List<SvgPoint> cleaned = [points[0]];
-        for (int i = 1; i < points.Count - 1; i++)
-        {
-            if (DistanceSquared(points[i], cleaned[^1]) > epsilonSquared)
-            {
-                cleaned.Add(points[i]);
-            }
-        }
-
-        SvgPoint last = points[^1];
-        if (DistanceSquared(last, cleaned[^1]) <= epsilonSquared)
-        {
-            if (cleaned.Count == 1)
-            {
-                cleaned.Add(last);
-            }
-            else
-            {
-                cleaned[^1] = last;
-            }
-        }
-        else
-        {
-            cleaned.Add(last);
-        }
-
-        return cleaned;
+        return RemoveConsecutiveDuplicateIndices(points, epsilon).Select(index => points[index]).ToList();
     }
 
-    private static List<SvgPoint> RemoveShortSvgSegments(
-        List<SvgPoint> points,
-        double minSegmentLength,
-        List<SvgPoint> stationPoints,
-        SvgRenderOptions options)
+    private static List<int> RemoveShortSegmentIndices(IReadOnlyList<SvgPoint> points, double minSegmentLength, bool skipNearDuplicateTail)
+    {
+        List<int> kept = [0];
+        for (int i = 1; i < points.Count - 1; i++)
+        {
+            if (Distance(points[i], points[kept[^1]]) >= minSegmentLength)
+            {
+                kept.Add(i);
+            }
+        }
+
+        int last = points.Count - 1;
+        if (Distance(points[last], points[kept[^1]]) < minSegmentLength && kept.Count > 1)
+        {
+            kept[^1] = last;
+        }
+        else if (!skipNearDuplicateTail || DistanceSquared(points[kept[^1]], points[last]) >= 0.001)
+        {
+            kept.Add(last);
+        }
+
+        return kept;
+    }
+
+    private static List<SvgPoint> RemoveShortSvgSegments(List<SvgPoint> points, double minSegmentLength)
     {
         if (points.Count <= 2 || minSegmentLength <= 0)
         {
             return points.ToList();
         }
 
-        List<SvgPoint> cleaned = [points[0]];
-        for (int i = 1; i < points.Count - 1; i++)
-        {
-            SvgPoint point = points[i];
-            if (Distance(point, cleaned[^1]) >= minSegmentLength)
-            {
-                cleaned.Add(point);
-            }
-        }
-
-        SvgPoint last = points[^1];
-        if (Distance(last, cleaned[^1]) < minSegmentLength && cleaned.Count > 1)
-        {
-            cleaned[^1] = last;
-        }
-        else
-        {
-            AddPointIfNotDuplicate(cleaned, last);
-        }
-
-        return cleaned;
+        return RemoveShortSegmentIndices(points, minSegmentLength, skipNearDuplicateTail: true)
+            .Select(index => points[index])
+            .ToList();
     }
 
     private static List<SvgPoint> SimplifyProjectedPathPoints(
@@ -412,6 +419,14 @@ public sealed partial class MetroSvgRenderer
         return (sorted[middle - 1] + sorted[middle]) / 2;
     }
 
+    // The MetroPathPoint pipeline reuses the SvgPoint geometry cores through
+    // probe points (X -> X, Z -> Y) and index selection, so per-point metadata
+    // such as Source/SegmentEntity survives cleaning untouched.
+    private static List<SvgPoint> CreatePathPointProbe(List<MetroPathPoint> points)
+    {
+        return points.Select(point => new SvgPoint(point.X, point.Z)).ToList();
+    }
+
     private static List<MetroPathPoint> RemoveShortPathSegments(List<MetroPathPoint> points, double minSegmentLength)
     {
         if (points.Count <= 2 || minSegmentLength <= 0)
@@ -419,26 +434,9 @@ public sealed partial class MetroSvgRenderer
             return points.ToList();
         }
 
-        List<MetroPathPoint> cleaned = [points[0]];
-        for (int i = 1; i < points.Count - 1; i++)
-        {
-            if (Distance(points[i], cleaned[^1]) >= minSegmentLength)
-            {
-                cleaned.Add(points[i]);
-            }
-        }
-
-        MetroPathPoint last = points[^1];
-        if (Distance(last, cleaned[^1]) < minSegmentLength && cleaned.Count > 1)
-        {
-            cleaned[^1] = last;
-        }
-        else
-        {
-            cleaned.Add(last);
-        }
-
-        return cleaned;
+        return RemoveShortSegmentIndices(CreatePathPointProbe(points), minSegmentLength, skipNearDuplicateTail: false)
+            .Select(index => points[index])
+            .ToList();
     }
 
     private static List<MetroPathPoint> RemoveConsecutiveDuplicatePathPoints(List<MetroPathPoint> points, double epsilon)
@@ -448,33 +446,9 @@ public sealed partial class MetroSvgRenderer
             return points.ToList();
         }
 
-        List<MetroPathPoint> cleaned = [points[0]];
-        for (int i = 1; i < points.Count - 1; i++)
-        {
-            if (Distance(points[i], cleaned[^1]) > epsilon)
-            {
-                cleaned.Add(points[i]);
-            }
-        }
-
-        MetroPathPoint last = points[^1];
-        if (Distance(last, cleaned[^1]) <= epsilon)
-        {
-            if (cleaned.Count == 1)
-            {
-                cleaned.Add(last);
-            }
-            else
-            {
-                cleaned[^1] = last;
-            }
-        }
-        else
-        {
-            cleaned.Add(last);
-        }
-
-        return cleaned;
+        return RemoveConsecutiveDuplicateIndices(CreatePathPointProbe(points), epsilon)
+            .Select(index => points[index])
+            .ToList();
     }
 
     private static List<MetroPathPoint> SimplifyNearlyCollinearPathPoints(List<MetroPathPoint> points, double tolerance)
@@ -484,10 +458,11 @@ public sealed partial class MetroSvgRenderer
             return points;
         }
 
+        List<SvgPoint> probe = CreatePathPointProbe(points);
         bool[] keep = new bool[points.Count];
         keep[0] = true;
         keep[^1] = true;
-        MarkRamerDouglasPeucker(points, keep, 0, points.Count - 1, tolerance);
+        MarkProjectedRamerDouglasPeucker(probe, keep, 0, points.Count - 1, tolerance);
 
         List<MetroPathPoint> simplified = [];
         for (int i = 0; i < points.Count; i++)
@@ -501,46 +476,6 @@ public sealed partial class MetroSvgRenderer
         return simplified;
     }
 
-    private static void MarkRamerDouglasPeucker(List<MetroPathPoint> points, bool[] keep, int start, int end, double tolerance)
-    {
-        if (end <= start + 1)
-        {
-            return;
-        }
-
-        double maxDistance = -1;
-        int maxIndex = -1;
-        for (int i = start + 1; i < end; i++)
-        {
-            double distance = PerpendicularDistance(points[i], points[start], points[end]);
-            if (distance > maxDistance)
-            {
-                maxDistance = distance;
-                maxIndex = i;
-            }
-        }
-
-        if (maxDistance > tolerance && maxIndex > start)
-        {
-            keep[maxIndex] = true;
-            MarkRamerDouglasPeucker(points, keep, start, maxIndex, tolerance);
-            MarkRamerDouglasPeucker(points, keep, maxIndex, end, tolerance);
-        }
-    }
-
-    private static double PerpendicularDistance(MetroPathPoint point, MetroPathPoint start, MetroPathPoint end)
-    {
-        double dx = end.X - start.X;
-        double dz = end.Z - start.Z;
-        double denominator = Math.Sqrt(dx * dx + dz * dz);
-        if (denominator < 0.000001)
-        {
-            return Distance(point, start);
-        }
-
-        return Math.Abs(dz * point.X - dx * point.Z + end.X * start.Z - end.Z * start.X) / denominator;
-    }
-
     private static double PerpendicularDistance(SvgPoint point, SvgPoint start, SvgPoint end)
     {
         double dx = end.X - start.X;
@@ -552,13 +487,6 @@ public sealed partial class MetroSvgRenderer
         }
 
         return Math.Abs(dy * point.X - dx * point.Y + end.X * start.Y - end.Y * start.X) / denominator;
-    }
-
-    private static double Distance(MetroPathPoint a, MetroPathPoint b)
-    {
-        double dx = a.X - b.X;
-        double dz = a.Z - b.Z;
-        return Math.Sqrt(dx * dx + dz * dz);
     }
 
     private static double Distance(SvgPoint a, SvgPoint b)
