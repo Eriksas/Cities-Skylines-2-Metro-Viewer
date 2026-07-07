@@ -79,7 +79,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 ## 快速上手
 
-1. 安装 mod，启动 CS2，载入城市。
+1. 安装 mod（在此仅需要下载releases打包好的包解压即可），启动 CS2，载入城市。
 2. 打开 **选项 › CS2 Metro Diagram › Main**。可选设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
 3. 点击 **Export Real Metro JSON**，会把 `metro-export.json`（及诊断文件、带时间戳的快照）写入导出文件夹。
 4. 打开 **MetroDiagram.Viewer.exe**，点 **Open Default Export**（或 **Open JSON**）。
