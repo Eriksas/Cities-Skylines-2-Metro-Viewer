@@ -33,6 +33,9 @@ public partial class MainWindow : Window
     private string? _selectedOverrideKind;
     private string? _selectedOverrideStationId;
     private IReadOnlyList<string> _selectedOverrideStationIds = [];
+    private readonly Stack<string?> _undoStack = new();
+    private readonly Stack<string?> _redoStack = new();
+    private static readonly JsonSerializerOptions ManualEditSnapshotOptions = new() { IncludeFields = false };
     private ViewerSettings _settings = new();
     private string _language = "en";
     private bool _uiReady;
@@ -498,6 +501,7 @@ public partial class MainWindow : Window
             _jsonPath = path;
             List<string> loadWarnings = loadResult.Warnings.ToList();
             _layoutOverrides = TryLoadLayoutOverrides(path, loadWarnings, out _layoutOverridePath);
+            ResetUndoHistory();
             _loadWarnings = loadWarnings;
             _renderWarnings = [];
             FileTextBlock.Text = path;
@@ -664,6 +668,7 @@ public partial class MainWindow : Window
 
         try
         {
+            PushUndoSnapshot();
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
 
@@ -701,6 +706,7 @@ public partial class MainWindow : Window
 
         try
         {
+            PushUndoSnapshot();
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
 
@@ -772,6 +778,7 @@ public partial class MainWindow : Window
 
         try
         {
+            PushUndoSnapshot();
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
 
@@ -860,6 +867,7 @@ public partial class MainWindow : Window
         try
         {
             string stationId = _selectedOverrideStationId;
+            PushUndoSnapshot();
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
 
@@ -910,6 +918,7 @@ public partial class MainWindow : Window
 
         try
         {
+            PushUndoSnapshot();
             _layoutOverrides = null;
             if (!string.IsNullOrWhiteSpace(_layoutOverridePath) && File.Exists(_layoutOverridePath))
             {
@@ -965,6 +974,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        string? snapshot = SerializeOverridesSnapshot(_layoutOverrides);
         bool removed = string.Equals(kind, "label", StringComparison.Ordinal)
             ? _layoutOverrides.Labels.Remove(stationId)
             : _layoutOverrides.Stations.Remove(stationId);
@@ -974,6 +984,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        PushUndoSnapshotState(snapshot);
         try
         {
             SaveOrDeleteLayoutOverrides();
@@ -996,6 +1007,7 @@ public partial class MainWindow : Window
         }
 
         List<string> normalizedStationIds = NormalizeStationIds(stationIds);
+        string? snapshot = SerializeOverridesSnapshot(_layoutOverrides);
         bool removed = false;
         foreach (string stationId in normalizedStationIds)
         {
@@ -1008,6 +1020,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        PushUndoSnapshotState(snapshot);
         try
         {
             SaveOrDeleteLayoutOverrides();
@@ -1115,6 +1128,7 @@ public partial class MainWindow : Window
 
         try
         {
+            PushUndoSnapshot();
             _layoutOverrides ??= new LayoutOverrideDocument();
             _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath!);
             foreach ((string stationId, double deltaX, double deltaY) in meaningfulDeltas)
@@ -1218,6 +1232,124 @@ public partial class MainWindow : Window
         ToggleSelectedLabelButton.Content = selectedLabelHidden ? T("ShowSelectedLabel") : T("HideSelectedLabel");
         ClearOverridesButton.IsEnabled = hasOverrides || (!string.IsNullOrWhiteSpace(_layoutOverridePath) && File.Exists(_layoutOverridePath));
         OpenOverridesButton.IsEnabled = hasDocument;
+        UndoButton.IsEnabled = hasDocument && _undoStack.Count > 0;
+        RedoButton.IsEnabled = hasDocument && _redoStack.Count > 0;
+    }
+
+    // ---- Manual-edit undo/redo (snapshots of the whole override document) ----
+
+    private static string? SerializeOverridesSnapshot(LayoutOverrideDocument? doc)
+    {
+        return doc is null ? null : JsonSerializer.Serialize(doc, ManualEditSnapshotOptions);
+    }
+
+    private static LayoutOverrideDocument? DeserializeOverridesSnapshot(string? json)
+    {
+        return string.IsNullOrWhiteSpace(json)
+            ? null
+            : JsonSerializer.Deserialize<LayoutOverrideDocument>(json, ManualEditSnapshotOptions);
+    }
+
+    // Call immediately before mutating the override document, so the pre-edit
+    // state can be restored by Undo. Clears the redo history (new branch).
+    private void PushUndoSnapshot()
+    {
+        PushUndoSnapshotState(SerializeOverridesSnapshot(_layoutOverrides));
+    }
+
+    // For mutations that may be a no-op: capture the snapshot first, then push
+    // it only after confirming a change actually happened.
+    private void PushUndoSnapshotState(string? snapshot)
+    {
+        _undoStack.Push(snapshot);
+        _redoStack.Clear();
+        UpdateManualEditButtons();
+    }
+
+    private void ResetUndoHistory()
+    {
+        _undoStack.Clear();
+        _redoStack.Clear();
+    }
+
+    private void UndoManualEdit()
+    {
+        if (_undoStack.Count == 0)
+        {
+            SetStatus(T("NothingToUndo"));
+            return;
+        }
+
+        _redoStack.Push(SerializeOverridesSnapshot(_layoutOverrides));
+        _layoutOverrides = DeserializeOverridesSnapshot(_undoStack.Pop());
+        ApplyUndoRedoState(T("EditUndone"));
+    }
+
+    private void RedoManualEdit()
+    {
+        if (_redoStack.Count == 0)
+        {
+            SetStatus(T("NothingToRedo"));
+            return;
+        }
+
+        _undoStack.Push(SerializeOverridesSnapshot(_layoutOverrides));
+        _layoutOverrides = DeserializeOverridesSnapshot(_redoStack.Pop());
+        ApplyUndoRedoState(T("EditRedone"));
+    }
+
+    private void ApplyUndoRedoState(string statusText)
+    {
+        // The current selection may no longer have an override; drop it so the
+        // action buttons re-evaluate cleanly.
+        _selectedOverrideKind = null;
+        _selectedOverrideStationId = null;
+        _selectedOverrideStationIds = [];
+
+        try
+        {
+            SaveOrDeleteLayoutOverrides();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("StationOverrideSaveFailed"), ex.Message));
+            return;
+        }
+
+        RenderPreview();
+        UpdateManualEditButtons();
+        SetStatus(statusText);
+    }
+
+    private void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        UndoManualEdit();
+    }
+
+    private void Redo_Click(object sender, RoutedEventArgs e)
+    {
+        RedoManualEdit();
+    }
+
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (_document is null
+            || (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != System.Windows.Input.ModifierKeys.Control)
+        {
+            return;
+        }
+
+        bool shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Shift) == System.Windows.Input.ModifierKeys.Shift;
+        if (e.Key == System.Windows.Input.Key.Z && !shift)
+        {
+            UndoManualEdit();
+            e.Handled = true;
+        }
+        else if (e.Key == System.Windows.Input.Key.Y || (e.Key == System.Windows.Input.Key.Z && shift))
+        {
+            RedoManualEdit();
+            e.Handled = true;
+        }
     }
 
     private string ReadManualEditMode()
@@ -1918,11 +2050,57 @@ public partial class MainWindow : Window
             "        if (!drag.lastPreviewAt || now - drag.lastPreviewAt >= 16) { requestPreviewUpdate(); }",
             "        if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
             "      }",
+            "      function neighborPointsForStation(routeMatches) {",
+            "        var out = [];",
+            "        if (!routeMatches) { return out; }",
+            "        for (var i = 0; i < routeMatches.length; i++) {",
+            "          var pts = routeMatches[i].element.points;",
+            "          var idx = routeMatches[i].index;",
+            "          if (!pts) { continue; }",
+            "          if (idx - 1 >= 0) { var a = pts.getItem(idx - 1); out.push({ x: a.x, y: a.y }); }",
+            "          if (idx + 1 < pts.numberOfItems) { var b = pts.getItem(idx + 1); out.push({ x: b.x, y: b.y }); }",
+            "        }",
+            "        return out;",
+            "      }",
+            "      function snapOctilinear(pos, neighbors) {",
+            "        if (!neighbors || !neighbors.length) { return pos; }",
+            "        var best = null, bestD = Infinity;",
+            "        for (var i = 0; i < neighbors.length; i++) {",
+            "          var ndx = neighbors[i].x - pos.x, ndy = neighbors[i].y - pos.y; var d = ndx * ndx + ndy * ndy;",
+            "          if (d < bestD) { bestD = d; best = neighbors[i]; }",
+            "        }",
+            "        if (!best) { return pos; }",
+            "        var dx = pos.x - best.x, dy = pos.y - best.y; var dist = Math.sqrt(dx * dx + dy * dy);",
+            "        if (dist < 1) { return pos; }",
+            "        var step = Math.PI / 4; var k = Math.round(Math.atan2(dy, dx) / step);",
+            "        var dev = Math.abs(Math.atan2(dy, dx) - k * step); if (dev > Math.PI) { dev = 2 * Math.PI - dev; }",
+            "        if (dev > 0.28) { return pos; }",
+            "        var a = ((k % 8) + 8) % 8; var nx = pos.x, ny = pos.y;",
+            "        if (a === 0 || a === 4) { ny = best.y; }",
+            "        else if (a === 2 || a === 6) { nx = best.x; }",
+            "        else { var m = (Math.abs(dx) + Math.abs(dy)) / 2; nx = best.x + (dx < 0 ? -m : m); ny = best.y + (dy < 0 ? -m : m); }",
+            "        return { x: nx, y: ny };",
+            "      }",
+            "      function octilinearSnapDelta(completed) {",
+            "        if (!completed.matches || !completed.matches.length) { return null; }",
+            "        var station = completed.matches[0];",
+            "        var sx = parseFloat(station.getAttribute('data-drag-start-x'));",
+            "        var sy = parseFloat(station.getAttribute('data-drag-start-y'));",
+            "        if (isNaN(sx) || isNaN(sy)) { return null; }",
+            "        var newX = sx + completed.deltaX, newY = sy + completed.deltaY;",
+            "        var snapped = snapOctilinear({ x: newX, y: newY }, neighborPointsForStation(completed.routeMatches));",
+            "        if (Math.abs(snapped.x - newX) < 0.01 && Math.abs(snapped.y - newY) < 0.01) { return null; }",
+            "        return { x: completed.deltaX + (snapped.x - newX), y: completed.deltaY + (snapped.y - newY) };",
+            "      }",
             "      function endDrag(evt) {",
             "        if (!drag) { return; }",
             "        var completed = drag;",
             "        drag = null;",
             "        moveDragPreview(completed);",
+            "        if (completed.kind === 'station') {",
+            "          var snappedDelta = octilinearSnapDelta(completed);",
+            "          if (snappedDelta) { completed.deltaX = snappedDelta.x; completed.deltaY = snappedDelta.y; moveDragPreview(completed); }",
+            "        }",
             "        clearDragStart(completed.matches);",
             "        if (completed.labelMatches && completed.labelMatches.length) { clearDragStart(completed.labelMatches); }",
             "        if (Math.sqrt(completed.deltaX * completed.deltaX + completed.deltaY * completed.deltaY) < 0.5) { return; }",
@@ -2277,6 +2455,8 @@ public partial class MainWindow : Window
         PathToleranceLabelTextBlock.Text = T("PathTolerance");
         AdvancedSettingsExpander.Header = T("AdvancedSettings");
         ManualEditingHeader.Text = T("ManualEditing");
+        UndoButton.Content = T("Undo");
+        RedoButton.Content = T("Redo");
         MapPreviewTabItem.Header = T("MapPreviewTab");
         ExportDataTabItem.Header = T("ExportDataTab");
         InspectorHeadingTextBlock.Text = T("InspectorHeading");
