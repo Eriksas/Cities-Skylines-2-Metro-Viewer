@@ -9,14 +9,13 @@ using System.Collections.Generic;
 namespace CS2_Metro
 {
     [FileLocation(nameof(CS2_Metro))]
-    [SettingsUIGroupOrder(kFolderGroup, kExportGroup, kDebugGroup)]
-    [SettingsUIShowGroupName(kFolderGroup, kExportGroup, kDebugGroup)]
+    [SettingsUIGroupOrder(kFolderGroup, kExportGroup)]
+    [SettingsUIShowGroupName(kFolderGroup, kExportGroup)]
     public class Setting : ModSetting
     {
         public const string kSection = "Main";
         public const string kFolderGroup = "ExportFolder";
         public const string kExportGroup = "Export";
-        public const string kDebugGroup = "Debug";
 
         public Setting(IMod mod) : base(mod)
         {
@@ -65,31 +64,11 @@ namespace CS2_Metro
 
         [SettingsUISection(kSection, kExportGroup)]
         [SettingsUIButton]
-        public bool ExportTestMetroJson
-        {
-            set
-            {
-                TestMetroJsonExporter.ExportTestMetroJson();
-            }
-        }
-
-        [SettingsUISection(kSection, kExportGroup)]
-        [SettingsUIButton]
         public bool ExportRealMetroJson
         {
             set
             {
                 RealMetroJsonExporter.ExportRealMetroJson(Mod.UpdateSystem);
-            }
-        }
-
-        [SettingsUISection(kSection, kDebugGroup)]
-        [SettingsUIButton]
-        public bool ExportTransportDebugDump
-        {
-            set
-            {
-                TransportDebugDumpExporter.ExportDebugDump(Mod.UpdateSystem);
             }
         }
 
@@ -116,21 +95,16 @@ namespace CS2_Metro
                 { m_Setting.GetOptionTabLocaleID(Setting.kSection), "Main" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kFolderGroup), "Export Folder" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kExportGroup), "Export" },
-                { m_Setting.GetOptionGroupLocaleID(Setting.kDebugGroup), "Debug" },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportDirectory)), "Export folder" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportDirectory)), "Paste a full folder path, or click a preset below. Latest JSON, diagnostics, snapshots, test exports, and debug dumps will be written here. Leave blank to use Documents\\CS2MetroDiagram." },
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportDirectory)), "Paste a full folder path, or click a preset below. The latest JSON export, diagnostics, and timestamped snapshots will be written here. Leave blank to use Documents\\CS2MetroDiagram." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDocumentsExportFolder)), "Use Documents folder" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDocumentsExportFolder)), "Set export folder to Documents\\CS2MetroDiagram." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDesktopExportFolder)), "Use Desktop folder" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDesktopExportFolder)), "Set export folder to Desktop\\CS2MetroDiagram." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDDriveExportFolder)), "Use D:\\CS2MetroDiagram" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDDriveExportFolder)), "Set export folder to D:\\CS2MetroDiagram. Use this only if the D: drive exists." },
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportTestMetroJson)), "Export Test Metro JSON" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportTestMetroJson)), "Writes a static sample metro.json file for testing the offline SVG pipeline." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportRealMetroJson)), "Export Real Metro JSON" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportRealMetroJson)), "Writes a narrow real metro export from current CS2 transport line data. No SVG preview is generated in-game." },
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportTransportDebugDump)), "Export Transport Debug Dump" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportTransportDebugDump)), "Writes transport-related ECS diagnostics, including metro track geometry debug files, for manual analysis. This does not export a real metro diagram." }
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportRealMetroJson)), "Exports your city's metro/subway network to JSON. Open the JSON in the CS2 Metro Diagram Viewer to render the map. No SVG preview is generated in-game." }
             };
         }
 

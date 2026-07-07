@@ -32,8 +32,6 @@ namespace CS2_Metro
             GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(m_Setting));
             AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
 
-            log.Info($"Test metro JSON export directory: {TestMetroJsonExporter.GetDefaultExportDirectory()}");
-            log.Info($"Transport debug dump directory: {TransportDebugDumpExporter.GetDefaultExportDirectory()}");
             log.Info($"Real metro JSON export directory: {RealMetroJsonExporter.GetDefaultExportDirectory()}");
         }
 
