@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$version = 'v0.1.0-alpha.3'
+$version = 'v0.1.0-alpha.4'
 $packageName = "CS2MetroDiagram-$version"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $releaseRoot = Join-Path $repoRoot 'artifacts\releases'

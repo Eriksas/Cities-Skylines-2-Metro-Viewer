@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.0-alpha.4 - 2026-07-07
+
+Viewer editing update. The in-game mod is unchanged and stays at
+`0.1.0-alpha.3` on Paradox Mods; only the companion Viewer is updated here.
+
+### Added
+
+- **Undo / redo for manual editing.** Every layout override change — station,
+  segment, and label drags, horizontal/vertical alignment, hide-label, and
+  clear-all — can now be undone and redone. Toolbar buttons plus `Ctrl+Z` /
+  `Ctrl+Y` (`Ctrl+Shift+Z`) shortcuts; history resets when you load an export.
+- **Octilinear snapping while dragging stations.** Dropping a station near a
+  horizontal, vertical, or 45° line to its nearest neighbour snaps it onto that
+  axis, so hand edits stay on the schematic grid. Drops beyond ~16° stay free.
+
 ## v0.1.0-alpha.3 - 2026-07-07
 
 Public Paradox Mods alpha release.
