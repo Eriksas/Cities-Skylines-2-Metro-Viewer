@@ -125,6 +125,9 @@ public partial class MainWindow : Window
                 case "segmentSelected":
                     SelectManualEditSegment(stationIds);
                     break;
+                case "selectionCleared":
+                    ClearManualEditSelection();
+                    break;
                 case "stationDragged":
                     if (!string.IsNullOrWhiteSpace(stationId) &&
                         TryReadMessageDouble(root, "deltaX", out double stationDeltaX) &&
@@ -1560,7 +1563,13 @@ public partial class MainWindow : Window
     private void WritePreviewHtml(string svg)
     {
         bool enableManualEditing = ManualEditCheckBox.IsChecked == true && _document is not null;
-        _pendingPreviewHtml = BuildPreviewHtml(svg, ReadSelectedPreviewZoom(), enableManualEditing, ReadManualEditMode());
+        // Re-highlight the current station/segment selection after each render so a
+        // multi-selected group stays visible (and re-draggable) across the reload.
+        IReadOnlyList<string> selectedForHighlight =
+            string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
+                ? []
+                : _selectedOverrideStationIds;
+        _pendingPreviewHtml = BuildPreviewHtml(svg, ReadSelectedPreviewZoom(), enableManualEditing, ReadManualEditMode(), selectedForHighlight);
         if (_previewBrowserReady && PreviewBrowser.CoreWebView2 is not null)
         {
             PreviewBrowser.CoreWebView2.NavigateToString(_pendingPreviewHtml);
@@ -1583,7 +1592,7 @@ public partial class MainWindow : Window
 
     private readonly record struct ViewerSvgPoint(double X, double Y);
 
-    private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode)
+    private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode, IReadOnlyList<string> selectedStationIds)
     {
         SvgPixelSize svgSize = ReadSvgPixelSize(svg);
         bool fitWidth = string.Equals(previewZoom, "fit-width", StringComparison.Ordinal);
@@ -1607,7 +1616,7 @@ public partial class MainWindow : Window
                 + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
             : string.Empty;
         string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText);
-        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments);
+        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, selectedStationIds);
 
         return string.Join(Environment.NewLine,
         [
@@ -1724,7 +1733,7 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments)
+    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments, IReadOnlyList<string> selectedStationIds)
     {
         if (!editStations && !editLabels && !editSegments)
         {
@@ -1734,6 +1743,7 @@ public partial class MainWindow : Window
         string editStationsText = editStations ? "true" : "false";
         string editLabelsText = editLabels ? "true" : "false";
         string editSegmentsText = editSegments ? "true" : "false";
+        string selectedIdsJson = "[" + string.Join(",", (selectedStationIds ?? []).Select(id => JsonSerializer.Serialize(id))) + "]";
         return string.Join(Environment.NewLine,
         [
             "  <script>",
@@ -1741,6 +1751,7 @@ public partial class MainWindow : Window
             $"      var editStations = {editStationsText};",
             $"      var editLabels = {editLabelsText};",
             $"      var editSegments = {editSegmentsText};",
+            $"      var selectedStationIds = {selectedIdsJson};",
             "      var drag = null;",
             "      var routePointTolerance = 18.0;",
             "      var routeSegmentTolerance = 24.0;",
@@ -1993,6 +2004,38 @@ public partial class MainWindow : Window
             "      function selectTarget(kind, stationId) {",
             "        externalSelect(kind, stationId);",
             "      }",
+            "      function applySelectionHighlight() {",
+            "        var circles = document.getElementsByTagName('circle');",
+            "        for (var i = 0; i < circles.length; i++) {",
+            "          var id = circles[i].getAttribute('data-station-id');",
+            "          if (!id || !hasClass(circles[i], 'station')) { continue; }",
+            "          if (selectedStationIds.indexOf(id) >= 0) {",
+            "            var r = parseFloat(circles[i].getAttribute('r')); if (isNaN(r)) { r = 6; }",
+            "            circles[i].style.stroke = '#ff2d95';",
+            "            circles[i].style.strokeWidth = String(Math.max(2.5, r * 0.85));",
+            "          } else {",
+            "            circles[i].style.stroke = '';",
+            "            circles[i].style.strokeWidth = '';",
+            "          }",
+            "        }",
+            "      }",
+            "      function broadcastSelection() {",
+            "        if (selectedStationIds.length > 1) { externalSegmentSelect(selectedStationIds); }",
+            "        else if (selectedStationIds.length === 1) { externalSelect('station', selectedStationIds[0]); }",
+            "        else { postViewerMessage({ type: 'selectionCleared' }); }",
+            "      }",
+            "      function setSelection(ids) {",
+            "        selectedStationIds = uniqueStationIds(ids || []);",
+            "        applySelectionHighlight();",
+            "        broadcastSelection();",
+            "      }",
+            "      function toggleSelection(id) {",
+            "        if (!id) { return; }",
+            "        var idx = selectedStationIds.indexOf(id);",
+            "        var next = selectedStationIds.slice();",
+            "        if (idx >= 0) { next.splice(idx, 1); } else { next.push(id); }",
+            "        setSelection(next);",
+            "      }",
             "      function beginDrag(evt) {",
             "        evt = evt || window.event;",
             "        var target = evt.target || evt.srcElement;",
@@ -2025,6 +2068,30 @@ public partial class MainWindow : Window
             "        }",
             "        var stationId = target.getAttribute('data-station-id');",
             "        if (!stationId) { return; }",
+            "        if (kind === 'station' && (evt.ctrlKey || evt.metaKey)) {",
+            "          toggleSelection(stationId);",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
+            "        if (kind === 'station' && selectedStationIds.length > 1 && selectedStationIds.indexOf(stationId) >= 0) {",
+            "          var groupIds = selectedStationIds.slice();",
+            "          var groupStationMatches = elementsForStationIds(groupIds, 'station');",
+            "          if (!groupStationMatches.length) { return; }",
+            "          var groupLabelMatches = elementsForStationIds(groupIds, 'label');",
+            "          var groupRouteMatches = [];",
+            "          for (var gi = 0; gi < groupIds.length; gi++) {",
+            "            var gc = stationCircles(groupIds[gi])[0];",
+            "            if (!gc) { continue; }",
+            "            var gm = routePointMatches(svg, parseCoordinate(gc.getAttribute('cx')), parseCoordinate(gc.getAttribute('cy')));",
+            "            for (var gj = 0; gj < gm.length; gj++) { groupRouteMatches.push(gm[gj]); }",
+            "          }",
+            "          externalSegmentSelect(groupIds);",
+            "          setDragStart(groupStationMatches, { x: 'cx', y: 'cy' });",
+            "          setDragStart(groupLabelMatches, { x: 'x', y: 'y' });",
+            "          drag = { kind: 'segment', stationId: groupIds[0], stationIds: groupIds, svg: svg, matches: groupStationMatches, names: { x: 'cx', y: 'cy' }, labelMatches: groupLabelMatches, routeMatches: groupRouteMatches, startX: start.x, startY: start.y, startClientX: evt.clientX, startClientY: evt.clientY, matrixA: matrix.a, matrixB: matrix.b, matrixC: matrix.c, matrixD: matrix.d, deltaX: 0, deltaY: 0, lastPreviewAt: 0, previewPending: false };",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
             "        var matches = editableElements(kind, stationId);",
             "        if (!matches.length) { return; }",
             "        var names = attributeNames(kind);",
@@ -2035,7 +2102,7 @@ public partial class MainWindow : Window
             "          setDragStart(labelMatches, { x: 'x', y: 'y' });",
             "          routeMatches = routePointMatches(svg, parseCoordinate(target.getAttribute('cx')), parseCoordinate(target.getAttribute('cy')));",
             "        }",
-            "        selectTarget(kind, stationId);",
+            "        if (kind === 'station') { setSelection([stationId]); } else { selectTarget(kind, stationId); }",
             "        setDragStart(matches, names);",
             "        drag = { kind: kind, stationId: stationId, svg: svg, matches: matches, names: names, labelMatches: labelMatches, routeMatches: routeMatches, startX: start.x, startY: start.y, startClientX: evt.clientX, startClientY: evt.clientY, matrixA: matrix.a, matrixB: matrix.b, matrixC: matrix.c, matrixD: matrix.d, deltaX: 0, deltaY: 0, lastPreviewAt: 0, previewPending: false };",
             "        if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
@@ -2119,6 +2186,9 @@ public partial class MainWindow : Window
             "        document.addEventListener('mousemove', updateDrag, false);",
             "        document.addEventListener('mouseup', endDrag, false);",
             "      }",
+            "      if (window.addEventListener) { window.addEventListener('load', applySelectionHighlight, false); }",
+            "      else if (window.attachEvent) { window.attachEvent('onload', applySelectionHighlight); }",
+            "      if (document.readyState === 'complete') { applySelectionHighlight(); }",
             "    }());",
             "  </script>"
         ]);
