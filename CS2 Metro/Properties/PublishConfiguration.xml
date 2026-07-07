@@ -4,23 +4,35 @@
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="CS2 Metro Diagram" />
 	<!--Short description of the mod-->
-	<ShortDescription Value="Export Cities: Skylines II metro networks to JSON for local SVG diagram preview." />
+	<ShortDescription Value="Turn your city's metro network into a clean, readable metro map." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<LongDescription>
-CS2 Metro Diagram exports the metro/subway network of your currently loaded Cities: Skylines II city to a local JSON file.
+Turn the metro/subway network of your Cities: Skylines II city into a clean, official-style metro map.
 
-Open the export with the separate Windows Viewer app to render a clean, readable metro map and save it as SVG. The default schematic-anneal layout draws lines horizontal/vertical/45-degree, renders shared tracks as parallel lines, and fills the canvas.
+This mod exports your city's metro network to a JSON file. You then open that file in the free companion Windows Viewer app to render the map and save it as an SVG (great for wallpapers, posters, or sharing your transit system).
+
+How to use:
+1. In game: Options &gt; CS2 Metro Diagram, pick an export folder, and click "Export Real Metro JSON".
+2. Open the Viewer app, click "Open Default Export", and your map appears.
+3. Adjust the layout/size if you like, then save the SVG.
+
+The default map layout draws lines horizontal, vertical, or 45-degree, renders lines that share a track as parallel lines, and fills the canvas — the same conventions real metro maps use.
+
+Download the Viewer and full source from GitHub:
+https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer
 
 Alpha notes:
 - Metro/subway only.
-- Exports data only; it does not edit city data.
-- No in-game SVG preview.
-- The Viewer is packaged separately in the GitHub release bundle.
+- Exports data only; it never edits your city.
+- No in-game preview yet — rendering happens in the Viewer app.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
 	<!--Screenshot, can be set multiple times-->
-	<Screenshot Value="" />
+	<Screenshot Value="Properties/screenshots/01-viewer.png" />
+	<Screenshot Value="Properties/screenshots/02-map-city-a.png" />
+	<Screenshot Value="Properties/screenshots/03-map-city-b.png" />
+	<Screenshot Value="Properties/screenshots/04-parallel-lines.png" />
 	<!--Tag, can be set multiple times-->
 	<Tag Value="Code Mod" />
 	<!--Link to the forum post where the mod can be discussed-->
