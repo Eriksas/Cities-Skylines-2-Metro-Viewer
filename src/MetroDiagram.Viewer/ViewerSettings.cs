@@ -19,7 +19,7 @@ public sealed class ViewerSettings
     public string SizePreset { get; set; } = "custom";
 
     [JsonPropertyName("previewZoom")]
-    public string PreviewZoom { get; set; } = "100";
+    public string PreviewZoom { get; set; } = "fit-width";
 
     [JsonPropertyName("width")]
     public int Width { get; set; } = 1200;

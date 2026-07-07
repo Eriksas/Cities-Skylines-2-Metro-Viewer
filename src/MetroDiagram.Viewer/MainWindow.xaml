@@ -3,146 +3,189 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="CS2 Metro Diagram Viewer"
-        Width="1320"
-        Height="900"
+        Width="1340"
+        Height="920"
         MinWidth="1100"
-        MinHeight="720">
-    <Grid Background="#f4f6f8">
+        MinHeight="720"
+        FontFamily="Segoe UI"
+        TextOptions.TextFormattingMode="Ideal">
+    <Grid Background="{StaticResource WindowBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#ffffff" BorderBrush="#d7dde5" BorderThickness="0,0,0,1" Padding="12">
+        <!-- ===================== Header / toolbar ===================== -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,12">
             <StackPanel>
-                <StackPanel Orientation="Vertical">
-                    <WrapPanel>
-                        <Button x:Name="OpenButton" Content="Open JSON" MinWidth="104" Margin="0,0,8,8" Padding="10,3" Click="OpenJson_Click" />
-                        <Button x:Name="OpenDefaultButton" Content="Open Default Export" MinWidth="148" Margin="0,0,8,8" Padding="10,3" Click="OpenDefaultExport_Click" IsEnabled="False" />
-                        <Button x:Name="OpenFolderButton" Content="Open Export Folder" MinWidth="142" Margin="0,0,8,8" Padding="10,3" Click="OpenExportFolder_Click" />
-                        <Button x:Name="RefreshButton" Content="Refresh Preview" MinWidth="126" Margin="0,0,8,8" Padding="10,3" Click="RefreshPreview_Click" />
-                        <Button x:Name="SaveButton" Content="Save SVG" MinWidth="96" Margin="0,0,12,8" Padding="10,3" Click="SaveSvg_Click" IsEnabled="False" />
-                        <Button x:Name="ResetButton" Content="Reset Defaults" MinWidth="118" Margin="0,0,16,8" Padding="10,3" Click="ResetDefaults_Click" />
+                <!-- Brand + primary actions -->
+                <DockPanel LastChildFill="False">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                        <Border Width="30" Height="30" CornerRadius="7" Background="{StaticResource AccentBrush}" VerticalAlignment="Center">
+                            <TextBlock Text="M" Foreground="#FFFFFF" FontWeight="Bold" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="CS2 Metro Diagram" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    </StackPanel>
 
-                        <TextBlock x:Name="LayoutLabelTextBlock" Text="Layout" VerticalAlignment="Center" Margin="0,0,6,8" />
-                        <ComboBox x:Name="LayoutComboBox" Width="150" Margin="0,0,12,8" SelectionChanged="LayoutComboBox_SelectionChanged">
+                    <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
+                        <Button x:Name="OpenDefaultButton" Style="{StaticResource PrimaryButton}" Content="Open Default Export" MinWidth="150" Margin="0,0,8,0" Click="OpenDefaultExport_Click" IsEnabled="False" />
+                        <Button x:Name="OpenButton" Content="Open JSON" MinWidth="98" Margin="0,0,8,0" Click="OpenJson_Click" />
+                        <Button x:Name="SaveButton" Style="{StaticResource PrimaryButton}" Content="Save SVG" MinWidth="92" Margin="0,0,14,0" Click="SaveSvg_Click" IsEnabled="False" />
+                        <Button x:Name="RefreshButton" Style="{StaticResource GhostButton}" Content="Refresh Preview" MinWidth="120" Margin="0,0,2,0" Click="RefreshPreview_Click" />
+                        <Button x:Name="OpenFolderButton" Style="{StaticResource GhostButton}" Content="Open Export Folder" MinWidth="132" Margin="0,0,2,0" Click="OpenExportFolder_Click" />
+                        <Button x:Name="ResetButton" Style="{StaticResource GhostButton}" Content="Reset Defaults" MinWidth="106" Click="ResetDefaults_Click" />
+                    </WrapPanel>
+                </DockPanel>
+
+                <!-- Selectors -->
+                <WrapPanel Margin="0,14,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
+                        <TextBlock x:Name="LayoutLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Layout" Margin="0,0,8,0" />
+                        <ComboBox x:Name="LayoutComboBox" Width="152" SelectionChanged="LayoutComboBox_SelectionChanged">
                             <ComboBoxItem Content="geographic" Tag="geographic" />
                             <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                             <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
                             <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" IsSelected="True" />
                         </ComboBox>
+                    </StackPanel>
 
-                        <TextBlock x:Name="SizePresetLabelTextBlock" Text="Size" VerticalAlignment="Center" Margin="0,0,6,8" />
-                        <ComboBox x:Name="SizePresetComboBox" Width="116" Margin="0,0,12,8" SelectionChanged="SizePresetComboBox_SelectionChanged">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
+                        <TextBlock x:Name="SizePresetLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Size" Margin="0,0,8,0" />
+                        <ComboBox x:Name="SizePresetComboBox" Width="118" SelectionChanged="SizePresetComboBox_SelectionChanged">
                             <ComboBoxItem x:Name="SizePresetCustomItem" Content="Custom" Tag="custom" IsSelected="True" />
                             <ComboBoxItem x:Name="SizePresetCompactItem" Content="Compact" Tag="compact" />
                             <ComboBoxItem x:Name="SizePresetStandardItem" Content="Standard" Tag="standard" />
                             <ComboBoxItem x:Name="SizePresetPosterItem" Content="Poster" Tag="poster" />
                             <ComboBoxItem x:Name="SizePresetUltraItem" Content="Ultra" Tag="ultra" />
                         </ComboBox>
+                    </StackPanel>
 
-                        <TextBlock x:Name="LanguageLabelTextBlock" Text="Language" VerticalAlignment="Center" Margin="0,0,6,8" />
-                        <ComboBox x:Name="LanguageComboBox" Width="104" Margin="0,0,0,8" SelectionChanged="LanguageComboBox_SelectionChanged">
-                            <ComboBoxItem Content="English" Tag="en" IsSelected="True" />
-                            <ComboBoxItem Content="中文" Tag="zh" />
-                        </ComboBox>
-                        <TextBlock x:Name="PreviewZoomLabelTextBlock" Text="Preview" VerticalAlignment="Center" Margin="12,0,6,8" />
-                        <ComboBox x:Name="PreviewZoomComboBox" Width="112" Margin="0,0,0,8" SelectionChanged="PreviewZoomComboBox_SelectionChanged">
-                            <ComboBoxItem x:Name="PreviewZoomFitWidthItem" Content="Fit width" Tag="fit-width" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
+                        <TextBlock x:Name="PreviewZoomLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Preview" Margin="0,0,8,0" />
+                        <ComboBox x:Name="PreviewZoomComboBox" Width="116" SelectionChanged="PreviewZoomComboBox_SelectionChanged">
+                            <ComboBoxItem x:Name="PreviewZoomFitWidthItem" Content="Fit width" Tag="fit-width" IsSelected="True" />
                             <ComboBoxItem Content="50%" Tag="50" />
                             <ComboBoxItem Content="75%" Tag="75" />
-                            <ComboBoxItem Content="100%" Tag="100" IsSelected="True" />
+                            <ComboBoxItem Content="100%" Tag="100" />
                             <ComboBoxItem Content="150%" Tag="150" />
                             <ComboBoxItem Content="200%" Tag="200" />
                             <ComboBoxItem Content="300%" Tag="300" />
                         </ComboBox>
-                        <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="12,0,8,8" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
-                        <ComboBox x:Name="ManualEditModeComboBox" Width="98" Margin="0,0,8,8" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock x:Name="LanguageLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Language" Margin="0,0,8,0" />
+                        <ComboBox x:Name="LanguageComboBox" Width="106" SelectionChanged="LanguageComboBox_SelectionChanged">
+                            <ComboBoxItem Content="English" Tag="en" IsSelected="True" />
+                            <ComboBoxItem Content="中文" Tag="zh" />
+                        </ComboBox>
+                    </StackPanel>
+                </WrapPanel>
+
+                <!-- Manual editing sub-toolbar -->
+                <Border Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,9" Margin="0,4,0,0">
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="ManualEditingHeader" Style="{StaticResource InlineLabel}" Text="Manual editing" Margin="0,0,14,0" />
+                        <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="0,0,12,0" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
+                        <ComboBox x:Name="ManualEditModeComboBox" Width="104" Margin="0,0,12,0" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
                             <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
                             <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
                             <ComboBoxItem x:Name="ManualEditSegmentsItem" Content="Segments" Tag="segment" />
                         </ComboBox>
-                        <Button x:Name="AlignHorizontalButton" Content="Align H" MinWidth="76" Margin="0,0,8,8" Padding="10,3" Click="AlignHorizontal_Click" IsEnabled="False" />
-                        <Button x:Name="AlignVerticalButton" Content="Align V" MinWidth="76" Margin="0,0,8,8" Padding="10,3" Click="AlignVertical_Click" IsEnabled="False" />
-                        <Button x:Name="ResetSelectedOverrideButton" Content="Reset Selected" MinWidth="104" Margin="0,0,8,8" Padding="10,3" Click="ResetSelectedOverride_Click" IsEnabled="False" />
-                        <Button x:Name="ToggleSelectedLabelButton" Content="Hide Label" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ToggleSelectedLabel_Click" IsEnabled="False" />
-                        <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,8" Padding="10,3" Click="ClearOverrides_Click" IsEnabled="False" />
-                        <Button x:Name="OpenOverridesButton" Content="Open Edit File" MinWidth="104" Margin="0,0,0,8" Padding="10,3" Click="OpenOverrides_Click" IsEnabled="False" />
+                        <Button x:Name="AlignHorizontalButton" Content="Align H" MinWidth="74" Margin="0,0,8,0" Click="AlignHorizontal_Click" IsEnabled="False" />
+                        <Button x:Name="AlignVerticalButton" Content="Align V" MinWidth="74" Margin="0,0,8,0" Click="AlignVertical_Click" IsEnabled="False" />
+                        <Button x:Name="ResetSelectedOverrideButton" Content="Reset Selected" MinWidth="104" Margin="0,0,8,0" Click="ResetSelectedOverride_Click" IsEnabled="False" />
+                        <Button x:Name="ToggleSelectedLabelButton" Content="Hide Label" MinWidth="88" Margin="0,0,8,0" Click="ToggleSelectedLabel_Click" IsEnabled="False" />
+                        <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,0" Click="ClearOverrides_Click" IsEnabled="False" />
+                        <Button x:Name="OpenOverridesButton" Content="Open Edit File" MinWidth="106" Click="OpenOverrides_Click" IsEnabled="False" />
                     </WrapPanel>
+                </Border>
 
-                    <UniformGrid Columns="8" Margin="0,4,0,0">
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="WidthLabelTextBlock" Text="Width" />
-                            <TextBox x:Name="WidthTextBox" Text="1200" TextChanged="SizeTextBox_TextChanged" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="HeightLabelTextBlock" Text="Height" />
-                            <TextBox x:Name="HeightTextBox" Text="800" TextChanged="SizeTextBox_TextChanged" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="LegendLabelTextBlock" Text="Legend" />
-                            <TextBox x:Name="LegendWidthTextBox" Text="240" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="PaddingLabelTextBlock" Text="Padding" />
-                            <TextBox x:Name="PaddingTextBox" Text="80" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="LineLabelTextBlock" Text="Line" />
-                            <TextBox x:Name="LineWidthTextBox" Text="14" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="StationLabelTextBlock" Text="Station" />
-                            <TextBox x:Name="StationRadiusTextBox" Text="5.5" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,10,0">
-                            <TextBlock x:Name="LabelFontLabelTextBlock" Text="Label" />
-                            <TextBox x:Name="LabelFontSizeTextBox" Text="12" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock x:Name="GridLabelTextBlock" Text="Grid" />
-                            <TextBox x:Name="GridSizeTextBox" Text="32" />
-                        </StackPanel>
-                    </UniformGrid>
+                <!-- Advanced settings (collapsed by default) -->
+                <Expander x:Name="AdvancedSettingsExpander" Header="Advanced settings" IsExpanded="False" Margin="2,10,0,0">
+                    <StackPanel Margin="0,10,0,0">
+                        <UniformGrid Columns="8">
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="WidthLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Width" />
+                                <TextBox x:Name="WidthTextBox" Text="1200" TextChanged="SizeTextBox_TextChanged" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="HeightLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Height" />
+                                <TextBox x:Name="HeightTextBox" Text="800" TextChanged="SizeTextBox_TextChanged" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="LegendLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Legend" />
+                                <TextBox x:Name="LegendWidthTextBox" Text="240" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="PaddingLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Padding" />
+                                <TextBox x:Name="PaddingTextBox" Text="80" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="LineLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Line" />
+                                <TextBox x:Name="LineWidthTextBox" Text="14" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="StationLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Station" />
+                                <TextBox x:Name="StationRadiusTextBox" Text="5.5" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock x:Name="LabelFontLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Label" />
+                                <TextBox x:Name="LabelFontSizeTextBox" Text="12" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="GridLabelTextBlock" Style="{StaticResource FieldCaption}" Text="Grid" />
+                                <TextBox x:Name="GridSizeTextBox" Text="32" />
+                            </StackPanel>
+                        </UniformGrid>
 
-                    <WrapPanel Margin="0,12,0,0">
-                        <CheckBox x:Name="ShowNonImportantStationLabelsCheckBox" Content="Show default / non-important station labels" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="VirtualTransferHintsCheckBox" Content="Show virtual transfer hints" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="HideCrowdedCheckBox" Content="Hide crowded labels" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="AlwaysInterchangesCheckBox" Content="Always show interchanges" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="AlwaysTerminalsCheckBox" Content="Always show terminals" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="UsePathPointsCheckBox" Content="Use exported path geometry" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <CheckBox x:Name="SimplifyPathPointsCheckBox" Content="Simplify path geometry" Margin="0,0,18,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                        <TextBlock x:Name="PathToleranceLabelTextBlock" Text="Path tolerance" VerticalAlignment="Center" Margin="0,0,6,8" />
-                        <TextBox x:Name="PathSimplificationToleranceTextBox" Text="0.75" Width="70" Margin="0,0,0,8" />
-                    </WrapPanel>
-                </StackPanel>
+                        <WrapPanel Margin="0,14,0,0">
+                            <CheckBox x:Name="ShowNonImportantStationLabelsCheckBox" Content="Show default / non-important station labels" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="VirtualTransferHintsCheckBox" Content="Show virtual transfer hints" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="HideCrowdedCheckBox" Content="Hide crowded labels" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="AlwaysInterchangesCheckBox" Content="Always show interchanges" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="AlwaysTerminalsCheckBox" Content="Always show terminals" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="UsePathPointsCheckBox" Content="Use exported path geometry" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <CheckBox x:Name="SimplifyPathPointsCheckBox" Content="Simplify path geometry" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock x:Name="PathToleranceLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Path tolerance" Margin="0,0,8,0" />
+                                <TextBox x:Name="PathSimplificationToleranceTextBox" Text="0.75" Width="70" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Expander>
 
-                <StackPanel Margin="0,8,0,0">
-                    <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                    <TextBlock x:Name="SummaryTextBlock" Text="City: -   Lines: -   Stations: -" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                    <TextBlock x:Name="ErrorTextBlock" Foreground="#b42318" TextWrapping="Wrap" Margin="0,8,0,0" />
-                </StackPanel>
+                <!-- File info -->
+                <Border Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="14,10" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        <TextBlock x:Name="SummaryTextBlock" Text="City: -   Lines: -   Stations: -" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        <TextBlock x:Name="ErrorTextBlock" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 
-        <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="12">
+        <!-- ===================== Content ===================== -->
+        <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="16,12,16,12" Background="Transparent" BorderThickness="0">
             <TabItem x:Name="MapPreviewTabItem" Header="Map Preview">
-                <Border Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1">
-                    <wv2:WebView2 x:Name="PreviewBrowser" />
+                <Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                    <Border CornerRadius="8" ClipToBounds="True">
+                        <wv2:WebView2 x:Name="PreviewBrowser" />
+                    </Border>
                 </Border>
             </TabItem>
             <TabItem x:Name="ExportDataTabItem" Header="Export Data">
-                <Border Background="#ffffff" BorderBrush="#cfd7e3" BorderThickness="1" Padding="14">
+                <Border Style="{StaticResource Card}" Padding="16" Margin="0,8,0,0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <TextBlock x:Name="InspectorHeadingTextBlock" Text="Export Data Preview" FontSize="18" FontWeight="SemiBold" />
-                            <TextBlock x:Name="InspectorSummaryTextBlock" Text="Open a metro JSON file to inspect exported lines and stations." TextWrapping="Wrap" Margin="0,8,0,0" />
-                            <TextBlock x:Name="InspectorWarningsTextBlock" Foreground="#b42318" TextWrapping="Wrap" Margin="0,8,0,0" />
-                            <DockPanel Margin="0,8,0,14">
-                                <Button x:Name="OpenDiagnosticsButton" DockPanel.Dock="Right" Content="Open Diagnostics" MinWidth="132" Margin="12,0,0,0" Padding="10,3" Click="OpenDiagnostics_Click" IsEnabled="False" />
-                                <TextBlock x:Name="DiagnosticsPathTextBlock" Foreground="#52616f" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <TextBlock x:Name="InspectorSummaryTextBlock" Text="Open a metro JSON file to inspect exported lines and stations." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock x:Name="InspectorWarningsTextBlock" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <DockPanel Margin="0,10,0,14">
+                                <Button x:Name="OpenDiagnosticsButton" DockPanel.Dock="Right" Content="Open Diagnostics" MinWidth="132" Margin="12,0,0,0" Click="OpenDiagnostics_Click" IsEnabled="False" />
+                                <TextBlock x:Name="DiagnosticsPathTextBlock" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
 
                             <TextBlock x:Name="LinesHeadingTextBlock" Text="Lines" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,6" />
@@ -153,7 +196,9 @@
                                       IsReadOnly="True"
                                       HeadersVisibility="Column"
                                       GridLinesVisibility="Horizontal"
-                                      AlternatingRowBackground="#f8fafc"
+                                      BorderBrush="{StaticResource BorderBrush}"
+                                      RowBackground="#FFFFFF"
+                                      AlternatingRowBackground="{StaticResource SubtleSurfaceBrush}"
                                       MaxHeight="270">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn x:Name="LineColorColumn" Header="Color" Binding="{Binding Color}" Width="82" />
@@ -174,7 +219,9 @@
                                       IsReadOnly="True"
                                       HeadersVisibility="Column"
                                       GridLinesVisibility="Horizontal"
-                                      AlternatingRowBackground="#f8fafc"
+                                      BorderBrush="{StaticResource BorderBrush}"
+                                      RowBackground="#FFFFFF"
+                                      AlternatingRowBackground="{StaticResource SubtleSurfaceBrush}"
                                       MaxHeight="310">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn x:Name="StationNameColumn" Header="Station" Binding="{Binding Name}" Width="2*" />
@@ -190,8 +237,9 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="2" Background="#ffffff" BorderBrush="#d7dde5" BorderThickness="0,1,0,0" Padding="12,8">
-            <TextBlock x:Name="StatusTextBlock" Text="Ready" TextTrimming="CharacterEllipsis" />
+        <!-- ===================== Status bar ===================== -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
+            <TextBlock x:Name="StatusTextBlock" Text="Ready" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
         </Border>
     </Grid>
 </Window>

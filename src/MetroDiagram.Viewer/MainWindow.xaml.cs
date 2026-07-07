@@ -2275,6 +2275,8 @@ public partial class MainWindow : Window
         UsePathPointsCheckBox.Content = T("UsePathPoints");
         SimplifyPathPointsCheckBox.Content = T("SimplifyPathPoints");
         PathToleranceLabelTextBlock.Text = T("PathTolerance");
+        AdvancedSettingsExpander.Header = T("AdvancedSettings");
+        ManualEditingHeader.Text = T("ManualEditing");
         MapPreviewTabItem.Header = T("MapPreviewTab");
         ExportDataTabItem.Header = T("ExportDataTab");
         InspectorHeadingTextBlock.Text = T("InspectorHeading");
