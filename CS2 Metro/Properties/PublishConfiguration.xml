@@ -38,7 +38,7 @@ Alpha notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-alpha.2" />
+	<ModVersion Value="0.1.0-alpha.3" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -47,11 +47,11 @@ Alpha notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Alpha.2:
-- New default map: schematic-anneal, a clean octilinear layout by global optimization. Shared tracks now render as parallel lines and the map fills the canvas.
-- Straight lines stay straight (fixed kinks on through-running lines).
-- Redesigned Viewer: new look, opens your city fit-to-width right away, advanced settings tucked away.
-- Simplified in-game options: pick an export folder and click Export Real Metro JSON. Developer test/debug export buttons removed.
+Alpha.3:
+- Public Paradox Mods release.
+- Keeps the new default schematic-anneal map, parallel shared-track rendering, and fit-to-content Viewer preview.
+- Keeps the simplified in-game options: pick an export folder and click Export Real Metro JSON.
+- Viewer manual edit mode supports station, label, and segment adjustments saved to a sidecar file.
 - Geographic mode is still available for faithful real geometry.
 	</ChangeLog>
 	<!--<ChangeLog>

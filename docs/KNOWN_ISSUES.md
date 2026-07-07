@@ -1,4 +1,4 @@
-# Known Issues - v0.1.0-alpha.2-candidate
+# Known Issues - v0.1.0-alpha.3
 
 This is an alpha build. It is intended for testing and feedback, not production use.
 
@@ -33,7 +33,7 @@ This is an alpha build. It is intended for testing and feedback, not production 
 - The game mod does not launch the Viewer.
 - The Viewer is a local Windows app, not an in-game preview.
 - No Hong Kong, Guangzhou, or other style presets are included yet.
-- No drag editing or manual label placement exists yet.
+- The Viewer has basic manual edit support for map cleanup, but it is not a full schematic map editor yet.
 
 ## Troubleshooting Notes
 

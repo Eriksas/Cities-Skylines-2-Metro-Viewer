@@ -2,7 +2,7 @@
 
 ## Current Version
 
-`v0.1.0-alpha.2-candidate`
+`v0.1.0-alpha.3`
 
 This is alpha software. It is not a stable release.
 
@@ -10,11 +10,12 @@ This is alpha software. It is not a stable release.
 
 The project is in multi-city alpha validation and schematic-map refinement.
 
-`v0.1.0-alpha.2-candidate` has been published as:
+`v0.1.0-alpha.3` has been published as:
 
-- GitHub pre-release: `v0.1.0-alpha.2-candidate`
-- Paradox Mods version: `0.1.0-alpha.2-candidate`
-- Paradox Mods access level: `Unlisted`
+- GitHub release: pending
+- Paradox Mods version: `0.1.0-alpha.3`
+- Paradox Mods access level: `Public`
+- Paradox Mods ModId: `146643`
 
 Default product mode: `schematic-anneal` (the Viewer opens on it). It won every
 layout metric on both median and worst case across the current corpus (9 samples
@@ -79,7 +80,7 @@ Phase 6A.1 adds a schematic-map regression gate so future renderer changes are
 checked across real exports and synthetic regression samples before visual
 acceptance.
 
-Alpha.2 candidate release package:
+Historical alpha.2 candidate release package:
 
 ```text
 artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate
@@ -87,8 +88,8 @@ artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
 ```
 
 The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
-docs, samples, and regression samples. Manual smoke validation passed before the
-release was published.
+docs, samples, and regression samples. It is retained as historical release
+evidence; the current Paradox Mods public version is `0.1.0-alpha.3`.
 
 Latest real-export regression gate:
 

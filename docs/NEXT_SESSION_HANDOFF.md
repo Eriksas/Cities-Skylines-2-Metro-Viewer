@@ -20,7 +20,7 @@ docs\archive\historical
 
 ## Current Version
 
-`v0.1.0-alpha.2-candidate`
+`v0.1.0-alpha.3`
 
 ## Current Direction
 
@@ -91,15 +91,16 @@ schematic-lite
   - `artifacts\product-candidate-comparison\20260622-155000`
 - Latest sample smoke regression gate:
   - `artifacts\schematic-regression\20260619-215440`
-- Latest alpha.2 candidate release package:
+- Historical alpha.2 candidate release package:
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
-- GitHub pre-release:
-  - `v0.1.0-alpha.2-candidate`
+- GitHub release:
+  - pending for `v0.1.0-alpha.3`
 - Paradox Mods:
   - ModId `146643`
-  - Version `0.1.0-alpha.2-candidate`
-  - Access level `Unlisted`
+  - Version `0.1.0-alpha.3`
+  - Access level `Public`
+  - Publish status: `PublishNewVersion` succeeded on 2026-07-07.
 
 ## Current Schematic-map Notes
 

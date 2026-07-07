@@ -1,10 +1,10 @@
-# Feedback Template - v0.1.0-alpha.2-candidate
+# Feedback Template - v0.1.0-alpha.3
 
 Please include as much of this information as possible.
 
 ## Environment
 
-- CS2 Metro Diagram version: `v0.1.0-alpha.2-candidate`
+- CS2 Metro Diagram version: `v0.1.0-alpha.3`
 - Cities: Skylines II game version:
 - Operating system:
 - Are other transport-related mods enabled? If yes, list them:

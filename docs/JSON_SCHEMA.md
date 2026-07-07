@@ -23,7 +23,7 @@ Unsupported `schemaVersion` values are load errors.
 ## Generator
 
 - `name`: generator name.
-- `version`: generator version, currently `v0.1.0-alpha.2-candidate` for the alpha.2 candidate.
+- `version`: generator version, currently `v0.1.0-alpha.3` for the public alpha build.
 
 ## Game
 

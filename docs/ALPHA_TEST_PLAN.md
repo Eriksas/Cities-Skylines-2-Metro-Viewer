@@ -1,6 +1,6 @@
 # Alpha Test Plan
 
-Use this plan for `v0.1.0-alpha.2-candidate` testing.
+Use this plan for `v0.1.0-alpha.3` testing.
 
 The testing unit is an alpha validation bundle, not a loose screenshot.
 

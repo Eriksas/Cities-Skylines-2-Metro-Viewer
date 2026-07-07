@@ -3,7 +3,7 @@
 This roadmap is intentionally practical. The near-term goal is to make the
 current alpha useful for real testers before adding larger product features.
 
-## Short Term: Alpha.2 Stabilization
+## Short Term: Alpha Public Stabilization
 
 Goal: make the current build safe, repeatable, and easy to test on more cities.
 
@@ -18,8 +18,8 @@ Goal: make the current build safe, repeatable, and easy to test on more cities.
 - Fix only clear regressions in `schematic-map`; avoid broad layout rewrites
   until the same problem appears in multiple cities.
 - Keep docs short and current; archive historical phase notes.
-- Prepare a clean `v0.1.0-alpha.2-candidate` package once build/test, Viewer
-  publish, and validation scripts are green.
+- Keep `v0.1.0-alpha.3` public on Paradox Mods and use real tester feedback to
+  decide the next alpha package.
 
 ## Medium Term: Official-map Schematic Direction
 

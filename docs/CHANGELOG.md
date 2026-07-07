@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.0-alpha.3 - 2026-07-07
+
+Public Paradox Mods alpha release.
+
+### Changed
+
+- Publishes the Paradox Mods listing publicly.
+- Keeps `schematic-anneal` as the default Viewer/CLI schematic layout.
+- Keeps the simplified in-game export options and custom export-folder support.
+- Keeps Viewer manual editing for station, label, and segment sidecar overrides.
+- Keeps `geographic` available as the faithful exported-geometry fallback.
+
 ## v0.1.0-alpha.2 - 2026-07-07
 
 First public Paradox Mods release. This build makes the schematic map the

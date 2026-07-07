@@ -973,3 +973,28 @@ schematic-anneal (`MetroSvgRenderer.AnnealParallel.cs`) instead of stacking.
 
 Open refinements: crossing-minimising lane order for long trunks; drawing station
 ticks along a parallel bundle; tuning lane spacing vs stroke width.
+
+## Paradox Mods Public Publishing - 2026-07-07
+
+Publishing configuration is `CS2 Metro\Properties\PublishConfiguration.xml`.
+The existing Paradox Mods listing uses ModId `146643`.
+
+`scripts\publish-mod.ps1 -Mode UpdateConfiguration` successfully reaches the
+official `ModPublisher.exe` and auto-login, but Paradox Mods rejected an update
+against the already-existing `0.1.0-alpha.2` version with:
+
+```text
+Could not update mod metadata: User version already exists for this mod.
+```
+
+For the public alpha listing, bump the mod/app version to
+`v0.1.0-alpha.3` / `0.1.0-alpha.3`, keep `AccessLevel=Public`, then publish a
+new version with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\publish-mod.ps1 -Mode NewVersion -SkipRestore
+```
+
+The `PublishNewVersion` command completed successfully on 2026-07-07. The
+publisher output confirmed ModId `146643`, version `0.1.0-alpha.3`, and access
+level `Public`.
