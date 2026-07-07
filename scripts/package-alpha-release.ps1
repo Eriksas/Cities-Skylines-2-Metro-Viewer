@@ -1,21 +1,18 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$version = 'v0.1.0-alpha.2-candidate'
+$version = 'v0.1.0-alpha.2'
 $packageName = "CS2MetroDiagram-$version"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $releaseRoot = Join-Path $repoRoot 'artifacts\releases'
 $releasePath = Join-Path $releaseRoot $packageName
 $zipPath = Join-Path $releaseRoot "$packageName-win-x64.zip"
 $viewerSource = Join-Path $repoRoot 'artifacts\viewer-win-x64-self-contained'
+# The mod is distributed through Paradox Mods. Only bundle it into the GitHub
+# release when a fresh toolchain build has been placed here on purpose; do not
+# pull from a machine-specific Steam ModsData path, which can be stale.
 $modSource = Join-Path $repoRoot 'artifacts\cs2-local-mods'
 $modSourceDescription = 'artifacts\cs2-local-mods'
-$localModsDataSource = 'E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods'
-
-if (-not (Test-Path $modSource) -and (Test-Path $localModsDataSource)) {
-    $modSource = $localModsDataSource
-    $modSourceDescription = $localModsDataSource
-}
 
 function Assert-UnderPath {
     param(
@@ -82,10 +79,10 @@ if (Test-Path $modSource) {
 }
 else {
     @(
-        'CS2 mod artifacts were not found when this package was created.'
-        'Expected local path: artifacts\cs2-local-mods'
-        'Build the CS2 mod with the local modding toolchain, then rerun scripts\package-alpha-release.ps1.'
-    ) | Set-Content -LiteralPath (Join-Path $modTarget 'README_MOD_ARTIFACTS_MISSING.txt') -Encoding UTF8
+        'Install the CS2 Metro Diagram mod from Paradox Mods (the in-game mod browser, or paradoxmods.com).'
+        'This download contains the companion Viewer app; the mod itself is distributed through Paradox Mods.'
+        'To build the mod locally instead, use the CS2 modding toolchain and rerun scripts\package-alpha-release.ps1.'
+    ) | Set-Content -LiteralPath (Join-Path $modTarget 'HOW_TO_GET_THE_MOD.txt') -Encoding UTF8
 }
 
 Copy-Item -Path (Join-Path $repoRoot 'docs\*') -Destination $docsTarget -Recurse -Force
