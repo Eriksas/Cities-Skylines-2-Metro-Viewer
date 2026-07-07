@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.1.0-alpha.2 - 2026-07-07
+
+First public Paradox Mods release. This build makes the schematic map the
+default and readable out of the box, and gives the Viewer a proper interface.
+
+### New default map: schematic-anneal
+
+- A new `schematic-anneal` layout is now the default. Instead of a stack of
+  local touch-up passes, it lays the whole network out by minimizing one global
+  quality score (octilinearity, even spacing, few bends, no crossings) with
+  deterministic simulated annealing. The same input always produces the same
+  map.
+- Across sample and real-city networks it produced cleaner, more consistent maps
+  than the previous `schematic-map` mode on every measured quality metric.
+- **Shared corridors now render as parallel lines.** Where several lines run
+  through the same segment they are drawn side by side instead of stacked, and a
+  line and its branch (same color) stay a single line.
+- **Straight lines stay straight.** A stations-that-should-be-in-a-row bug that
+  put kinks in through-running lines is fixed.
+- **Maps fill the canvas.** The poster canvas now adapts to the shape of the
+  network and the map is centered and scaled to fill it, instead of sitting in a
+  letterboxed strip.
+
+### Redesigned Viewer
+
+- New visual design: brand header, clear primary actions, hover states, and a
+  metro-map teal accent throughout.
+- Advanced numeric settings are tucked into a collapsible "Advanced settings"
+  panel, so the default screen is clean; manual editing controls are grouped in
+  their own section.
+- Opening a city now shows the whole map (fit-to-width) in the new default
+  schematic-anneal style right away.
+
+### Mod
+
+- The in-game options page is simplified to what a player needs: pick an export
+  folder and click **Export Real Metro JSON**. The developer-only "Export Test
+  Metro JSON" button and the "Debug" transport-dump group were removed.
+
+### Also
+
+- Retired the legacy `schematic-lite` mode. `geographic` (faithful geometry),
+  `schematic-map`, and `schematic-v2` remain selectable in the Viewer/CLI.
+- CLI can emit objective layout scores with `--emit-layout-score`; new
+  `scripts\compare-schematic-layouts.ps1` compares layouts across the whole
+  sample corpus.
+
 ## v0.1.0-alpha.2-candidate - 2026-06-19
 
 Alpha.2 candidate for focused external validation after the alpha.1 release.

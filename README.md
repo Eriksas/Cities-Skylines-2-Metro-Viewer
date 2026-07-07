@@ -10,7 +10,7 @@ The project contains:
 - a command-line renderer for batch generation and diagnostics,
 - sample JSON files and lightweight tests for offline development.
 
-Current version: `v0.1.0-alpha.2-candidate`
+Current version: `v0.1.0-alpha.2`
 
 > This is alpha software. Back up your saves before testing any mod. The mod is
 > designed to export data only and should not alter city data.
