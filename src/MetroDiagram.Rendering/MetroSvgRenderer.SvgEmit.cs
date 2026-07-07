@@ -145,6 +145,72 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine($"""<text class="empty-notice" x="{padding}" y="{padding + 40}">No metro stations or lines in this file.</text>""");
     }
 
+    // Inserts user bend points into a route's drawn point list: for any edge (A,B) with a
+    // bend override, the auto-routed sub-path between the vertices at A and B is replaced with
+    // A -> bend -> B. Returns the input list unchanged (same reference) when there are no bends,
+    // so unedited renders stay byte-for-byte identical.
+    private static List<SvgPoint> InsertUserBends(
+        List<SvgPoint> points,
+        Dictionary<string, SvgPoint> stationPoints,
+        LayoutOverrideDocument? overrides)
+    {
+        if (overrides is null || overrides.Bends.Count == 0 || points.Count < 2)
+        {
+            return points;
+        }
+
+        List<SvgPoint> result = new(points.Count + overrides.Bends.Count);
+        int i = 0;
+        while (i < points.Count)
+        {
+            result.Add(points[i]);
+            string? stationA = NearestStationId(points[i], stationPoints);
+            bool handled = false;
+            if (stationA is not null && i + 1 < points.Count)
+            {
+                int j = i + 1;
+                while (j < points.Count && NearestStationId(points[j], stationPoints) is null)
+                {
+                    j++;
+                }
+
+                if (j < points.Count
+                    && NearestStationId(points[j], stationPoints) is string stationB
+                    && overrides.Bends.TryGetValue(LayoutOverrideDocument.BendEdgeKey(stationA, stationB), out BendLayoutOverride? bend)
+                    && bend.Enabled)
+                {
+                    result.Add(new SvgPoint(bend.X, bend.Y));
+                    result.Add(points[j]);
+                    i = j + 1;
+                    handled = true;
+                }
+            }
+
+            if (!handled)
+            {
+                i++;
+            }
+        }
+
+        return result;
+    }
+
+    private static string? NearestStationId(SvgPoint point, Dictionary<string, SvgPoint> stationPoints)
+    {
+        const double toleranceSquared = 0.75 * 0.75;
+        foreach ((string id, SvgPoint candidate) in stationPoints)
+        {
+            double dx = candidate.X - point.X;
+            double dy = candidate.Y - point.Y;
+            if (dx * dx + dy * dy <= toleranceSquared)
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
     private static void AppendRoutes(
         StringBuilder svg,
         List<MetroStation> stations,
@@ -225,6 +291,7 @@ public sealed partial class MetroSvgRenderer
                 List<SvgPoint> drawnPoints = parallelPlan.Count > 0
                     ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
                     : polyline.Points;
+                drawnPoints = InsertUserBends(drawnPoints, stationPoints, options.LayoutOverrides);
                 string pointList = string.Join(" ", drawnPoints.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"
                     ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""

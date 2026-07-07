@@ -11,8 +11,33 @@ public sealed class LayoutOverrideDocument
 
     public Dictionary<string, LabelLayoutOverride> Labels { get; set; } = new(StringComparer.Ordinal);
 
+    // User-added bend points on the edge between two adjacent stations. Keyed by a
+    // canonical "stationIdA|stationIdB" edge key (see BendEdgeKey), value is the bend
+    // vertex in final rendered SVG coordinates. The auto-routed sub-path between the
+    // two stations is replaced with stationA -> bend -> stationB at render time.
+    public Dictionary<string, BendLayoutOverride> Bends { get; set; } = new(StringComparer.Ordinal);
+
     [JsonIgnore]
-    public bool IsEmpty => Stations.Count == 0 && Labels.Count == 0;
+    public bool IsEmpty => Stations.Count == 0 && Labels.Count == 0 && Bends.Count == 0;
+
+    // Canonical, order-independent key for the edge between two stations.
+    public static string BendEdgeKey(string stationIdA, string stationIdB)
+    {
+        return string.CompareOrdinal(stationIdA, stationIdB) <= 0
+            ? stationIdA + "|" + stationIdB
+            : stationIdB + "|" + stationIdA;
+    }
+}
+
+public sealed class BendLayoutOverride
+{
+    public double X { get; set; }
+
+    public double Y { get; set; }
+
+    public bool Enabled { get; set; } = true;
+
+    public string? Note { get; set; }
 }
 
 public sealed class StationLayoutOverride
@@ -63,6 +88,7 @@ public static class LayoutOverrideLoader
             ?? new LayoutOverrideDocument();
         document.Stations ??= new Dictionary<string, StationLayoutOverride>(StringComparer.Ordinal);
         document.Labels ??= new Dictionary<string, LabelLayoutOverride>(StringComparer.Ordinal);
+        document.Bends ??= new Dictionary<string, BendLayoutOverride>(StringComparer.Ordinal);
         return document;
     }
 

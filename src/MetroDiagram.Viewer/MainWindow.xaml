@@ -93,6 +93,7 @@
                             <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
                             <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
                             <ComboBoxItem x:Name="ManualEditSegmentsItem" Content="Segments" Tag="segment" />
+                            <ComboBoxItem x:Name="ManualEditBendsItem" Content="Bends" Tag="bend" />
                         </ComboBox>
                         <Button x:Name="UndoButton" Content="Undo" MinWidth="62" Margin="0,0,8,0" Click="Undo_Click" IsEnabled="False" ToolTip="Ctrl+Z" />
                         <Button x:Name="RedoButton" Content="Redo" MinWidth="62" Margin="0,0,12,0" Click="Redo_Click" IsEnabled="False" ToolTip="Ctrl+Y" />

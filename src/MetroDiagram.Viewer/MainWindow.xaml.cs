@@ -151,6 +151,14 @@ public partial class MainWindow : Window
                         ApplySegmentDragOverride(stationIds, segmentDeltaX, segmentDeltaY);
                     }
                     break;
+                case "bendChanged":
+                    if (stationIds.Count >= 2 &&
+                        TryReadMessageDouble(root, "bendX", out double bendX) &&
+                        TryReadMessageDouble(root, "bendY", out double bendY))
+                    {
+                        ApplyBendOverride(stationIds[0], stationIds[1], bendX, bendY);
+                    }
+                    break;
             }
         }
         catch (JsonException)
@@ -730,6 +738,40 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyBendOverride(string stationIdA, string stationIdB, double x, double y)
+    {
+        if (_document is null || string.IsNullOrWhiteSpace(_jsonPath)
+            || string.IsNullOrWhiteSpace(stationIdA) || string.IsNullOrWhiteSpace(stationIdB)
+            || string.Equals(stationIdA, stationIdB, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            PushUndoSnapshot();
+            _layoutOverrides ??= new LayoutOverrideDocument();
+            _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
+
+            string key = LayoutOverrideDocument.BendEdgeKey(stationIdA.Trim(), stationIdB.Trim());
+            _layoutOverrides.Bends[key] = new BendLayoutOverride { X = x, Y = y };
+
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditSegment([stationIdA, stationIdB], showStatus: false);
+            MarkPreviewDirty();
+            ScheduleManualEditPreviewRefresh();
+            SetStatus(string.Format(
+                CultureInfo.CurrentCulture,
+                T("BendOverrideSaved"),
+                GetStationDisplayName(stationIdA),
+                GetStationDisplayName(stationIdB)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("StationOverrideSaveFailed"), ex.Message));
+        }
+    }
+
     private void ApplyStationOverrideDeltaCore(string stationId, double deltaX, double deltaY)
     {
         _layoutOverrides ??= new LayoutOverrideDocument();
@@ -1015,6 +1057,12 @@ public partial class MainWindow : Window
         foreach (string stationId in normalizedStationIds)
         {
             removed |= _layoutOverrides.Stations.Remove(stationId);
+        }
+
+        if (normalizedStationIds.Count >= 2)
+        {
+            removed |= _layoutOverrides.Bends.Remove(
+                LayoutOverrideDocument.BendEdgeKey(normalizedStationIds[0], normalizedStationIds[1]));
         }
 
         if (!removed)
@@ -1362,6 +1410,7 @@ public partial class MainWindow : Window
         {
             "label" => "label",
             "segment" => "segment",
+            "bend" => "bend",
             _ => "station"
         };
     }
@@ -1372,6 +1421,7 @@ public partial class MainWindow : Window
         {
             "label" => "ManualEditLabels",
             "segment" => "ManualEditSegments",
+            "bend" => "ManualEditBends",
             _ => "ManualEditStations"
         };
     }
@@ -1609,14 +1659,16 @@ public partial class MainWindow : Window
         bool editStations = enableManualEditing && string.Equals(manualEditMode, "station", StringComparison.Ordinal);
         bool editLabels = enableManualEditing && string.Equals(manualEditMode, "label", StringComparison.Ordinal);
         bool editSegments = enableManualEditing && string.Equals(manualEditMode, "segment", StringComparison.Ordinal);
+        bool editBends = enableManualEditing && string.Equals(manualEditMode, "bend", StringComparison.Ordinal);
         string dragCss = enableManualEditing
             ? "    circle.station[data-station-id], text.station-label[data-station-id] { user-select: none; -ms-user-select: none; } circle.station-interchange-inner { pointer-events: none; }"
                 + (editStations ? " circle.station[data-station-id] { cursor: move; }" : string.Empty)
                 + (editLabels ? " text.station-label[data-station-id] { cursor: move; }" : string.Empty)
                 + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
+                + (editBends ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: crosshair; }" : string.Empty)
             : string.Empty;
         string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText);
-        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, selectedStationIds);
+        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, editBends, selectedStationIds);
 
         return string.Join(Environment.NewLine,
         [
@@ -1733,9 +1785,9 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments, IReadOnlyList<string> selectedStationIds)
+    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments, bool editBends, IReadOnlyList<string> selectedStationIds)
     {
-        if (!editStations && !editLabels && !editSegments)
+        if (!editStations && !editLabels && !editSegments && !editBends)
         {
             return string.Empty;
         }
@@ -1743,6 +1795,7 @@ public partial class MainWindow : Window
         string editStationsText = editStations ? "true" : "false";
         string editLabelsText = editLabels ? "true" : "false";
         string editSegmentsText = editSegments ? "true" : "false";
+        string editBendsText = editBends ? "true" : "false";
         string selectedIdsJson = "[" + string.Join(",", (selectedStationIds ?? []).Select(id => JsonSerializer.Serialize(id))) + "]";
         return string.Join(Environment.NewLine,
         [
@@ -1751,6 +1804,7 @@ public partial class MainWindow : Window
             $"      var editStations = {editStationsText};",
             $"      var editLabels = {editLabelsText};",
             $"      var editSegments = {editSegmentsText};",
+            $"      var editBends = {editBendsText};",
             $"      var selectedStationIds = {selectedIdsJson};",
             "      var drag = null;",
             "      var nudge = null;",
@@ -1904,6 +1958,24 @@ public partial class MainWindow : Window
             "        if (!first || !second || first.stationId === second.stationId) { return []; }",
             "        return uniqueStationIds([first.stationId, second.stationId]);",
             "      }",
+            "      function bracketingStations(element, segmentIndex) {",
+            "        var pts = element.points;",
+            "        if (!pts) { return []; }",
+            "        var stations = stationPoints();",
+            "        var before = null, after = null;",
+            "        for (var k = segmentIndex; k >= 0; k--) {",
+            "          var pk = pts.getItem(k);",
+            "          var s = nearestStationToPoint(stations, { x: pk.x, y: pk.y }, 8.0);",
+            "          if (s) { before = s; break; }",
+            "        }",
+            "        for (var m = segmentIndex + 1; m < pts.numberOfItems; m++) {",
+            "          var pm = pts.getItem(m);",
+            "          var s2 = nearestStationToPoint(stations, { x: pm.x, y: pm.y }, 8.0);",
+            "          if (s2) { after = s2; break; }",
+            "        }",
+            "        if (!before || !after || before.stationId === after.stationId) { return []; }",
+            "        return [before.stationId, after.stationId];",
+            "      }",
             "      function elementsForStationIds(stationIds, kind) {",
             "        var matches = [];",
             "        for (var i = 0; i < stationIds.length; i++) {",
@@ -2003,6 +2075,10 @@ public partial class MainWindow : Window
             "        var dy = String(Math.round(deltaY * 1000) / 1000);",
             "        postViewerMessage({ type: 'segmentDragged', stationId: String(stationIds[0]), stationIds: stationIds.join('|'), deltaX: dx, deltaY: dy });",
             "      }",
+            "      function externalBend(stationIds, x, y) {",
+            "        if (!stationIds || stationIds.length < 2) { return; }",
+            "        postViewerMessage({ type: 'bendChanged', stationId: String(stationIds[0]), stationIds: stationIds.join('|'), bendX: String(Math.round(x * 1000) / 1000), bendY: String(Math.round(y * 1000) / 1000) });",
+            "      }",
             "      function selectTarget(kind, stationId) {",
             "        externalSelect(kind, stationId);",
             "      }",
@@ -2098,11 +2174,25 @@ public partial class MainWindow : Window
             "        if (editStations && tagName === 'circle' && hasClass(target, 'station')) { kind = 'station'; }",
             "        if (editLabels && tagName === 'text' && hasClass(target, 'station-label')) { kind = 'label'; }",
             "        if (editSegments && tagName === 'polyline' && isRoutePolyline(target)) { kind = 'segment'; }",
+            "        if (editBends && tagName === 'polyline' && isRoutePolyline(target)) { kind = 'bend'; }",
             "        if (!kind) { return; }",
             "        var svg = document.getElementsByTagName('svg')[0];",
             "        var start = svgPoint(svg, evt);",
             "        if (!start) { return; }",
             "        var matrix = svg.getScreenCTM().inverse();",
+            "        if (kind === 'bend') {",
+            "          var bendSegment = closestRouteSegment(svg, start, target);",
+            "          if (!bendSegment) { return; }",
+            "          var bendStationIds = bracketingStations(bendSegment.element, bendSegment.index);",
+            "          if (bendStationIds.length < 2) { bendStationIds = segmentEndpointStations(bendSegment); }",
+            "          if (bendStationIds.length < 2) { return; }",
+            "          var bendPt = svg.createSVGPoint(); bendPt.x = start.x; bendPt.y = start.y;",
+            "          var bendInsertIndex = bendSegment.index + 1;",
+            "          try { bendSegment.element.points.insertItemBefore(bendPt, bendInsertIndex); } catch (bendEx) { return; }",
+            "          drag = { kind: 'bend', stationIds: bendStationIds, bendElement: bendSegment.element, bendIndex: bendInsertIndex, svg: svg, curX: start.x, curY: start.y };",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
             "        if (kind === 'segment') {",
             "          var segment = closestRouteSegment(svg, start, target);",
             "          if (!segment) { return; }",
@@ -2163,6 +2253,12 @@ public partial class MainWindow : Window
             "      function updateDrag(evt) {",
             "        if (!drag) { return; }",
             "        evt = evt || window.event;",
+            "        if (drag.kind === 'bend') {",
+            "          var bp = svgPoint(drag.svg, evt);",
+            "          if (bp) { drag.curX = bp.x; drag.curY = bp.y; var bpts = drag.bendElement.points; if (drag.bendIndex < bpts.numberOfItems) { var bit = bpts.getItem(drag.bendIndex); bit.x = bp.x; bit.y = bp.y; } }",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
             "        var delta = svgDeltaFromClient(drag, evt);",
             "        drag.deltaX = delta.x;",
             "        drag.deltaY = delta.y;",
@@ -2216,6 +2312,10 @@ public partial class MainWindow : Window
             "        if (!drag) { return; }",
             "        var completed = drag;",
             "        drag = null;",
+            "        if (completed.kind === 'bend') {",
+            "          externalBend(completed.stationIds, completed.curX, completed.curY);",
+            "          return;",
+            "        }",
             "        moveDragPreview(completed);",
             "        if (completed.kind === 'station') {",
             "          var snappedDelta = octilinearSnapDelta(completed);",
@@ -2555,6 +2655,7 @@ public partial class MainWindow : Window
         ManualEditStationsItem.Content = T("ManualEditStations");
         ManualEditLabelsItem.Content = T("ManualEditLabels");
         ManualEditSegmentsItem.Content = T("ManualEditSegments");
+        ManualEditBendsItem.Content = T("ManualEditBends");
         AlignHorizontalButton.Content = T("AlignHorizontal");
         AlignVerticalButton.Content = T("AlignVertical");
         ResetSelectedOverrideButton.Content = T("ResetSelectedOverride");
