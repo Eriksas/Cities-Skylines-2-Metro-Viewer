@@ -32,13 +32,14 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Route Geometry And Schematic Diagnostics
 
-- `analyze-metro-export-json.ps1` - summarizes an exported metro JSON and pathPoints coverage.
-- `generate-path-geometry-comparison.ps1` - renders stops/pathPoints/schematic comparison SVGs.
 - `generate-schematic-v2-diagnostics.ps1` - generates topology, shared corridor, route-guide, and schematic-v2 comparison diagnostics.
 - `analyze-schematic-map-svg.ps1` - audits schematic-map SVGs, writes score/route/crossing CSVs, and creates `schematic-map-debug.svg` with visual overlays for non-octilinear segments and interior crossings.
-- `analyze-svg-render-debug.ps1` - summarizes SVG route/debug attributes.
 - `analyze-visual-continuity.ps1` - reports route fragment and visual continuity risks.
 - `capture-svg-screenshot.ps1` - renders an SVG to PNG using installed Microsoft Edge in headless mode.
+
+Historical one-off path geometry and SVG debug scripts were removed from this
+folder once the alpha validation bundle, schematic regression gate, and
+schematic-map audit scripts became the supported workflows.
 
 ## Notes
 
