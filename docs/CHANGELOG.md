@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.0-alpha.5 - 2026-07-07
+
+Viewer editing update (Tier 2). The in-game mod is unchanged and stays at
+`0.1.0-alpha.3` on Paradox Mods; only the companion Viewer is updated here.
+
+### Added
+
+- **Multi-select.** In station edit mode, Ctrl/Cmd+click toggles stations in and
+  out of a selection (highlighted in magenta). Drag any member to move the whole
+  group; horizontal/vertical align, reset, and clear all work on the group.
+- **Arrow-key nudging.** Nudge the selected station or group with the arrow keys;
+  hold Shift for a coarser step. A burst of nudges is a single undo.
+- **Bend handles.** A new "Bends" edit mode: drag a route segment to drop a bend
+  on the edge between two stations, so a line can be routed by hand. Bends undo,
+  reset, and clear like other edits.
+
 ## v0.1.0-alpha.4 - 2026-07-07
 
 Viewer editing update. The in-game mod is unchanged and stays at
