@@ -52,7 +52,7 @@ public sealed partial class MetroSvgRenderer
         AppendRoutes(svg, stations, displayFamilies, stationsById, stationPoints, terminalStationIds, geometry, options, hasLegend, warnings);
         AppendVirtualTransferHints(svg, stations, stationPoints, options);
         AppendStations(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, geometry.SchematicV2DenseStationPairs, terminalStationIds, options);
-        AppendLabels(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, terminalStationIds, options, hasLegend);
+        AppendLabels(svg, stations, displayFamilies, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, terminalStationIds, options, hasLegend);
         AppendLegend(svg, SortFamiliesForLegend(displayFamilies), options, hasLegend);
         AppendFooter(svg, options);
 

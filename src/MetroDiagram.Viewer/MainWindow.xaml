@@ -101,6 +101,7 @@
                         <Button x:Name="AlignVerticalButton" Content="Align V" MinWidth="74" Margin="0,0,8,0" Click="AlignVertical_Click" IsEnabled="False" />
                         <Button x:Name="ResetSelectedOverrideButton" Content="Reset Selected" MinWidth="104" Margin="0,0,8,0" Click="ResetSelectedOverride_Click" IsEnabled="False" />
                         <Button x:Name="ToggleSelectedLabelButton" Content="Hide Label" MinWidth="88" Margin="0,0,8,0" Click="ToggleSelectedLabel_Click" IsEnabled="False" />
+                        <Button x:Name="LabelSideButton" Content="Label Side" MinWidth="88" Margin="0,0,8,0" Click="LabelSide_Click" IsEnabled="False" />
                         <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,0" Click="ClearOverrides_Click" IsEnabled="False" />
                         <Button x:Name="OpenOverridesButton" Content="Open Edit File" MinWidth="106" Click="OpenOverrides_Click" IsEnabled="False" />
                     </WrapPanel>

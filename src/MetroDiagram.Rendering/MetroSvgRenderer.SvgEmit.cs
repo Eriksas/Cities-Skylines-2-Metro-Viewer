@@ -389,7 +389,8 @@ public sealed partial class MetroSvgRenderer
             return;
         }
 
-        List<SvgRect> occupiedBoxes = BuildTransitMapBadgeOccupiedBoxes(stations, stationPoints, terminalStationIds, options, hasLegend);
+        List<DisplayLineFamily> badgeFamilies = renderRoutes.Select(route => route.Family).DistinctBy(family => family.FamilyKey).ToList();
+        List<SvgRect> occupiedBoxes = BuildTransitMapBadgeOccupiedBoxes(stations, badgeFamilies, stationPoints, terminalStationIds, options, hasLegend);
         SvgRect bounds = CreateGeometryBounds(options, reserveLegendSpace: false);
         svg.AppendLine("""<g id="route-badges" data-map-style="transit-map">""");
         foreach (RenderRoute renderRoute in renderRoutes)
@@ -424,6 +425,7 @@ public sealed partial class MetroSvgRenderer
 
     private static List<SvgRect> BuildTransitMapBadgeOccupiedBoxes(
         List<MetroStation> stations,
+        List<DisplayLineFamily> displayFamilies,
         Dictionary<string, SvgPoint> stationPoints,
         HashSet<string> terminalStationIds,
         SvgRenderOptions options,
@@ -437,7 +439,7 @@ public sealed partial class MetroSvgRenderer
             occupied.Add(SvgRect.FromCenter(point.X, point.Y, markerRadius * markerBufferMultiplier, markerRadius * markerBufferMultiplier));
         }
 
-        foreach (PlacedLabel label in BuildPlacedLabels(stations, stationPoints, terminalStationIds, options, hasLegend))
+        foreach (PlacedLabel label in BuildPlacedLabels(stations, displayFamilies, stationPoints, terminalStationIds, options, hasLegend))
         {
             double inflateX = IsSchematicMapLayout(options) ? 12 : 8;
             double inflateY = IsSchematicMapLayout(options) ? 8 : 6;
@@ -744,6 +746,7 @@ public sealed partial class MetroSvgRenderer
     private static void AppendLabels(
         StringBuilder svg,
         List<MetroStation> stations,
+        List<DisplayLineFamily> displayFamilies,
         Dictionary<string, SvgPoint> stationPoints,
         Dictionary<string, StationRenderAnchor> stationAnchors,
         Dictionary<string, SchematicStationAdjustment> schematicStationAdjustments,
@@ -751,7 +754,7 @@ public sealed partial class MetroSvgRenderer
         SvgRenderOptions options,
         bool hasLegend)
     {
-        List<PlacedLabel> placedLabels = BuildPlacedLabels(stations, stationPoints, terminalStationIds, options, hasLegend);
+        List<PlacedLabel> placedLabels = BuildPlacedLabels(stations, displayFamilies, stationPoints, terminalStationIds, options, hasLegend);
         svg.AppendLine("""<g id="labels">""");
         foreach (PlacedLabel label in placedLabels.OrderBy(label => label.Priority).ThenBy(label => label.Index))
         {
@@ -768,8 +771,97 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine("</g>");
     }
 
+    // Straight stop-to-stop segments per display family, deduplicated. Used as
+    // label obstacles so labels prefer positions clear of the drawn routes. For
+    // geographic path-point rendering this is an approximation of the drawn curve.
+    private static List<(SvgPoint A, SvgPoint B)> BuildLabelRouteObstacles(
+        List<DisplayLineFamily> displayFamilies,
+        Dictionary<string, SvgPoint> stationPoints)
+    {
+        List<(SvgPoint, SvgPoint)> segments = [];
+        HashSet<(long, long, long, long)> seen = [];
+        foreach (DisplayLineFamily family in displayFamilies)
+        {
+            SvgPoint? previous = null;
+            foreach (string stopId in family.PrimaryLine.Stops ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(stopId) || !stationPoints.TryGetValue(stopId, out SvgPoint point))
+                {
+                    continue;
+                }
+
+                if (previous is SvgPoint from && Distance(from, point) > 0.001)
+                {
+                    ParallelEdgeKey key = CreateParallelEdgeKey(from, point);
+                    if (seen.Add((key.X0, key.Y0, key.X1, key.Y1)))
+                    {
+                        segments.Add((from, point));
+                    }
+                }
+
+                previous = point;
+            }
+        }
+
+        return segments;
+    }
+
+    // Length of the segment portion inside the rectangle (Liang-Barsky clip).
+    private static double SegmentLengthInsideRect(SvgPoint a, SvgPoint b, SvgRect rect)
+    {
+        double dx = b.X - a.X;
+        double dy = b.Y - a.Y;
+        double t0 = 0;
+        double t1 = 1;
+
+        bool Clip(double p, double q)
+        {
+            if (Math.Abs(p) < 0.000001)
+            {
+                return q >= 0;
+            }
+
+            double r = q / p;
+            if (p < 0)
+            {
+                if (r > t1)
+                {
+                    return false;
+                }
+
+                if (r > t0)
+                {
+                    t0 = r;
+                }
+            }
+            else
+            {
+                if (r < t0)
+                {
+                    return false;
+                }
+
+                if (r < t1)
+                {
+                    t1 = r;
+                }
+            }
+
+            return true;
+        }
+
+        if (!Clip(-dx, a.X - rect.Left) || !Clip(dx, rect.Right - a.X)
+            || !Clip(-dy, a.Y - rect.Top) || !Clip(dy, rect.Bottom - a.Y))
+        {
+            return 0;
+        }
+
+        return t1 > t0 ? Math.Sqrt(dx * dx + dy * dy) * (t1 - t0) : 0;
+    }
+
     private static List<PlacedLabel> BuildPlacedLabels(
         List<MetroStation> stations,
+        List<DisplayLineFamily> displayFamilies,
         Dictionary<string, SvgPoint> stationPoints,
         HashSet<string> terminalStationIds,
         SvgRenderOptions options,
@@ -815,6 +907,7 @@ public sealed partial class MetroSvgRenderer
         }
 
         SvgRect allowedBounds = CreateAllowedLabelBounds(options, hasLegend);
+        List<(SvgPoint A, SvgPoint B)> routeObstacles = BuildLabelRouteObstacles(displayFamilies, stationPoints);
         List<PlacedLabel> placedLabels = [];
         List<SvgRect> placedLabelBoxes = [];
 
@@ -822,8 +915,8 @@ public sealed partial class MetroSvgRenderer
             .OrderByDescending(request => request.Priority)
             .ThenBy(request => request.Index))
         {
-            PlacedLabel label = ChooseLabelPlacement(request, options, placedLabelBoxes, stationObstacles, allowedBounds);
-            bool labelOverrideApplied = TryApplyLabelOverride(label, options.LayoutOverrides, out PlacedLabel overriddenLabel);
+            PlacedLabel label = ChooseLabelPlacement(request, options, placedLabelBoxes, stationObstacles, routeObstacles, allowedBounds);
+            bool labelOverrideApplied = TryApplyLabelOverride(label, request, options, options.LayoutOverrides, out PlacedLabel overriddenLabel);
             label = overriddenLabel;
             if (options.HideCrowdedLabels
                 && !labelOverrideApplied
@@ -848,6 +941,8 @@ public sealed partial class MetroSvgRenderer
 
     private static bool TryApplyLabelOverride(
         PlacedLabel label,
+        LabelRequest request,
+        SvgRenderOptions options,
         LayoutOverrideDocument? overrides,
         out PlacedLabel overriddenLabel)
     {
@@ -859,20 +954,51 @@ public sealed partial class MetroSvgRenderer
             return false;
         }
 
+        // A Position override matching a candidate slot (right/left/top/bottom/
+        // diagonals) re-bases the label onto that slot, including its anchor and
+        // box, so choosing a side actually moves the label; X/Y/Dx/Dy apply on
+        // top. Any other name (e.g. the Viewer's "manual" tag) is kept as pure
+        // metadata, preserving the historical behavior.
+        bool positionApplied = false;
+        if (!string.IsNullOrWhiteSpace(labelOverride.Position))
+        {
+            string requestedPosition = labelOverride.Position!.Trim();
+            bool matchedCandidate = false;
+            foreach (LabelCandidate candidate in CreateLabelCandidates(request, options))
+            {
+                if (string.Equals(candidate.PositionName, requestedPosition, StringComparison.OrdinalIgnoreCase))
+                {
+                    matchedCandidate = true;
+                    positionApplied = !string.Equals(candidate.PositionName, label.PositionName, StringComparison.Ordinal);
+                    label = label with
+                    {
+                        X = candidate.X,
+                        Y = candidate.Y,
+                        Anchor = candidate.Anchor,
+                        PositionName = candidate.PositionName,
+                        Box = candidate.Box
+                    };
+                    break;
+                }
+            }
+
+            if (!matchedCandidate)
+            {
+                positionApplied = !string.Equals(requestedPosition, label.PositionName, StringComparison.Ordinal);
+                label = label with { PositionName = requestedPosition };
+            }
+        }
+
         double adjustedX = labelOverride.X ?? label.X;
         double adjustedY = labelOverride.Y ?? label.Y;
         adjustedX += labelOverride.Dx ?? 0;
         adjustedY += labelOverride.Dy ?? 0;
         double deltaX = adjustedX - label.X;
         double deltaY = adjustedY - label.Y;
-        string positionName = string.IsNullOrWhiteSpace(labelOverride.Position)
-            ? label.PositionName
-            : labelOverride.Position!;
         overriddenLabel = label with
         {
             X = adjustedX,
             Y = adjustedY,
-            PositionName = positionName,
             Box = new SvgRect(
                 label.Box.Left + deltaX,
                 label.Box.Top + deltaY,
@@ -880,9 +1006,9 @@ public sealed partial class MetroSvgRenderer
                 label.Box.Bottom + deltaY),
             OverrideApplied = true
         };
-        return Math.Abs(deltaX) > 0.001
-            || Math.Abs(deltaY) > 0.001
-            || !string.Equals(positionName, label.PositionName, StringComparison.Ordinal);
+        return positionApplied
+            || Math.Abs(deltaX) > 0.001
+            || Math.Abs(deltaY) > 0.001;
     }
 
     private static string BuildSchematicStationAdjustmentAttributes(
@@ -946,12 +1072,14 @@ public sealed partial class MetroSvgRenderer
         SvgRenderOptions options,
         List<SvgRect> placedLabelBoxes,
         List<SvgRect> stationObstacles,
+        List<(SvgPoint A, SvgPoint B)> routeObstacles,
         SvgRect allowedBounds)
     {
         List<LabelCandidate> candidates = CreateLabelCandidates(request, options);
         LabelCandidate best = candidates[0];
         double bestScore = double.MaxValue;
         double bestLabelOverlapArea = 0;
+        double routeStrokeWidth = Math.Max(1, options.LineWidth);
 
         for (int i = 0; i < candidates.Count; i++)
         {
@@ -969,6 +1097,14 @@ public sealed partial class MetroSvgRenderer
             foreach (SvgRect obstacle in stationObstacles)
             {
                 score += candidate.Box.OverlapArea(obstacle) * 8;
+            }
+
+            // Route lines under the label: penalize by covered area (clipped
+            // length x stroke width). Cheaper than a label-label collision but
+            // worth flipping sides for when a clear side exists.
+            foreach ((SvgPoint a, SvgPoint b) in routeObstacles)
+            {
+                score += SegmentLengthInsideRect(a, b, candidate.Box) * routeStrokeWidth * 6;
             }
 
             score += candidate.Box.OutsideArea(allowedBounds) * 18;

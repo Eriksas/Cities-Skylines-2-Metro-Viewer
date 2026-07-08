@@ -1004,6 +1004,82 @@ public partial class MainWindow : Window
         }
     }
 
+    // Cycle the selected station's label side: auto -> left -> right -> top ->
+    // bottom -> auto. Picking a side clears any manual drag offset so the label
+    // lands exactly on that candidate slot; "auto" returns to the renderer's
+    // own overlap-avoiding choice.
+    private static readonly string[] LabelSideCycle = ["left", "right", "top", "bottom"];
+
+    private void LabelSide_Click(object sender, RoutedEventArgs e)
+    {
+        if (_document is null || string.IsNullOrWhiteSpace(_jsonPath) || string.IsNullOrWhiteSpace(_selectedOverrideStationId))
+        {
+            SetStatus(T("ManualEditNoSelection"));
+            return;
+        }
+
+        try
+        {
+            string stationId = _selectedOverrideStationId;
+            PushUndoSnapshot();
+            _layoutOverrides ??= new LayoutOverrideDocument();
+            _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
+
+            _layoutOverrides.Labels.TryGetValue(stationId, out LabelLayoutOverride? labelOverride);
+            string? current = labelOverride?.Position;
+            int currentIndex = Array.FindIndex(LabelSideCycle, side => string.Equals(side, current, StringComparison.OrdinalIgnoreCase));
+            string? next = currentIndex switch
+            {
+                -1 => LabelSideCycle[0],
+                _ when currentIndex + 1 < LabelSideCycle.Length => LabelSideCycle[currentIndex + 1],
+                _ => null
+            };
+
+            if (next is null)
+            {
+                if (labelOverride is not null)
+                {
+                    labelOverride.Position = null;
+                    if (labelOverride.X is null && labelOverride.Y is null
+                        && labelOverride.Dx is null && labelOverride.Dy is null
+                        && labelOverride.Hidden != true)
+                    {
+                        _layoutOverrides.Labels.Remove(stationId);
+                    }
+                }
+            }
+            else
+            {
+                if (labelOverride is null)
+                {
+                    labelOverride = new LabelLayoutOverride();
+                    _layoutOverrides.Labels[stationId] = labelOverride;
+                }
+
+                labelOverride.Position = next;
+                labelOverride.X = null;
+                labelOverride.Y = null;
+                labelOverride.Dx = null;
+                labelOverride.Dy = null;
+                labelOverride.Hidden = false;
+            }
+
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditTarget("label", stationId, showStatus: false);
+            SetStatus(string.Format(
+                CultureInfo.CurrentCulture,
+                T("LabelSideSet"),
+                GetStationDisplayName(stationId),
+                T(next is null ? "LabelSideAuto" : $"LabelSide{char.ToUpperInvariant(next[0])}{next[1..]}")));
+            MarkPreviewDirty();
+            ScheduleManualEditPreviewRefresh();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("LabelOverrideSaveFailed"), ex.Message));
+        }
+    }
+
     private void ClearOverrides_Click(object sender, RoutedEventArgs e)
     {
         if (_document is null)
@@ -1342,6 +1418,7 @@ public partial class MainWindow : Window
         AlignVerticalButton.IsEnabled = AlignHorizontalButton.IsEnabled;
         ToggleSelectedLabelButton.IsEnabled = hasSelection && !selectedSegment;
         ToggleSelectedLabelButton.Content = selectedLabelHidden ? T("ShowSelectedLabel") : T("HideSelectedLabel");
+        LabelSideButton.IsEnabled = hasSelection && !selectedSegment;
         ClearOverridesButton.IsEnabled = hasOverrides || (!string.IsNullOrWhiteSpace(_layoutOverridePath) && File.Exists(_layoutOverridePath));
         OpenOverridesButton.IsEnabled = hasDocument;
         UndoButton.IsEnabled = hasDocument && _undoStack.Count > 0;
@@ -2751,6 +2828,7 @@ public partial class MainWindow : Window
         AlignVerticalButton.Content = T("AlignVertical");
         ResetSelectedOverrideButton.Content = T("ResetSelectedOverride");
         ToggleSelectedLabelButton.Content = T("HideSelectedLabel");
+        LabelSideButton.Content = T("LabelSide");
         ClearOverridesButton.Content = T("ClearOverrides");
         OpenOverridesButton.Content = T("OpenOverrides");
         UpdateManualEditButtons();
