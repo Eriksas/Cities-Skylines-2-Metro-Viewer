@@ -126,11 +126,13 @@ public sealed partial class MetroSvgRenderer
     }
 
     /// <summary>
-    /// Offsets one route's polyline for parallel rendering. Each vertex is displaced
-    /// by the average of its incident SHARED edges' offset vectors, so shared stations
-    /// sit on the parallel bundle while the ramp onto the bundle falls on the adjacent
-    /// non-shared segment. Returns the input unchanged when the route touches no shared
-    /// edge.
+    /// Offsets one route's polyline for parallel rendering. A vertex between two
+    /// shared segments is placed at the INTERSECTION of the two offset lines (a
+    /// miter join), so the lane spacing stays constant through bends; a plain
+    /// average would pinch the bundle by cos^2(theta/2) at every corner. A vertex
+    /// with a single shared segment takes that segment's full offset, so the ramp
+    /// onto the bundle falls on the adjacent non-shared segment. Returns the input
+    /// unchanged when the route touches no shared edge.
     /// </summary>
     private static List<SvgPoint> OffsetRouteForParallelCorridor(
         IReadOnlyList<SvgPoint> points,
@@ -142,8 +144,11 @@ public sealed partial class MetroSvgRenderer
             return points.ToList();
         }
 
-        // Per-edge offset vector for this family (zero vector when not shared).
-        SvgPoint[] edgeVectors = new SvgPoint[points.Count - 1];
+        // Per-edge canonical normal and signed lane offset for this family. The
+        // (normal, offset) pair is orientation-independent: flipping both leaves
+        // the offset-line constraint x . n = d unchanged.
+        SvgPoint[] edgeNormals = new SvgPoint[points.Count - 1];
+        double[] edgeOffsets = new double[points.Count - 1];
         bool[] edgeShared = new bool[points.Count - 1];
         bool touchesShared = false;
         for (int i = 1; i < points.Count; i++)
@@ -151,7 +156,8 @@ public sealed partial class MetroSvgRenderer
             ParallelEdgeKey key = CreateParallelEdgeKey(points[i - 1], points[i]);
             if (plan.TryGetValue(key, out ParallelSharedEdge? shared) && shared.OffsetByFamily.TryGetValue(familyKey, out double offset))
             {
-                edgeVectors[i - 1] = new SvgPoint(shared.Normal.X * offset, shared.Normal.Y * offset);
+                edgeNormals[i - 1] = shared.Normal;
+                edgeOffsets[i - 1] = offset;
                 edgeShared[i - 1] = true;
                 touchesShared = true;
             }
@@ -165,31 +171,44 @@ public sealed partial class MetroSvgRenderer
         List<SvgPoint> result = new(points.Count);
         for (int i = 0; i < points.Count; i++)
         {
-            double sumX = 0;
-            double sumY = 0;
-            int count = 0;
-            if (i - 1 >= 0 && edgeShared[i - 1])
-            {
-                sumX += edgeVectors[i - 1].X;
-                sumY += edgeVectors[i - 1].Y;
-                count++;
-            }
-
-            if (i < edgeVectors.Length && edgeShared[i])
-            {
-                sumX += edgeVectors[i].X;
-                sumY += edgeVectors[i].Y;
-                count++;
-            }
-
-            if (count == 0)
+            bool hasPrevious = i - 1 >= 0 && edgeShared[i - 1];
+            bool hasNext = i < edgeShared.Length && edgeShared[i];
+            if (!hasPrevious && !hasNext)
             {
                 result.Add(points[i]);
+                continue;
             }
-            else
+
+            if (hasPrevious && hasNext)
             {
-                result.Add(new SvgPoint(points[i].X + sumX / count, points[i].Y + sumY / count));
+                // Solve x . n1 = d1, x . n2 = d2: the displacement that lies on both
+                // offset lines. Falls back to the average when the segments are close
+                // to collinear (determinant ~ sin of the turn angle; straight runs
+                // have d1 == d2 there, so the average IS the exact solution).
+                SvgPoint n1 = edgeNormals[i - 1];
+                SvgPoint n2 = edgeNormals[i];
+                double d1 = edgeOffsets[i - 1];
+                double d2 = edgeOffsets[i];
+                double determinant = n1.X * n2.Y - n1.Y * n2.X;
+                if (Math.Abs(determinant) > 0.3)
+                {
+                    result.Add(new SvgPoint(
+                        points[i].X + (d1 * n2.Y - d2 * n1.Y) / determinant,
+                        points[i].Y + (d2 * n1.X - d1 * n2.X) / determinant));
+                }
+                else
+                {
+                    result.Add(new SvgPoint(
+                        points[i].X + (n1.X * d1 + n2.X * d2) / 2,
+                        points[i].Y + (n1.Y * d1 + n2.Y * d2) / 2));
+                }
+
+                continue;
             }
+
+            SvgPoint normal = hasPrevious ? edgeNormals[i - 1] : edgeNormals[i];
+            double laneOffset = hasPrevious ? edgeOffsets[i - 1] : edgeOffsets[i];
+            result.Add(new SvgPoint(points[i].X + normal.X * laneOffset, points[i].Y + normal.Y * laneOffset));
         }
 
         return result;
