@@ -8,6 +8,17 @@ public sealed partial class MetroSvgRenderer
 {
     private const double PathPointDuplicateEpsilon = 0.001;
 
+    // Layout geometry is deterministic for a given (document, options-minus-overrides)
+    // pair, and manual-edit overrides are applied AFTER the layout solver runs.
+    // A single-entry cache therefore lets override-only re-renders (the Viewer's
+    // editing loop) skip the layout solver entirely. Downstream code never mutates
+    // the cached collections: overrides go onto copies, everything else reads.
+    // Not thread-safe; callers must not run two Renders on one instance concurrently.
+    private MetroExportDocument? _geometryCacheDocument;
+    private string? _geometryCacheKey;
+    private RenderGeometry _geometryCacheValue;
+    private List<string> _geometryCacheWarnings = [];
+
     public SvgRenderResult Render(MetroExportDocument document, SvgRenderOptions? options = null)
     {
         options ??= new SvgRenderOptions();
@@ -28,12 +39,8 @@ public sealed partial class MetroSvgRenderer
             AdaptCanvasHeightToNetwork(options, stations);
         }
 
-        CanonicalSchematicNetwork? canonicalNetwork = IsSchematicV2FamilyLayout(options.LayoutMode)
-            ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
-            : null;
-
         bool hasLegend = displayFamilies.Count > 0;
-        RenderGeometry geometry = CreateRenderGeometry(stations, lines, displayFamilies, canonicalNetwork, stationsById, options, hasLegend, warnings);
+        RenderGeometry geometry = GetOrCreateRenderGeometry(document, stations, lines, displayFamilies, stationsById, options, hasLegend, warnings);
         geometry = ApplyLayoutOverridesToGeometry(geometry, options, warnings);
         StationRouteAnchorMap stationAnchors = ResolveStationRouteAnchors(stations, displayFamilies, stationsById, geometry, options, warnings);
         Dictionary<string, SvgPoint> stationPoints = stationAnchors.Points;
@@ -50,6 +57,50 @@ public sealed partial class MetroSvgRenderer
         AppendFooter(svg, options);
 
         return new SvgRenderResult(svg.ToString(), warnings, ComputeRenderLayoutScore(displayFamilies, stationPoints, options));
+    }
+
+    private RenderGeometry GetOrCreateRenderGeometry(
+        MetroExportDocument document,
+        List<MetroStation> stations,
+        List<MetroLine> lines,
+        List<DisplayLineFamily> displayFamilies,
+        Dictionary<string, MetroStation> stationsById,
+        SvgRenderOptions options,
+        bool hasLegend,
+        List<string> warnings)
+    {
+        string cacheKey = BuildGeometryCacheKey(options, hasLegend);
+        if (ReferenceEquals(_geometryCacheDocument, document)
+            && string.Equals(_geometryCacheKey, cacheKey, StringComparison.Ordinal))
+        {
+            // Replay the layout warnings (e.g. the anneal audit line) so a cache
+            // hit is indistinguishable from a fresh layout run.
+            warnings.AddRange(_geometryCacheWarnings);
+            return _geometryCacheValue;
+        }
+
+        CanonicalSchematicNetwork? canonicalNetwork = IsSchematicV2FamilyLayout(options.LayoutMode)
+            ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
+            : null;
+
+        List<string> layoutWarnings = [];
+        RenderGeometry geometry = CreateRenderGeometry(stations, lines, displayFamilies, canonicalNetwork, stationsById, options, hasLegend, layoutWarnings);
+        warnings.AddRange(layoutWarnings);
+
+        _geometryCacheDocument = document;
+        _geometryCacheKey = cacheKey;
+        _geometryCacheValue = geometry;
+        _geometryCacheWarnings = layoutWarnings;
+        return geometry;
+    }
+
+    // Every option that can influence CreateRenderGeometry's output, EXCEPT
+    // LayoutOverrides (applied after layout, must not invalidate the cache).
+    private static string BuildGeometryCacheKey(SvgRenderOptions options, bool hasLegend)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{options.LayoutMode}|{options.MapStyle}|{options.Width}|{options.Height}|{options.Padding}|{options.Margin}|{options.LegendWidth}|{options.LegendGap}|{options.LineWidth}|{options.StationRadius}|{options.InterchangeStationRadius}|{options.LabelFontSize}|{options.LegendLabelFontSize}|{options.LabelGap}|{options.EnableCenterExpansion}|{options.CenterExpansionStrength}|{options.GridSize}|{options.HideGenericStationLabels}|{options.EnableVirtualTransferHints}|{options.HideCrowdedLabels}|{options.AlwaysShowInterchanges}|{options.AlwaysShowTerminals}|{options.UsePathPoints}|{options.PathPointSimplificationEnabled}|{options.PathPointSimplificationTolerance}|{options.MinPathSegmentLength}|{options.AdaptivePathPointSimplificationEnabled}|{options.EnableParallelCorridorOffset}|{options.EnableServiceFamilyMerge}|{options.EnableSharedCorridorCompositeStroke}|{options.EnableExpressCenterStripe}|{options.EnableStationRouteAnchoring}|{options.StationRouteAnchorMaxDistance}|{options.StationRouteAnchorMultiFamilyMaxSpread}|{options.SchematicMinimumStationSpacing}|{options.CompactTransitMapFrame}|{options.EnableSchematicMapOctilinearNormalization}|{options.SchematicMapOctilinearSnapAngleDegrees}|{options.EnableSchematicMapSimpleRunLinearization}|{options.SchematicMapPreferredStationSpacing}|{options.EnableSchematicMapLocalClearance}|{options.SchematicMapLocalClearanceDistance}|{options.EnableSchematicMapSyntheticBends}|{options.SchematicMapSyntheticBendMinimumLength}|{hasLegend}");
     }
 
     private static RenderGeometry CreateRenderGeometry(

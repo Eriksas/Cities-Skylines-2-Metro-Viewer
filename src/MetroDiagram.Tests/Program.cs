@@ -146,7 +146,8 @@ List<(string Name, Action Test)> tests =
     ("crowded label hiding removes low priority labels only", CrowdedLabelHidingRemovesLowPriorityLabels),
     ("missing fields use documented fallbacks", MissingFieldsUseFallbacks),
     ("missing station references report a clear validation issue", MissingStationReferencesReportClearly),
-    ("empty networks and empty lines do not crash", EmptyNetworksAndEmptyLinesDoNotCrash)
+    ("empty networks and empty lines do not crash", EmptyNetworksAndEmptyLinesDoNotCrash),
+    ("geometry cache keeps repeat and override renders identical", GeometryCacheKeepsRepeatAndOverrideRendersIdentical)
 ];
 
 int failed = 0;
@@ -4729,6 +4730,41 @@ static SvgRenderOptions CreateSchematicOverlapTestOptions(
         SchematicMinimumStationSpacing = minStationSpacing,
         LayoutOverrides = layoutOverrides
     };
+}
+
+static void GeometryCacheKeepsRepeatAndOverrideRendersIdentical()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-branch.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.Document is not null, "geometry cache: sample did not load a document.");
+    MetroExportDocument document = loadResult.Document!;
+
+    static SvgRenderOptions MakeOptions(LayoutOverrideDocument? overrides = null) => new()
+    {
+        LayoutMode = SvgLayoutMode.SchematicAnneal,
+        Width = 3200,
+        Height = 2000,
+        LayoutOverrides = overrides
+    };
+
+    // Same renderer twice: the second render is a geometry-cache hit and must be
+    // byte-identical, including the replayed layout warnings.
+    MetroSvgRenderer renderer = new();
+    SvgRenderResult first = renderer.Render(document, MakeOptions());
+    SvgRenderResult second = renderer.Render(document, MakeOptions());
+    Assert(string.Equals(first.Svg, second.Svg, StringComparison.Ordinal), "geometry cache: repeat render changed the SVG.");
+    Assert(first.Warnings.SequenceEqual(second.Warnings, StringComparer.Ordinal), "geometry cache: repeat render changed the warnings.");
+
+    // Overrides applied on top of a cache hit must match a fresh renderer that
+    // computed the layout from scratch with the same overrides.
+    string stationId = document.Network!.Lines![0].Stops![0];
+    LayoutOverrideDocument overrides = new();
+    overrides.Stations[stationId] = new StationLayoutOverride { Dx = 64, Dy = -32 };
+
+    SvgRenderResult cachedOverride = renderer.Render(document, MakeOptions(overrides));
+    SvgRenderResult freshOverride = new MetroSvgRenderer().Render(document, MakeOptions(overrides));
+    Assert(string.Equals(cachedOverride.Svg, freshOverride.Svg, StringComparison.Ordinal), "geometry cache: cached-override render differs from a fresh render.");
+    Assert(!string.Equals(cachedOverride.Svg, first.Svg, StringComparison.Ordinal), "geometry cache: station override had no visible effect.");
 }
 
 static RenderedSample LoadAndRenderSample(string fileName)
