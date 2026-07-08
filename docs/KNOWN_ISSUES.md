@@ -1,4 +1,4 @@
-# Known Issues - v0.1.0-alpha.5
+# Known Issues - v0.1.0-alpha.6
 
 This is an alpha build. It is intended for testing and feedback, not production use.
 

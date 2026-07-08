@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.1.0-alpha.6 - 2026-07-08
+
+Performance and map-quality update. The in-game mod is unchanged and stays at
+`0.1.0-alpha.3` on Paradox Mods; only the companion Viewer is updated here.
+
+### Performance
+
+- **Editing re-renders skip the layout solver.** The layout result is cached, so
+  dragging stations, undo/redo, and other edits re-render in a fraction of a
+  second even in the slower legacy `schematic-map` mode.
+- **The preview keeps your scroll position** across edits, and window resizes no
+  longer jump the view back to the top-left corner.
+- **Rendering runs off the UI thread**, so switching layouts or sizes no longer
+  freezes the window.
+- **The anneal layout solver is ~3x faster** (spatial pruning; identical output).
+
+### Map quality
+
+- **Labels stay off route lines.** Label placement now treats routes as
+  obstacles and flips a label to a clear side when one exists; on real cities
+  the route-through-label overlap drops to zero in the default layout.
+- **A "Label Side" button** cycles the selected station's label through
+  auto/left/right/top/bottom.
+- **Parallel corridors keep their lane spacing through bends** (miter joins
+  instead of averaged corners).
+
 ## v0.1.0-alpha.5 - 2026-07-07
 
 Viewer editing update (Tier 2). The in-game mod is unchanged and stays at
