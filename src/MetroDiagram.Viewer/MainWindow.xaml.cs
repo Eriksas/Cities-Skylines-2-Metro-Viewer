@@ -35,6 +35,18 @@ public partial class MainWindow : Window
     private IReadOnlyList<string> _selectedOverrideStationIds = [];
     private readonly Stack<string?> _undoStack = new();
     private readonly Stack<string?> _redoStack = new();
+    // Last known preview scroll offset, reported by the injected script. Re-applied
+    // after every preview reload so manual edits do not bounce the view back to
+    // the top-left corner. Reset when a different document is loaded.
+    private double _lastPreviewScrollX;
+    private double _lastPreviewScrollY;
+    // Station cx/cy points parsed from the current preview SVG; rebuilt lazily
+    // whenever _currentSvg changes (reference comparison).
+    private Dictionary<string, ViewerSvgPoint>? _svgStationPointCache;
+    private string? _svgStationPointCacheSource;
+    private bool _renderInFlight;
+    private bool _renderQueued;
+    private long _statusStamp;
     private static readonly JsonSerializerOptions ManualEditSnapshotOptions = new() { IncludeFields = false };
     private ViewerSettings _settings = new();
     private string _language = "en";
@@ -127,6 +139,14 @@ public partial class MainWindow : Window
                     break;
                 case "selectionCleared":
                     ClearManualEditSelection();
+                    break;
+                case "previewScrolled":
+                    if (TryReadMessageDouble(root, "x", out double scrollX) &&
+                        TryReadMessageDouble(root, "y", out double scrollY))
+                    {
+                        _lastPreviewScrollX = scrollX;
+                        _lastPreviewScrollY = scrollY;
+                    }
                     break;
                 case "stationDragged":
                     if (!string.IsNullOrWhiteSpace(stationId) &&
@@ -513,6 +533,8 @@ public partial class MainWindow : Window
             List<string> loadWarnings = loadResult.Warnings.ToList();
             _layoutOverrides = TryLoadLayoutOverrides(path, loadWarnings, out _layoutOverridePath);
             ResetUndoHistory();
+            _lastPreviewScrollX = 0;
+            _lastPreviewScrollY = 0;
             _loadWarnings = loadWarnings;
             _renderWarnings = [];
             FileTextBlock.Text = path;
@@ -546,7 +568,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RenderPreview()
+    // Renders run on a background thread so the annealer and schematic passes do
+    // not freeze the UI. Requests coalesce: at most one render is in flight, one
+    // more can be queued, and only the newest request's options are used. A status
+    // stamp keeps a caller's own status text (e.g. "edit undone") from being
+    // clobbered by the render-completion status when the caller set it later.
+    private async void RenderPreview()
     {
         if (_document is null)
         {
@@ -554,29 +581,61 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_renderInFlight)
+        {
+            _renderQueued = true;
+            return;
+        }
+
+        _renderInFlight = true;
         try
         {
-            SvgRenderOptions options = ReadRenderOptions();
-            SvgRenderResult renderResult = _renderer.Render(_document, options);
-            _currentSvg = renderResult.Svg;
-            _renderWarnings = renderResult.Warnings;
-            _previewRenderIsDirty = false;
-            SaveButton.IsEnabled = true;
-            WritePreviewHtml(renderResult.Svg);
-            MainContentTabControl.SelectedItem = MapPreviewTabItem;
-            UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
-            ClearError();
-            SetStatus(renderResult.Warnings.Count == 0
-                ? string.Format(CultureInfo.CurrentCulture, T("Rendered"), GetLayoutModeText(options.LayoutMode))
-                : string.Format(CultureInfo.CurrentCulture, T("RenderedWarnings"), string.Join(" | ", renderResult.Warnings)));
-            TrySaveCurrentSettings(showError: false);
+            do
+            {
+                _renderQueued = false;
+                MetroExportDocument document = _document;
+                try
+                {
+                    SvgRenderOptions options = ReadRenderOptions();
+                    long statusStampAtRequest = _statusStamp;
+                    SvgRenderResult renderResult = await Task.Run(() => _renderer.Render(document, options));
+                    if (!ReferenceEquals(_document, document))
+                    {
+                        // A different export was loaded while rendering; its own
+                        // load path already requested a fresh render.
+                        continue;
+                    }
+
+                    _currentSvg = renderResult.Svg;
+                    _renderWarnings = renderResult.Warnings;
+                    _previewRenderIsDirty = false;
+                    SaveButton.IsEnabled = true;
+                    WritePreviewHtml(renderResult.Svg);
+                    MainContentTabControl.SelectedItem = MapPreviewTabItem;
+                    UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
+                    ClearError();
+                    if (_statusStamp == statusStampAtRequest)
+                    {
+                        SetStatus(renderResult.Warnings.Count == 0
+                            ? string.Format(CultureInfo.CurrentCulture, T("Rendered"), GetLayoutModeText(options.LayoutMode))
+                            : string.Format(CultureInfo.CurrentCulture, T("RenderedWarnings"), string.Join(" | ", renderResult.Warnings)));
+                    }
+
+                    TrySaveCurrentSettings(showError: false);
+                }
+                catch (Exception ex)
+                {
+                    _renderWarnings = [ex.Message];
+                    UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
+                    SetError(string.Format(CultureInfo.CurrentCulture, T("RenderFailed"), ex.Message));
+                    SetStatus(T("RenderFailed").Replace("{0}", ex.Message, StringComparison.Ordinal));
+                }
+            }
+            while (_renderQueued);
         }
-        catch (Exception ex)
+        finally
         {
-            _renderWarnings = [ex.Message];
-            UpdateInspector(_document, _jsonPath, _loadWarnings, _renderWarnings);
-            SetError(string.Format(CultureInfo.CurrentCulture, T("RenderFailed"), ex.Message));
-            SetStatus(T("RenderFailed").Replace("{0}", ex.Message, StringComparison.Ordinal));
+            _renderInFlight = false;
         }
     }
 
@@ -638,7 +697,9 @@ public partial class MainWindow : Window
             UsePathPoints = UsePathPointsCheckBox.IsChecked == true,
             PathPointSimplificationEnabled = SimplifyPathPointsCheckBox.IsChecked == true,
             PathPointSimplificationTolerance = pathSimplificationTolerance,
-            LayoutOverrides = _layoutOverrides
+            // Deep copy: the render now runs on a background thread while the UI
+            // thread keeps mutating _layoutOverrides on further edits.
+            LayoutOverrides = DeserializeOverridesSnapshot(SerializeOverridesSnapshot(_layoutOverrides))
         };
     }
 
@@ -1443,25 +1504,33 @@ public partial class MainWindow : Window
             return false;
         }
 
-        foreach (Match match in Regex.Matches(_currentSvg, "<circle\\b[^>]*>", RegexOptions.IgnoreCase))
+        // One regex pass per rendered SVG; group operations (align/reset over many
+        // stations) then look points up in O(1) instead of rescanning the document.
+        if (!ReferenceEquals(_svgStationPointCacheSource, _currentSvg))
         {
-            string tag = match.Value;
-            string? currentStationId = ReadSvgStringAttribute(tag, "data-station-id");
-            if (!string.Equals(currentStationId, stationId, StringComparison.Ordinal))
+            Dictionary<string, ViewerSvgPoint> points = new(StringComparer.Ordinal);
+            foreach (Match match in Regex.Matches(_currentSvg, "<circle\\b[^>]*>", RegexOptions.IgnoreCase))
             {
-                continue;
+                string tag = match.Value;
+                string? currentStationId = ReadSvgStringAttribute(tag, "data-station-id");
+                if (string.IsNullOrWhiteSpace(currentStationId) || points.ContainsKey(currentStationId!))
+                {
+                    continue;
+                }
+
+                double? x = ReadSvgLengthAttribute(tag, "cx");
+                double? y = ReadSvgLengthAttribute(tag, "cy");
+                if (x is not null && y is not null)
+                {
+                    points[currentStationId!] = new ViewerSvgPoint(x.Value, y.Value);
+                }
             }
 
-            double? x = ReadSvgLengthAttribute(tag, "cx");
-            double? y = ReadSvgLengthAttribute(tag, "cy");
-            if (x is not null && y is not null)
-            {
-                point = new ViewerSvgPoint(x.Value, y.Value);
-                return true;
-            }
+            _svgStationPointCache = points;
+            _svgStationPointCacheSource = _currentSvg;
         }
 
-        return false;
+        return _svgStationPointCache!.TryGetValue(stationId, out point);
     }
 
     private bool TryFindNearestConnectedStationPoint(
@@ -1619,7 +1688,7 @@ public partial class MainWindow : Window
             string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
                 ? []
                 : _selectedOverrideStationIds;
-        _pendingPreviewHtml = BuildPreviewHtml(svg, ReadSelectedPreviewZoom(), enableManualEditing, ReadManualEditMode(), selectedForHighlight);
+        _pendingPreviewHtml = BuildPreviewHtml(svg, ReadSelectedPreviewZoom(), enableManualEditing, ReadManualEditMode(), selectedForHighlight, _lastPreviewScrollX, _lastPreviewScrollY);
         if (_previewBrowserReady && PreviewBrowser.CoreWebView2 is not null)
         {
             PreviewBrowser.CoreWebView2.NavigateToString(_pendingPreviewHtml);
@@ -1642,7 +1711,7 @@ public partial class MainWindow : Window
 
     private readonly record struct ViewerSvgPoint(double X, double Y);
 
-    private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode, IReadOnlyList<string> selectedStationIds)
+    private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode, IReadOnlyList<string> selectedStationIds, double restoreScrollX, double restoreScrollY)
     {
         SvgPixelSize svgSize = ReadSvgPixelSize(svg);
         bool fitWidth = string.Equals(previewZoom, "fit-width", StringComparison.Ordinal);
@@ -1667,7 +1736,7 @@ public partial class MainWindow : Window
                 + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
                 + (editBends ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: crosshair; }" : string.Empty)
             : string.Empty;
-        string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText);
+        string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText, restoreScrollX, restoreScrollY);
         string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, editBends, selectedStationIds);
 
         return string.Join(Environment.NewLine,
@@ -1696,10 +1765,12 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildPreviewFocusScript(bool fitWidth, int zoomPercent, string svgWidthText, string svgHeightText)
+    private static string BuildPreviewFocusScript(bool fitWidth, int zoomPercent, string svgWidthText, string svgHeightText, double restoreScrollX, double restoreScrollY)
     {
         string fitWidthText = fitWidth ? "true" : "false";
         string zoomScaleText = (zoomPercent / 100.0).ToString("0.###", CultureInfo.InvariantCulture);
+        string scrollXText = restoreScrollX.ToString("0.##", CultureInfo.InvariantCulture);
+        string scrollYText = restoreScrollY.ToString("0.##", CultureInfo.InvariantCulture);
 
         return string.Join(Environment.NewLine,
         [
@@ -1709,6 +1780,21 @@ public partial class MainWindow : Window
             $"      var zoomScale = {zoomScaleText};",
             $"      var fallbackSvgWidth = {svgWidthText};",
             $"      var fallbackSvgHeight = {svgHeightText};",
+            $"      var restoreScrollX = {scrollXText};",
+            $"      var restoreScrollY = {scrollYText};",
+            "      var initialScrollApplied = false;",
+            "      var scrollReportTimer = null;",
+            "      function reportScroll() {",
+            "        try {",
+            "          if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {",
+            "            window.chrome.webview.postMessage({ type: 'previewScrolled', x: String(window.pageXOffset || 0), y: String(window.pageYOffset || 0) });",
+            "          }",
+            "        } catch (ex) { }",
+            "      }",
+            "      function onPreviewScroll() {",
+            "        if (scrollReportTimer) { window.clearTimeout(scrollReportTimer); }",
+            "        scrollReportTimer = window.setTimeout(reportScroll, 120);",
+            "      }",
             "      var focusBounds = null;",
             "      function addBox(box, state) {",
             "        if (!box || box.width <= 0 || box.height <= 0) { return; }",
@@ -1770,15 +1856,20 @@ public partial class MainWindow : Window
             "          svg.style.width = Math.max(1, width * zoomScale) + 'px';",
             "          svg.style.height = Math.max(1, height * zoomScale) + 'px';",
             "        }",
-            "        window.scrollTo(0, 0);",
-            "        window.setTimeout(function () { window.scrollTo(0, 0); }, 0);",
+            "        if (!initialScrollApplied) {",
+            "          initialScrollApplied = true;",
+            "          window.scrollTo(restoreScrollX, restoreScrollY);",
+            "          window.setTimeout(function () { window.scrollTo(restoreScrollX, restoreScrollY); }, 0);",
+            "        }",
             "      }",
             "      if (window.attachEvent) {",
             "        window.attachEvent('onload', applyPreviewFocus);",
             "        window.attachEvent('onresize', applyPreviewFocus);",
+            "        window.attachEvent('onscroll', onPreviewScroll);",
             "      } else {",
             "        window.addEventListener('load', applyPreviewFocus, false);",
             "        window.addEventListener('resize', applyPreviewFocus, false);",
+            "        window.addEventListener('scroll', onPreviewScroll, false);",
             "      }",
             "    }());",
             "  </script>"
@@ -2857,6 +2948,7 @@ public partial class MainWindow : Window
 
     private void SetStatus(string message)
     {
+        _statusStamp++;
         StatusTextBlock.Text = message;
     }
 
