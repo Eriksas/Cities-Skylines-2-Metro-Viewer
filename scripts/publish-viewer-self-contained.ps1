@@ -2,11 +2,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$version = 'v0.1.0-alpha.2-candidate'
+# Single source of truth for the version string.
+$version = ([xml](Get-Content (Join-Path $repoRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.InformationalVersion
+if ([string]::IsNullOrWhiteSpace($version)) {
+    throw 'Could not read InformationalVersion from Directory.Build.props.'
+}
+
 $projectPath = Join-Path $repoRoot 'src\MetroDiagram.Viewer\MetroDiagram.Viewer.csproj'
 $outputPath = Join-Path $repoRoot 'artifacts\viewer-win-x64-self-contained'
 $tempOutputPath = Join-Path $repoRoot 'artifacts\viewer-win-x64-self-contained.tmp'
-$sampleOutputPath = Join-Path $tempOutputPath 'samples'
 
 if (Test-Path $tempOutputPath) {
     Remove-Item -LiteralPath $tempOutputPath -Recurse -Force
@@ -19,21 +23,30 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet restore failed with exit code $LASTEXITCODE"
 }
 
+# Player-facing binary: one compressed self-contained exe, no debug symbols,
+# no NuGet documentation files. Compression halves the on-disk size for a
+# small one-time cost on first start.
 dotnet publish $projectPath `
     -c Release `
     -r win-x64 `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
+    -p:DebugType=None `
+    -p:DebugSymbols=false `
+    -p:CopyDebugSymbolFilesFromPackages=false `
+    -p:CopyDocumentationFilesFromPackages=false `
     --no-restore `
     -o $tempOutputPath
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
-New-Item -ItemType Directory -Force $sampleOutputPath | Out-Null
-Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\VIEWER_QUICK_START.md') -Destination (Join-Path $tempOutputPath 'README.md') -Force
-Copy-Item -LiteralPath (Join-Path $repoRoot 'samples\sample-metro-small.json') -Destination (Join-Path $sampleOutputPath 'sample-metro-small.json') -Force
+# Belt and braces: nothing but the exe ships from this folder.
+Get-ChildItem $tempOutputPath -Recurse -File |
+    Where-Object { $_.Extension -in @('.pdb', '.xml') } |
+    Remove-Item -Force
 
 $commit = 'unknown'
 try {
@@ -45,7 +58,7 @@ catch {
 @(
     'CS2 Metro Diagram Viewer'
     "Version: $version"
-    'Package: win-x64 self-contained single-file'
+    'Package: win-x64 self-contained single-file (compressed)'
     "BuiltAtUtc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
     "Commit: $commit"
     'Requires: Windows x64'
