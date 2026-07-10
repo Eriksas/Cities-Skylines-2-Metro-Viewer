@@ -5,6 +5,21 @@ Living operational notes only. History:
 - Journal 2026-06-19 .. 2026-07-07: `docs/archive/2026-07-10-dev-notes-journal/DEV_NOTES-journal-2026-06-19-to-2026-07-07.md`
 - Everything before the 2026-06-18 cleanup: `docs/archive/2026-06-18-doc-consolidation/DEV_NOTES.full.md`
 
+## Beta.1 Packaging - 2026-07-10
+
+- Version sources are unified at `v0.1.0-beta.1`; Windows file version is
+  `0.1.0.8`.
+- The first beta packages SVG, PNG, and PDF output in the Viewer and CLI while
+  retaining `schematic-anneal` as the default and `geographic` as the faithful
+  fallback.
+- `scripts\package-alpha-release.ps1` keeps its historical filename for
+  compatibility, but reads the version dynamically and emits neutral release
+  messages. Its Beta.1 output does not overwrite Alpha.7 artifacts.
+- The Paradox Mods thumbnail source remains editable in Figma; its release badge
+  and output-format copy were updated from Alpha.7 to Beta.1.
+- This packaging pass does not publish to GitHub or Paradox Mods. Publish only
+  after the generated Viewer and mod are manually smoke-tested.
+
 ## Alpha.7 Release - 2026-07-10
 
 - Unified repository, Viewer, generator, and Paradox Mods version:

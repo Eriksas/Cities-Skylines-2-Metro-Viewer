@@ -64,17 +64,17 @@ Copy-Item -LiteralPath (Join-Path $viewerSource 'build-info.txt') -Destination (
     'Run MetroDiagram.Viewer.exe - no install needed (Windows x64).'
     '1. Install the "CS2 Metro Diagram" mod from Paradox Mods.'
     '2. In game: Options -> CS2 Metro Diagram -> Export Real Metro JSON.'
-    '3. In the Viewer: click "Open Default Export", tidy the map, "Save SVG".'
+    '3. In the Viewer: click "Open Default Export", tidy the map, then save as SVG, PNG, or PDF.'
     ''
     "双击 MetroDiagram.Viewer.exe 直接运行，无需安装（Windows x64）。"
     "1. 在 Paradox Mods 安装 CS2 Metro Diagram 模组。"
     "2. 游戏内：选项 -> CS2 Metro Diagram -> 导出真实地铁 JSON。"
-    "3. 打开 Viewer 点「打开默认导出」，整理地图后「保存 SVG」。"
+    "3. 打开 Viewer 点「打开默认导出」，整理地图后保存为 SVG、PNG 或 PDF。"
     ''
     'Docs / 文档: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer'
 ) | Set-Content -LiteralPath (Join-Path $releasePath 'README.txt') -Encoding UTF8
 
 Compress-Archive -LiteralPath $releasePath -DestinationPath $zipPath -Force
 
-Write-Host "Alpha release folder written to $releasePath"
-Write-Host "Alpha release zip written to $zipPath"
+Write-Host "Release folder written to $releasePath"
+Write-Host "Release zip written to $zipPath"

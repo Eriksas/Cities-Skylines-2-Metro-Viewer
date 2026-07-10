@@ -6,6 +6,18 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Promote The Validated Toolchain To Beta.1
+
+Decision: use `v0.1.0-beta.1` for the next package while preserving the
+`0.1.0` compatibility line.
+
+Reason: real-city export, automatic schematic layout, manual Viewer refinement,
+and SVG/PNG/PDF output now form a complete user workflow. The project still
+needs broader multi-city validation, so it is beta rather than stable.
+
+Consequence: existing Alpha.7 artifacts remain untouched. Paradox Mods is
+updated only after a separate in-game smoke test of the Beta.1 package.
+
 ## Localize The Mod Page Without Changing The Game Locale
 
 Decision: the in-game settings page exposes `Auto / English / Simplified

@@ -21,7 +21,7 @@ The default map layout draws lines horizontal, vertical, or 45-degree, renders l
 Download the Viewer and full source from GitHub:
 https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer
 
-Alpha notes:
+Beta notes:
 - Metro/subway only.
 - Exports data only; it never edits your city.
 - No in-game preview yet — rendering happens in the Viewer app.
@@ -47,11 +47,12 @@ Alpha notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Alpha.7:
+Beta.1:
+- Added PNG and PDF output alongside SVG in the companion Viewer and CLI.
+- Promoted schematic-anneal to the default product layout after multi-city regression testing.
+- Kept fast live preview plus manual station, label, bend, and segment adjustments.
 - Added Auto / English / Simplified Chinese switching for this mod's in-game options page.
-- Export writes complete latest files plus timestamped snapshots more safely, without changing the JSON schema.
-- Updated the Paradox Mods main artwork and release information.
-- Companion Viewer alpha.7 uses schematic-anneal by default, with fast live preview and manual station, label, bend, and segment adjustments.
+- Kept safer latest exports and timestamped snapshots without changing the JSON schema.
 - Geographic mode remains available as the faithful real-geometry fallback.
 	</ChangeLog>
 	<!--<ChangeLog>
