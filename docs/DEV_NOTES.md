@@ -17,6 +17,11 @@ Living operational notes only. History:
   messages. Its Beta.1 output does not overwrite Alpha.7 artifacts.
 - The Paradox Mods thumbnail source remains editable in Figma; its release badge
   and output-format copy were updated from Alpha.7 to Beta.1.
+- The published Beta.1 PNG uses a thumbnail-friendly abstract network instead
+  of a dense real-city screenshot. Its right-side illustration was compacted to
+  about 86% while retaining the required `950 x 500` canvas. The matching Figma
+  source still needs the final compact-width adjustment once the Starter MCP
+  call quota resets.
 - Paradox Mods `0.1.0-beta.1` was published successfully to public ModId
   `146643` after the generated Viewer and mod passed smoke testing.
 - Routine mod delivery now uses the subscribed Paradox Mods listing. Do not
