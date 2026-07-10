@@ -20,9 +20,9 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-alpha.7`
+Repository and Viewer: `v0.1.0-beta.1`
 
-Paradox Mods code mod: `v0.1.0-alpha.7` (Public, ModId `146643`)
+Paradox Mods code mod: `v0.1.0-alpha.7` (Public, ModId `146643`); repo prepared for a `0.1.0-beta.1` republish of the unchanged mod
 
 Alpha.7 aligns the GitHub/Viewer and Paradox Mods release lines.
 

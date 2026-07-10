@@ -1,6 +1,6 @@
-# CS2 Metro Diagram v0.1.0-alpha.7 Quick Start
+# CS2 Metro Diagram v0.1.0-beta.1 Quick Start
 
-This is an alpha build for testing. It is not a stable release.
+This is a beta build for testing. It is not a stable release.
 
 ## What Is Included
 

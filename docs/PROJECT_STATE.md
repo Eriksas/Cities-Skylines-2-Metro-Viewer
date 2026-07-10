@@ -2,9 +2,9 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-alpha.7`
+Repository and companion Viewer: `v0.1.0-beta.1`
 
-Current Paradox Mods code-mod release: `v0.1.0-alpha.7` (ModId `146643`, Public)
+Current Paradox Mods code-mod release: `v0.1.0-alpha.7` (ModId `146643`, Public); the repo is prepared to republish the unchanged mod as `0.1.0-beta.1`.
 
 Alpha.7 aligns the GitHub/Viewer and Paradox Mods release lines again.
 

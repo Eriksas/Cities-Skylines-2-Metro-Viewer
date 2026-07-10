@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-beta.1 - 2026-07-10
+
+First beta. The core pipeline — in-game export, automatic octilinear layout,
+hand editing, and now multi-format output — is feature-complete and has been
+stable across the alpha series, so the project moves from alpha to beta.
 
 ### Added
 
@@ -8,6 +12,12 @@
   the CLI picks the format from the output file extension (`map.png`,
   `map.pdf`). PNG rasterizes at the SVG's pixel size; PDF is a real vector
   document with embedded, subsetted fonts (Chinese labels included).
+
+### Internal
+
+- The 131-test suite now also runs under `dotnet test` (xunit adapter) with
+  per-test reporting; the classic `dotnet run` runner is unchanged.
+- Dated development-journal entries moved to `docs/archive/`.
 
 ## v0.1.0-alpha.7 - 2026-07-10
 

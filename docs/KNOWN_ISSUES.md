@@ -1,6 +1,6 @@
-# Known Issues - v0.1.0-alpha.7
+# Known Issues - v0.1.0-beta.1
 
-This is an alpha build. It is intended for testing and feedback, not production use.
+This is a beta build. It is intended for testing and feedback, not production use.
 
 ## Current Limitations
 
@@ -30,7 +30,6 @@ This is an alpha build. It is intended for testing and feedback, not production 
 - Multi-city validation is still limited. The automated corpus currently includes synthetic samples and two real cities, but no city may be special-cased in code.
 - Real export snapshot naming is available, but if the exporter cannot resolve a real city name yet the snapshot filename falls back to `UnnamedCity`.
 - Interchange/station grouping may be imperfect when CS2 data uses unexpected station ownership or access-restriction structures.
-- PNG and PDF export are not supported.
 - The game mod does not launch the Viewer.
 - The Viewer is a local Windows app, not an in-game preview.
 - No Hong Kong, Guangzhou, or other style presets are included yet.

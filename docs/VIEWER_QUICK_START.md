@@ -1,8 +1,8 @@
 # CS2 Metro Diagram Viewer Quick Start
 
-Version: `v0.1.0-alpha.7`
+Version: `v0.1.0-beta.1`
 
-This is an alpha build, not a stable release.
+This is a beta build, not a stable release.
 
 ## Run
 
@@ -152,4 +152,8 @@ Documents\CS2MetroDiagram\viewer-settings.json
 
 ## Save
 
-Click `Save SVG` and choose a destination path. The saved SVG can be opened in a browser.
+Click `Save Map` and choose a destination path. The file type picks the format:
+
+- `.svg` — the vector document, openable in any browser.
+- `.png` — a raster image at the map's full pixel size.
+- `.pdf` — a single-page vector PDF with embedded fonts, ready for print.
