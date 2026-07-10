@@ -33,27 +33,6 @@ function Convert-ToHtmlText {
     return [System.Net.WebUtility]::HtmlEncode($Text)
 }
 
-function Convert-ToSafeName {
-    param([string] $Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return 'product-candidate-comparison'
-    }
-
-    $safe = $Value.Trim()
-    foreach ($invalid in [System.IO.Path]::GetInvalidFileNameChars()) {
-        $safe = $safe.Replace([string] $invalid, '-')
-    }
-
-    $safe = [regex]::Replace($safe, '\s+', '-')
-    $safe = [regex]::Replace($safe, '-{2,}', '-').Trim('-')
-    if ([string]::IsNullOrWhiteSpace($safe)) {
-        return 'product-candidate-comparison'
-    }
-
-    return $safe
-}
-
 function Get-ScoreValue {
     param(
         [object[]] $Rows,

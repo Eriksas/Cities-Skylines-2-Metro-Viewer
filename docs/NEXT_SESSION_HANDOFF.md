@@ -20,21 +20,27 @@ docs\archive\historical
 
 ## Current Version
 
-`v0.1.0-alpha.3`
+Repository and Viewer: `v0.1.0-alpha.7`
+
+Paradox Mods code mod: `v0.1.0-alpha.7` (Public, ModId `146643`)
+
+Alpha.7 aligns the GitHub/Viewer and Paradox Mods release lines.
 
 ## Current Direction
 
-The project is focused on multi-city alpha validation and `schematic-map` polish.
+The project is focused on multi-city alpha validation and hardening the default
+`schematic-anneal` product workflow.
 
 Recommended alpha tester output:
 
 ```text
-geographic + UsePathPoints + service family merge
+schematic-anneal
 ```
 
-Experimental layouts:
+Reference and comparison layouts:
 
 ```text
+geographic (faithful geometry fallback)
 schematic-map
 schematic-v2
 ```
@@ -56,6 +62,11 @@ schematic-lite
   - `Documents\CS2MetroDiagram`
   - `Desktop\CS2MetroDiagram`
   - `D:\CS2MetroDiagram`
+- Mod options language:
+  - `Auto` follows the game locale
+  - `English` and `简体中文` override this mod's options text only
+- Product/regression scripts default to `schematic-anneal`; alpha bundles also
+  retain geographic, schematic-map, and schematic-v2 evidence.
 - Alpha validation index:
   - `artifacts\alpha-validation\index.md`
   - `artifacts\alpha-validation\index.csv`
@@ -94,25 +105,27 @@ schematic-lite
 - Historical alpha.2 candidate release package:
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
-- GitHub release:
-  - pending for `v0.1.0-alpha.3`
+- Repository/Viewer release line:
+  - `v0.1.0-alpha.7`
 - Paradox Mods:
   - ModId `146643`
-  - Version `0.1.0-alpha.3`
+  - Version `0.1.0-alpha.7`
   - Access level `Public`
   - Publish status: `PublishNewVersion` succeeded on 2026-07-07.
 
-## Current Schematic-map Notes
+## Schematic-map Comparison Notes
 
-- `schematic-map` is the current product-facing schematic direction.
+- `schematic-map` is the previous product-facing pass-stack direction. Keep it
+  for comparison and targeted diagnostics; new default workflow work belongs to
+  `schematic-anneal` unless a shared renderer primitive is being fixed.
 - Non-station crossings are currently rendered as direct pass-through route intersections because exports do not include reliable over/under elevation.
 - Exact shared platform corridors mask duplicate base strokes before drawing visible lanes.
 - Same-number branch/shared-service families collapse into one visible lane when they share the exact platform segment and color.
 - Knockout strokes are clamped inside the visible colored lane envelope to avoid white fringes around shared platforms.
 - Earlier route-only synthetic bends were experimental and off by default; that
-  older caution is superseded for the current product-facing `schematic-map` by
+  older caution is superseded inside the retained `schematic-map` comparison by
   the narrower route-grammar safeguards below.
-- For current product-facing `schematic-map`, route grammar safeguards are now
+- In `schematic-map`, route grammar safeguards are
   enabled by default: uniform output-size scaling, route-only octilinear bends
   for long non-octilinear spans, and conservative shallow-kink straightening for
   ordinary non-anchor stations. This fixed the Zhaoqing 1号线 west-side route

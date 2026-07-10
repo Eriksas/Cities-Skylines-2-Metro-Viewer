@@ -333,9 +333,10 @@ static SvgMapStyle ReadMapStyle(string[] args, ref int index, string option)
     string value = ReadValue(args, ref index, option);
     return value switch
     {
+        "auto" => SvgMapStyle.Auto,
         "standard" => SvgMapStyle.Standard,
         "transit-map" => SvgMapStyle.TransitMap,
-        _ => throw new ArgumentException($"{option} expects 'standard' or 'transit-map'.")
+        _ => throw new ArgumentException($"{option} expects 'auto', 'standard', or 'transit-map'.")
     };
 }
 

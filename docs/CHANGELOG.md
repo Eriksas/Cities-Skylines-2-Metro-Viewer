@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.1.0-alpha.7 - 2026-07-10
+
+### Mod usability and export reliability
+
+- Added a mod-only options language selector: Auto (follow the game), English,
+  and Simplified Chinese. It refreshes this mod's settings text without
+  changing the game's global language.
+- Real exports are staged before publication and each destination is replaced
+  atomically where supported. The latest JSON is committed last so the Viewer
+  cannot open a half-written document.
+- Added a new Paradox Mods hero image built from a real generated metro map;
+  the editable source is retained in Figma for future release updates.
+
+### Renderer and workflow hardening
+
+- Explicit render choices are now preserved: selecting standard map styling or
+  disabling service-family merge is no longer silently overridden by
+  schematic product defaults.
+- Geometry caching now keys only geometry-affecting options, reducing needless
+  solver work when labels or presentation settings change.
+- Product candidate, alpha bundle, and regression gate scripts now exercise
+  `schematic-anneal` as the default candidate while retaining comparison
+  layouts in validation bundles.
+- Consolidated duplicated PowerShell naming, runtime discovery, and diagnostics
+  path helpers into `MetroScriptCommon.psm1`.
+- CI now includes a Release Viewer publish smoke step in addition to build and
+  tests.
+
 ## v0.1.0-alpha.6 - 2026-07-08
 
 Performance and map-quality update. The in-game mod is unchanged and stays at

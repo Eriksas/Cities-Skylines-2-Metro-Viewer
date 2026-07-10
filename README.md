@@ -4,7 +4,7 @@ Turn your **Cities: Skylines II** metro network into a clean, readable metro map
 
 **English** · [中文](#cs2-地铁线路图)
 
-Current version: `v0.1.0-alpha.6` · Alpha software — export only, it does not change your city. Back up saves before testing any mod.
+Current version: `v0.1.0-alpha.7` · Alpha software — export only, it does not change your city. Back up saves before testing any mod.
 
 The project has three parts:
 
@@ -21,7 +21,7 @@ The project has three parts:
 ## Quick start
 
 1. Install the mod, launch CS2, and load a city.
-2. Open **Options › CS2 Metro Diagram › Main**. Optionally set an export folder (defaults to `Documents\CS2MetroDiagram`).
+2. Open **Options › CS2 Metro Diagram › Main**. The mod page can follow the game language or be fixed to English / Simplified Chinese. Optionally set an export folder (defaults to `Documents\CS2MetroDiagram`).
 3. Click **Export Real Metro JSON**. This writes `metro-export.json` (plus diagnostics and timestamped snapshots) to the export folder.
 4. Open **MetroDiagram.Viewer.exe** and click **Open Default Export** (or **Open JSON**).
 5. The map renders in `schematic-anneal`. Switch layout/size if you like, then **Save SVG**.
@@ -63,7 +63,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 [English](#cs2-metro-diagram) · **中文**
 
-当前版本：`v0.1.0-alpha.6` · Alpha 阶段软件 —— 只导出数据，不会改动你的城市。测试任何 mod 前请先备份存档。
+当前版本：`v0.1.0-alpha.7` · Alpha 阶段软件 —— 只导出数据，不会改动你的城市。测试任何 mod 前请先备份存档。
 
 项目分三部分：
 
@@ -80,7 +80,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 ## 快速上手
 
 1. 安装 mod（在此仅需要下载releases打包好的包解压即可），百度网盘链接https://pan.baidu.com/s/1uI0N-nFja45WqAwB4-vsug?pwd=475u，启动 CS2，载入城市。
-2. 打开 **选项 › CS2 Metro Diagram › Main**。可选设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
+2. 打开 **选项 › CS2 Metro Diagram › Main**。模组设置页可跟随游戏语言，也可固定为 English / 简体中文；并可设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
 3. 点击 **Export Real Metro JSON**，会把 `metro-export.json`（及诊断文件、带时间戳的快照）写入导出文件夹。
 4. 打开 **MetroDiagram.Viewer.exe**，点 **Open Default Export**（或 **Open JSON**）。
 5. 线路图以 `schematic-anneal` 渲染。可切换布局/尺寸，然后 **Save SVG** 保存。

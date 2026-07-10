@@ -6,6 +6,41 @@ This file now contains current operational notes only. Full historical notes bef
 docs\archive\2026-06-18-doc-consolidation\DEV_NOTES.full.md
 ```
 
+## Alpha.7 Release - 2026-07-10
+
+- Unified repository, Viewer, generator, and Paradox Mods version:
+  `v0.1.0-alpha.7` / `0.1.0-alpha.7`.
+- Paradox Mods listing: ModId `146643`, access level `Public`.
+- Editable main promotional artwork:
+  `https://www.figma.com/design/4BGPoAEwzZ2DMTJT8RLLLH`, frame `4:2`.
+- Published thumbnail source in the mod project:
+  `CS2 Metro\Properties\Thumbnail.png` (`950 x 500`).
+- Use `scripts\publish-mod.ps1 -Mode NewVersion -SkipRestore` only after the
+  game has been launched and the intended PDX account has signed in.
+
+## Post-alpha.6 Hardening - 2026-07-10
+
+- The CS2 options page now registers one dynamic localization source per
+  supported locale. `InterfaceLanguage=auto` follows the game; `en` and
+  `zh-HANS` force this mod's options text only. After a change,
+  `LocalizationManager.ReloadActiveLocale()` refreshes the page.
+- `SvgMapStyle.Auto` distinguishes convenience defaults from an explicit
+  `Standard` choice. Product-layout defaults no longer overwrite explicit map
+  style or disabled service-family merge.
+- Renderer geometry cache keys contain geometry-affecting inputs, not label and
+  presentation switches. This keeps manual/viewer presentation changes from
+  rerunning the layout solver.
+- Real export content is first written to same-directory temporary files. Each
+  file is committed with `File.Replace`/`File.Move`, and latest JSON is committed
+  last. ECS extraction and the JSON schema are unchanged.
+- Product candidate and schematic regression scripts now default to
+  `schematic-anneal`. Alpha bundles generate anneal plus geographic,
+  schematic-map, and schematic-v2 comparisons.
+- Shared script helpers (`Convert-ToSafeName`, `Get-PowerShellRunner`, and
+  `Get-DefaultDiagnosticsPath`) live in `scripts\MetroScriptCommon.psm1`.
+- Build and tests must still run sequentially. The CS2 mod build performs its
+  post-process and local Mods deployment; restart CS2 before manual validation.
+
 ## Repo And Runtime
 
 Workspace:

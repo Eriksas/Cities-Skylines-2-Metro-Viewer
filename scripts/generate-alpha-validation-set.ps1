@@ -16,31 +16,6 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
 
-function Convert-ToSafeName {
-    param([string] $Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return 'case'
-    }
-
-    $safe = $Value.Trim()
-    foreach ($invalid in [System.IO.Path]::GetInvalidFileNameChars()) {
-        $safe = $safe.Replace([string] $invalid, '-')
-    }
-
-    $safe = [regex]::Replace($safe, '\s+', '-')
-    $safe = [regex]::Replace($safe, '-{2,}', '-').Trim('-')
-    if ([string]::IsNullOrWhiteSpace($safe)) {
-        return 'case'
-    }
-
-    if ($safe.Length -gt 80) {
-        $safe = $safe.Substring(0, 80).Trim('-')
-    }
-
-    return $safe
-}
-
 function Read-CaseMetadata {
     param([Parameter(Mandatory = $true)][string] $JsonPath)
 

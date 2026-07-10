@@ -3,6 +3,8 @@ param(
     [string[]] $InputJson = @(),
     [string] $OutputRoot = 'artifacts\schematic-regression',
     [int] $LatestExports = 4,
+    [ValidateSet('schematic-anneal', 'schematic-map')]
+    [string] $CandidateLayout = 'schematic-anneal',
     [switch] $NoSamples,
     [switch] $SkipPng
 )
@@ -11,64 +13,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
-
-function Get-PowerShellRunner {
-    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    if ($null -ne $pwsh -and -not [string]::IsNullOrWhiteSpace($pwsh.Source)) {
-        return $pwsh.Source
-    }
-
-    $powershell = Get-Command powershell -ErrorAction SilentlyContinue
-    if ($null -ne $powershell -and -not [string]::IsNullOrWhiteSpace($powershell.Source)) {
-        return $powershell.Source
-    }
-
-    throw 'Neither pwsh nor powershell was found.'
-}
-
-function Convert-ToSafeName {
-    param([string] $Value, [string] $Fallback = 'case')
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return $Fallback
-    }
-
-    $safe = $Value.Trim()
-    foreach ($invalid in [System.IO.Path]::GetInvalidFileNameChars()) {
-        $safe = $safe.Replace([string] $invalid, '-')
-    }
-
-    $safe = [regex]::Replace($safe, '\s+', '-')
-    $safe = [regex]::Replace($safe, '-{2,}', '-').Trim('-')
-    if ([string]::IsNullOrWhiteSpace($safe)) {
-        return $Fallback
-    }
-
-    if ($safe.Length -gt 80) {
-        $safe = $safe.Substring(0, 80).Trim('-')
-    }
-
-    return $safe
-}
-
-function Get-DefaultDiagnosticsPath {
-    param([Parameter(Mandatory = $true)][string] $JsonPath)
-
-    $directory = [System.IO.Path]::GetDirectoryName($JsonPath)
-    $fileName = [System.IO.Path]::GetFileName($JsonPath)
-
-    if ($fileName -eq 'metro-export.json') {
-        return Join-Path $directory 'metro-export-diagnostics.txt'
-    }
-
-    if ($fileName -like 'metro-export-*.json') {
-        $diagnosticsName = $fileName -replace '^metro-export-', 'metro-export-diagnostics-'
-        $diagnosticsName = [System.IO.Path]::ChangeExtension($diagnosticsName, '.txt')
-        return Join-Path $directory $diagnosticsName
-    }
-
-    return Join-Path $directory 'metro-export-diagnostics.txt'
-}
 
 function Read-ExportMetadata {
     param([Parameter(Mandatory = $true)][string] $JsonPath)
@@ -277,6 +221,7 @@ $summaryRows = [System.Collections.Generic.List[object]]::new()
 
 Write-Host "Regression gate output: $runPath"
 Write-Host "Case count: $($casePaths.Count)"
+Write-Host "Candidate layout: $CandidateLayout"
 
 $caseNumber = 0
 foreach ($inputPath in $casePaths) {
@@ -299,33 +244,36 @@ foreach ($inputPath in $casePaths) {
     }
 
     $geographicSvg = Join-Path $casePath 'geographic-baseline.svg'
-    $schematicMapSvg = Join-Path $casePath 'schematic-map.svg'
+    $candidateSvg = Join-Path $casePath "$CandidateLayout.svg"
+    $candidatePng = Join-Path $casePath "$CandidateLayout.full.png"
+    $candidateDebugPng = Join-Path $casePath "$CandidateLayout-debug.full.png"
+    $auditPath = Join-Path $casePath "$CandidateLayout-audit"
     $renderLogPath = Join-Path $casePath 'render-log.txt'
 
     $caseRenderOutput = New-Object System.Collections.Generic.List[string]
     try {
         Invoke-CliRender -CliProject $cliProject -InputPath $inputPath -OutputPath $geographicSvg -Layout 'geographic' -Style 'transit-map' 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
-        Invoke-CliRender -CliProject $cliProject -InputPath $inputPath -OutputPath $schematicMapSvg -Layout 'schematic-map' -Style 'transit-map' 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
+        Invoke-CliRender -CliProject $cliProject -InputPath $inputPath -OutputPath $candidateSvg -Layout $CandidateLayout -Style 'transit-map' 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
 
         if (-not $SkipPng) {
             Invoke-Capture -CaptureScript $captureScript -InputSvg $geographicSvg -OutputPng (Join-Path $casePath 'geographic-baseline.full.png') 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
-            Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng (Join-Path $casePath 'schematic-map.full.png') 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
+            Invoke-Capture -CaptureScript $captureScript -InputSvg $candidateSvg -OutputPng $candidatePng 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
         }
 
         if (Test-Path -LiteralPath $auditScript -PathType Leaf) {
-            & (Get-PowerShellRunner) -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $schematicMapSvg -InputJson $inputPath -OutputDir $casePath 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
+            & (Get-PowerShellRunner) -NoProfile -ExecutionPolicy Bypass -File $auditScript -InputSvg $candidateSvg -InputJson $inputPath -OutputDir $auditPath 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
             if ($LASTEXITCODE -ne 0) {
-                throw "Schematic-map audit failed with exit code $LASTEXITCODE."
+                throw "$CandidateLayout audit failed with exit code $LASTEXITCODE."
             }
 
-            $debugSvg = Join-Path $casePath 'schematic-map-debug.svg'
+            $debugSvg = Join-Path $auditPath 'schematic-map-debug.svg'
             if (-not $SkipPng -and (Test-Path -LiteralPath $debugSvg -PathType Leaf)) {
-                Invoke-Capture -CaptureScript $captureScript -InputSvg $debugSvg -OutputPng (Join-Path $casePath 'schematic-map-debug.full.png') 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
+                Invoke-Capture -CaptureScript $captureScript -InputSvg $debugSvg -OutputPng $candidateDebugPng 2>&1 | ForEach-Object { $caseRenderOutput.Add([string] $_) }
             }
         }
 
         $scoreRows = @()
-        $scorePath = Join-Path $casePath 'schematic-map-score.csv'
+        $scorePath = Join-Path $auditPath 'schematic-map-score.csv'
         if (Test-Path -LiteralPath $scorePath -PathType Leaf) {
             $scoreRows = @(Import-Csv -LiteralPath $scorePath)
         }
@@ -354,13 +302,12 @@ foreach ($inputPath in $casePaths) {
 - metro-export-diagnostics.txt, when available
 - geographic-baseline.svg
 - geographic-baseline.full.png
-- schematic-map.svg
-- schematic-map.full.png
-- schematic-map-debug.svg
-- schematic-map-debug.full.png
-- schematic-map-score.csv
-- schematic-map-crossings.csv
-- schematic-map-turns.csv
+- $CandidateLayout.svg
+- $CandidateLayout.full.png
+- $CandidateLayout-debug.full.png
+- $CandidateLayout-audit\schematic-map-score.csv
+- $CandidateLayout-audit\schematic-map-crossings.csv
+- $CandidateLayout-audit\schematic-map-turns.csv
 
 ## Gate Summary
 - Status: $status
@@ -372,7 +319,7 @@ foreach ($inputPath in $casePaths) {
 
 ## Human Review
 - Geographic acceptable:
-- Schematic-map acceptable:
+- $CandidateLayout acceptable:
 - Route continuity:
 - Shared/parallel corridor readability:
 - Label/badge readability:
@@ -383,6 +330,7 @@ foreach ($inputPath in $casePaths) {
 
         $summaryRows.Add([pscustomobject]@{
             Case = $caseSlug
+            CandidateLayout = $CandidateLayout
             Status = $status
             CityName = $metadata.CityName
             Lines = $metadata.LineCount
@@ -400,6 +348,7 @@ foreach ($inputPath in $casePaths) {
     catch {
         $summaryRows.Add([pscustomobject]@{
             Case = $caseSlug
+            CandidateLayout = $CandidateLayout
             Status = 'render-failed'
             CityName = $metadata.CityName
             Lines = $metadata.LineCount
@@ -433,6 +382,7 @@ $markdown.Add('')
 $markdown.Add("- Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 $markdown.Add("- Case count: $($summaryRows.Count)")
 $markdown.Add("- PNG generated: $(-not $SkipPng)")
+$markdown.Add("- Candidate layout: $CandidateLayout")
 $markdown.Add('')
 $markdown.Add('| Status | Case | City | Lines | Stations | Overall | Badge | Stroke | Crossings | Short segments |')
 $markdown.Add('| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |')
@@ -444,8 +394,8 @@ $markdown.Add('')
 $markdown.Add('## Review Order')
 $markdown.Add('')
 $markdown.Add('1. Open each `geographic-baseline.full.png` first to confirm the export itself is plausible.')
-$markdown.Add('2. Open each `schematic-map.full.png` for product-map review.')
-$markdown.Add('3. Open `schematic-map-debug.full.png` when score rows show crossings or octilinear warnings.')
+$markdown.Add("2. Open each ``$CandidateLayout.full.png`` for product-map review.")
+$markdown.Add("3. Open ``$CandidateLayout-debug.full.png`` when score rows show crossings or octilinear warnings.")
 $markdown.Add('4. Treat `needs-review` as a human-review flag, not an automatic rejection.')
 $markdown.Add('')
 $markdown.Add('## Gate Criteria')
@@ -461,6 +411,7 @@ $manifest = [pscustomobject]@{
     caseCount = $summaryRows.Count
     skipPng = [bool] $SkipPng
     latestExports = $LatestExports
+    candidateLayout = $CandidateLayout
     cases = $summaryRows
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding UTF8

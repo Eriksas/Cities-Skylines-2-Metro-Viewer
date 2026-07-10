@@ -8,14 +8,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-FullPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path
-    )
-
-    return [System.IO.Path]::GetFullPath($Path)
-}
+Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
 
 function Invoke-CliRender {
     param(
@@ -47,28 +40,6 @@ function Invoke-CliRender {
     if ($LASTEXITCODE -ne 0) {
         throw "CLI baseline render failed with exit code $LASTEXITCODE."
     }
-}
-
-function Get-DefaultDiagnosticsPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $JsonPath
-    )
-
-    $directory = [System.IO.Path]::GetDirectoryName($JsonPath)
-    $fileName = [System.IO.Path]::GetFileName($JsonPath)
-
-    if ($fileName -eq 'metro-export.json') {
-        return Join-Path $directory 'metro-export-diagnostics.txt'
-    }
-
-    if ($fileName -like 'metro-export-*.json') {
-        $diagnosticsName = $fileName -replace '^metro-export-', 'metro-export-diagnostics-'
-        $diagnosticsName = [System.IO.Path]::ChangeExtension($diagnosticsName, '.txt')
-        return Join-Path $directory $diagnosticsName
-    }
-
-    return Join-Path $directory 'metro-export-diagnostics.txt'
 }
 
 function Read-ExportMetadata {

@@ -12,7 +12,7 @@ internal static class DisplayLineFamilyResolver
         if (!enableServiceFamilyMerge)
         {
             return lines
-                .Select(line => CreateSingleLineFamily(line, stationsById))
+                .Select((line, index) => CreateSingleLineFamily(line, index, stationsById))
                 .ToList();
         }
 
@@ -23,13 +23,17 @@ internal static class DisplayLineFamilyResolver
             .ToList();
     }
 
-    private static DisplayLineFamily CreateSingleLineFamily(MetroLine line, Dictionary<string, MetroStation> stationsById)
+    private static DisplayLineFamily CreateSingleLineFamily(MetroLine line, int index, Dictionary<string, MetroStation> stationsById)
     {
         FamilyParts parts = ExtractFamilyParts(line);
         DisplayServiceVariant variant = CreateVariant(line, parts, stationsById);
+        string lineName = GetLineName(line);
+        string uniqueKey = !string.IsNullOrWhiteSpace(line.Id)
+            ? $"line:{line.Id}"
+            : $"line-index:{index}";
         return new DisplayLineFamily(
-            parts.FamilyKey,
-            parts.DisplayName,
+            uniqueKey,
+            lineName,
             line.Color,
             line,
             [variant],

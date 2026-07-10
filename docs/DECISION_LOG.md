@@ -6,6 +6,45 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Localize The Mod Page Without Changing The Game Locale
+
+Decision: the in-game settings page exposes `Auto / English / Simplified
+Chinese`. Auto follows the active CS2 locale; explicit choices only change this
+mod's localization source and then reload the active locale.
+
+Reason: users need a predictable language for export controls, but a utility
+mod must not change the language of the entire game.
+
+Consequence: every supported locale receives a dynamic mod dictionary. Adding a
+new mod-page string requires both English and Chinese entries; changing the
+dropdown must never assign the game's global locale.
+
+## Preserve Explicit Render Options
+
+Decision: product layout defaults apply only to options that remain `Auto` or
+otherwise unspecified. An explicit `MapStyle=Standard` and an explicit disabled
+service-family merge must be honored.
+
+Reason: silently overriding CLI/Viewer settings makes diagnostics misleading
+and prevents callers from constructing stable comparison renders.
+
+Consequence: `SvgMapStyle.Auto` is the default convenience value. Geometry
+cache keys include geometry-affecting inputs only; presentation-only changes
+reuse the solved layout.
+
+## Validate The Default Product Layout In Automation
+
+Decision: product candidate and regression scripts default to
+`schematic-anneal`, while alpha bundles retain geographic, schematic-map, and
+schematic-v2 outputs as evidence.
+
+Reason: the prior scripts could pass while never rendering the actual Viewer
+default. A release workflow must exercise the layout users receive.
+
+Consequence: CI additionally publishes the Viewer in Release mode, and shared
+PowerShell helpers live in `MetroScriptCommon.psm1` instead of drifting between
+validation scripts.
+
 ## Default To Schematic-anneal (Supersedes Geographic Default)
 
 Decision: `schematic-anneal` is the default product mode; the Viewer opens on it (2026-07-06). `geographic` remains available and unchanged as the faithful-geometry render.
@@ -20,7 +59,10 @@ Decision: schematic-v2 and schematic-map work must remain in renderer/viewer/CLI
 
 Reason: the exporter and `metro-export.json` schema are already useful and should not churn while visual layout evolves.
 
-Consequence: do not modify `RealMetroJsonExporter`, raw `line.stops`, raw `line.pathPoints`, or schema for layout polish.
+Consequence: do not modify `RealMetroJsonExporter` ECS interpretation, raw
+`line.stops`, raw `line.pathPoints`, or schema for layout polish. Export-folder
+UX, localization, logging, and atomic file publication may evolve without
+changing the exported data contract.
 
 ## Remove Schematic-lite Entirely
 

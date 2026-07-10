@@ -74,10 +74,7 @@ namespace CS2_Metro
                 string json = BuildJson(export);
                 string diagnostics = BuildDiagnosticsReport(context.Diagnostics.ToString(), export, exportPaths, exportTimestampLocal);
 
-                File.WriteAllText(exportPaths.LatestJsonPath, json, new UTF8Encoding(false));
-                File.WriteAllText(exportPaths.LatestDiagnosticsPath, diagnostics, new UTF8Encoding(false));
-                File.WriteAllText(exportPaths.SnapshotJsonPath, json, new UTF8Encoding(false));
-                File.WriteAllText(exportPaths.SnapshotDiagnosticsPath, diagnostics, new UTF8Encoding(false));
+                WriteExportFiles(exportPaths, json, diagnostics);
 
                 Mod.log.Info($"Export Real Metro JSON succeeded. Lines: {export.Lines.Count}, stations: {export.Stations.Count}. Latest export: {exportPaths.LatestJsonPath}. Snapshot export: {exportPaths.SnapshotJsonPath}. Latest diagnostics: {exportPaths.LatestDiagnosticsPath}. Snapshot diagnostics: {exportPaths.SnapshotDiagnosticsPath}");
                 return true;
@@ -105,6 +102,65 @@ namespace CS2_Metro
 
                 return false;
             }
+        }
+
+        private static void WriteExportFiles(ExportSnapshotPaths exportPaths, string json, string diagnostics)
+        {
+            UTF8Encoding utf8WithoutBom = new UTF8Encoding(false);
+            List<PendingTextFile> pendingFiles = new List<PendingTextFile>
+            {
+                new PendingTextFile(exportPaths.SnapshotDiagnosticsPath, diagnostics),
+                new PendingTextFile(exportPaths.SnapshotJsonPath, json),
+                new PendingTextFile(exportPaths.LatestDiagnosticsPath, diagnostics),
+                // Publish latest JSON last so Viewer never observes a partially written document.
+                new PendingTextFile(exportPaths.LatestJsonPath, json)
+            };
+
+            try
+            {
+                foreach (PendingTextFile pendingFile in pendingFiles)
+                {
+                    string directory = Path.GetDirectoryName(pendingFile.FinalPath);
+                    if (!string.IsNullOrWhiteSpace(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    File.WriteAllText(pendingFile.TemporaryPath, pendingFile.Content, utf8WithoutBom);
+                }
+
+                foreach (PendingTextFile pendingFile in pendingFiles)
+                {
+                    CommitTextFile(pendingFile.TemporaryPath, pendingFile.FinalPath);
+                }
+            }
+            finally
+            {
+                foreach (PendingTextFile pendingFile in pendingFiles)
+                {
+                    try
+                    {
+                        if (File.Exists(pendingFile.TemporaryPath))
+                        {
+                            File.Delete(pendingFile.TemporaryPath);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+        }
+
+        private static void CommitTextFile(string temporaryPath, string finalPath)
+        {
+            if (File.Exists(finalPath))
+            {
+                File.Replace(temporaryPath, finalPath, null);
+                return;
+            }
+
+            File.Move(temporaryPath, finalPath);
         }
 
         private static MetroExport BuildExport(ExportContext context)
@@ -998,6 +1054,22 @@ namespace CS2_Metro
             }
 
             return escaped.ToString();
+        }
+
+        private sealed class PendingTextFile
+        {
+            public PendingTextFile(string finalPath, string content)
+            {
+                FinalPath = finalPath;
+                Content = content;
+                TemporaryPath = finalPath + ".tmp-" + Guid.NewGuid().ToString("N");
+            }
+
+            public string FinalPath { get; }
+
+            public string TemporaryPath { get; }
+
+            public string Content { get; }
         }
 
         private sealed class ExportContext

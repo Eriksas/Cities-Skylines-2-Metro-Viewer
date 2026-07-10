@@ -12,7 +12,7 @@ Turn the metro/subway network of your Cities: Skylines II city into a clean, off
 This mod exports your city's metro network to a JSON file. You then open that file in the free companion Windows Viewer app to render the map and save it as an SVG (great for wallpapers, posters, or sharing your transit system).
 
 How to use:
-1. In game: Options &gt; CS2 Metro Diagram, pick an export folder, and click "Export Real Metro JSON".
+1. In game: Options &gt; CS2 Metro Diagram, choose Auto / English / Simplified Chinese, pick an export folder, and click "Export Real Metro JSON".
 2. Open the Viewer app, click "Open Default Export", and your map appears.
 3. Adjust the layout/size if you like, then save the SVG.
 
@@ -38,7 +38,7 @@ Alpha notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-alpha.3" />
+	<ModVersion Value="0.1.0-alpha.7" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -47,12 +47,12 @@ Alpha notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Alpha.3:
-- Public Paradox Mods release.
-- Keeps the new default schematic-anneal map, parallel shared-track rendering, and fit-to-content Viewer preview.
-- Keeps the simplified in-game options: pick an export folder and click Export Real Metro JSON.
-- Viewer manual edit mode supports station, label, and segment adjustments saved to a sidecar file.
-- Geographic mode is still available for faithful real geometry.
+Alpha.7:
+- Added Auto / English / Simplified Chinese switching for this mod's in-game options page.
+- Export writes complete latest files plus timestamped snapshots more safely, without changing the JSON schema.
+- Updated the Paradox Mods main artwork and release information.
+- Companion Viewer alpha.7 uses schematic-anneal by default, with fast live preview and manual station, label, bend, and segment adjustments.
+- Geographic mode remains available as the faithful real-geometry fallback.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

@@ -12,64 +12,6 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
 
-function Get-PowerShellRunner {
-    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    if ($null -ne $pwsh -and -not [string]::IsNullOrWhiteSpace($pwsh.Source)) {
-        return $pwsh.Source
-    }
-
-    $powershell = Get-Command powershell -ErrorAction SilentlyContinue
-    if ($null -ne $powershell -and -not [string]::IsNullOrWhiteSpace($powershell.Source)) {
-        return $powershell.Source
-    }
-
-    throw 'Neither pwsh nor powershell was found. Install PowerShell 7 or Windows PowerShell before generating validation bundles.'
-}
-
-function Convert-ToSafeName {
-    param([string] $Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return 'case'
-    }
-
-    $safe = $Value.Trim()
-    foreach ($invalid in [System.IO.Path]::GetInvalidFileNameChars()) {
-        $safe = $safe.Replace([string] $invalid, '-')
-    }
-
-    $safe = [regex]::Replace($safe, '\s+', '-')
-    $safe = [regex]::Replace($safe, '-{2,}', '-').Trim('-')
-    if ([string]::IsNullOrWhiteSpace($safe)) {
-        return 'case'
-    }
-
-    if ($safe.Length -gt 80) {
-        $safe = $safe.Substring(0, 80).Trim('-')
-    }
-
-    return $safe
-}
-
-function Get-DefaultDiagnosticsPath {
-    param([Parameter(Mandatory = $true)][string] $JsonPath)
-
-    $directory = [System.IO.Path]::GetDirectoryName($JsonPath)
-    $fileName = [System.IO.Path]::GetFileName($JsonPath)
-
-    if ($fileName -eq 'metro-export.json') {
-        return Join-Path $directory 'metro-export-diagnostics.txt'
-    }
-
-    if ($fileName -like 'metro-export-*.json') {
-        $diagnosticsName = $fileName -replace '^metro-export-', 'metro-export-diagnostics-'
-        $diagnosticsName = [System.IO.Path]::ChangeExtension($diagnosticsName, '.txt')
-        return Join-Path $directory $diagnosticsName
-    }
-
-    return Join-Path $directory 'metro-export-diagnostics.txt'
-}
-
 function Read-ExportMetadata {
     param([Parameter(Mandatory = $true)][string] $JsonPath)
 
@@ -237,10 +179,11 @@ $warningText
 - Express stripe: disabled
 - Size preset: poster
 - Label filters: hide generic labels, hide crowded labels
-- Comparison layouts: schematic-v2
-- Product candidate layout: schematic-map
+- Product candidate layout: schematic-anneal
+- Comparison layouts: schematic-map, schematic-v2
+- Schematic-anneal status: current default product candidate
 - Schematic-v2 status: experimental
-- Schematic-map status: product-facing experimental candidate
+- Schematic-map status: retained comparison layout
 
 ## Visual Review
 - Geographic baseline acceptable: yes/no
@@ -266,6 +209,8 @@ $warningText
 - schematic-v2.full.png, unless -SkipPng was used
 - schematic-map.svg
 - schematic-map.full.png, unless -SkipPng was used
+- schematic-anneal.svg
+- schematic-anneal.full.png, unless -SkipPng was used
 - schematic-v2-diagnostics\
 - manifest.json
 - feedback-template-filled.md
@@ -284,7 +229,7 @@ function Write-FilledFeedbackTemplate {
     $warningText = Format-MarkdownList -Items $ValidationWarnings
 
     @"
-# Feedback Template - v0.1.0-alpha.2-candidate
+# Feedback Template - v0.1.0-alpha.7
 
 ## Environment
 
@@ -315,6 +260,8 @@ $warningText
 - schematic-v2.full.png, if generated
 - schematic-map.svg
 - schematic-map.full.png, if generated
+- schematic-anneal.svg
+- schematic-anneal.full.png, if generated
 - schematic-v2-diagnostics\shared-corridors.txt
 - manifest.json
 - Viewer settings from Documents\CS2MetroDiagram\viewer-settings.json, if available
@@ -322,7 +269,7 @@ $warningText
 
 ## Viewer Settings
 
-- Layout mode: geographic / schematic-v2
+- Layout mode: schematic-anneal / geographic / schematic-map / schematic-v2
 - Width:
 - Height:
 - Label font size:
@@ -373,6 +320,7 @@ function Write-BundleManifest {
             version = $CurrentAppVersion
         }
         recommendedReviewOrder = @(
+            'schematic-anneal.full.png',
             'baseline-geographic.full.png',
             'schematic-map.full.png',
             'schematic-v2.full.png',
@@ -389,6 +337,8 @@ function Write-BundleManifest {
             schematicV2Png = 'schematic-v2.full.png'
             schematicMapSvg = 'schematic-map.svg'
             schematicMapPng = 'schematic-map.full.png'
+            schematicAnnealSvg = 'schematic-anneal.svg'
+            schematicAnnealPng = 'schematic-anneal.full.png'
             visualContinuityReport = 'visual-continuity-summary.txt'
             visualContinuityDebugSvg = 'visual-continuity-debug.svg'
             schematicV2Diagnostics = 'schematic-v2-diagnostics'
@@ -404,11 +354,11 @@ function Write-BundleManifest {
                 hideCrowdedLabels = $true
             }
             productCandidate = [ordered]@{
-                layout = 'schematic-map'
+                layout = 'schematic-anneal'
                 size = 'poster'
-                status = 'product-facing experimental candidate'
+                status = 'current default product candidate'
             }
-            comparisons = @('schematic-v2')
+            comparisons = @('schematic-map', 'schematic-v2')
             screenshotsGenerated = $ScreenshotsGenerated
         }
         validationWarnings = $ValidationWarnings
@@ -485,12 +435,15 @@ try {
     $schematicV2Png = Join-Path $tempBundlePath 'schematic-v2.full.png'
     $schematicMapSvg = Join-Path $tempBundlePath 'schematic-map.svg'
     $schematicMapPng = Join-Path $tempBundlePath 'schematic-map.full.png'
+    $schematicAnnealSvg = Join-Path $tempBundlePath 'schematic-anneal.svg'
+    $schematicAnnealPng = Join-Path $tempBundlePath 'schematic-anneal.full.png'
     $visualReport = Join-Path $tempBundlePath 'visual-continuity-summary.txt'
     $visualDebugSvg = Join-Path $tempBundlePath 'visual-continuity-debug.svg'
 
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $baselineSvg -Layout 'geographic' -UsePathPoints
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicV2Svg -Layout 'schematic-v2'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicMapSvg -Layout 'schematic-map' -UsePathPoints
+    Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicAnnealSvg -Layout 'schematic-anneal' -UsePathPoints
 
     if ($SkipPng) {
         Write-Host 'Skipping PNG screenshot generation because -SkipPng was specified.'
@@ -499,6 +452,7 @@ try {
         Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
+        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicAnnealSvg -OutputPng $schematicAnnealPng
     }
 
     $powerShellRunner = Get-PowerShellRunner

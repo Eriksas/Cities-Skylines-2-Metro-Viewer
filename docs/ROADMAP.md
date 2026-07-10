@@ -7,25 +7,25 @@ current alpha useful for real testers before adding larger product features.
 
 Goal: make the current build safe, repeatable, and easy to test on more cities.
 
-- Keep `geographic + UsePathPoints + service family merge` as the recommended
-  alpha baseline.
-- Keep `schematic-map` experimental, but continue using it for product-facing
-  visual review.
+- Keep `schematic-anneal` as the recommended product layout and `geographic` as
+  the faithful-geometry fallback.
+- Keep `schematic-map` and `schematic-v2` as comparison/diagnostic modes rather
+  than separate product directions.
 - Generate one alpha validation bundle for every real city export.
 - Use bundle notes to record whether the city is a regression case.
 - Keep Viewer startup, preview framing, Open Default Export, Open JSON, and Save
   SVG reliable.
-- Fix only clear regressions in `schematic-map`; avoid broad layout rewrites
+- Fix only clear corpus-backed schematic regressions; avoid broad layout rewrites
   until the same problem appears in multiple cities.
 - Keep docs short and current; archive historical phase notes.
-- Keep `v0.1.0-alpha.3` public on Paradox Mods and use real tester feedback to
-  decide the next alpha package.
+- Keep GitHub/Viewer and Paradox Mods aligned from `v0.1.0-alpha.7` onward when
+  code-mod behavior changes.
 
 ## Medium Term: Official-map Schematic Direction
 
 Goal: move from "debug schematic" toward a readable metro-map product.
 
-- Continue `schematic-map` as the main visual design lane.
+- Continue `schematic-anneal` as the main visual design lane.
 - Preserve topology first: stop order, interchanges, branches, shared visible
   lanes, and branch/service semantics must remain believable.
 - Make route geometry more octilinear where safe: horizontal, vertical, and

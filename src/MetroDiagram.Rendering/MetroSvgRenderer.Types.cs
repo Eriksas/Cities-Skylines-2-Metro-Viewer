@@ -6,6 +6,42 @@ namespace MetroDiagram.Rendering;
 
 public sealed partial class MetroSvgRenderer
 {
+    private readonly record struct GeometryCacheKey(
+        SvgLayoutMode LayoutMode,
+        SvgMapStyle MapStyle,
+        int Width,
+        int Height,
+        int Padding,
+        int Margin,
+        int LegendWidth,
+        int LegendGap,
+        double LineWidth,
+        double StationRadius,
+        double InterchangeStationRadius,
+        double LabelFontSize,
+        double LegendLabelFontSize,
+        double LabelGap,
+        bool EnableCenterExpansion,
+        double CenterExpansionStrength,
+        double GridSize,
+        bool UsePathPoints,
+        bool PathPointSimplificationEnabled,
+        double PathPointSimplificationTolerance,
+        double MinPathSegmentLength,
+        bool AdaptivePathPointSimplificationEnabled,
+        bool EnableServiceFamilyMerge,
+        double SchematicMinimumStationSpacing,
+        bool CompactTransitMapFrame,
+        bool EnableSchematicMapOctilinearNormalization,
+        double SchematicMapOctilinearSnapAngleDegrees,
+        bool EnableSchematicMapSimpleRunLinearization,
+        double SchematicMapPreferredStationSpacing,
+        bool EnableSchematicMapLocalClearance,
+        double SchematicMapLocalClearanceDistance,
+        bool EnableSchematicMapSyntheticBends,
+        double SchematicMapSyntheticBendMinimumLength,
+        bool HasLegend);
+
     private sealed class CoordinateProjector
     {
         private readonly double _minX;

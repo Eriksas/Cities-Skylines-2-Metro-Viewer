@@ -1,6 +1,6 @@
 # Alpha Test Plan
 
-Use this plan for `v0.1.0-alpha.3` testing.
+Use this plan for `v0.1.0-alpha.7`.
 
 The testing unit is an alpha validation bundle, not a loose screenshot.
 
@@ -8,13 +8,17 @@ The testing unit is an alpha validation bundle, not a loose screenshot.
 
 Review in this order:
 
-1. `geographic`
-2. `schematic-map`
-3. `schematic-v2`
+1. `schematic-anneal`
+2. `geographic`
+3. `schematic-map`
+4. `schematic-v2`
 
-`geographic` remains the alpha recommended output.
+`schematic-anneal` is the alpha recommended product output.
 
-`schematic-map` is the product-facing schematic candidate.
+`geographic` is the faithful-geometry fallback and diagnosis reference.
+
+`schematic-map` is the previous pass-stack product candidate retained for
+comparison.
 
 `schematic-v2` is the topology/diagnostic schematic base.
 
@@ -87,7 +91,9 @@ artifacts\alpha-validation\index.csv
 
 ## Run The Schematic Regression Gate
 
-Use this before accepting schematic-map renderer changes:
+Use this before accepting renderer changes that affect schematic output. The
+default candidate is `schematic-anneal`; pass `-CandidateLayout schematic-map`
+only when intentionally auditing the older pass-stack mode:
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1
@@ -105,16 +111,16 @@ The gate writes:
 artifacts\schematic-regression\<timestamp>\index.md
 artifacts\schematic-regression\<timestamp>\regression-summary.csv
 artifacts\schematic-regression\<timestamp>\cases\...\geographic-baseline.svg
-artifacts\schematic-regression\<timestamp>\cases\...\schematic-map.svg
-artifacts\schematic-regression\<timestamp>\cases\...\schematic-map-score.csv
+artifacts\schematic-regression\<timestamp>\cases\...\schematic-anneal.svg
+artifacts\schematic-regression\<timestamp>\cases\...\schematic-anneal-audit\schematic-map-score.csv
 ```
 
 When PNG generation is enabled, each case also includes:
 
 ```text
 geographic-baseline.full.png
-schematic-map.full.png
-schematic-map-debug.full.png
+schematic-anneal.full.png
+schematic-anneal-debug.full.png
 ```
 
 Treat `pass` as "cleared current automated safety checks", not as a substitute
@@ -129,6 +135,8 @@ Each current bundle should contain:
 - `metro-export-diagnostics.txt`, when available
 - `baseline-geographic.svg`
 - `baseline-geographic.full.png`, when PNG screenshots were generated
+- `schematic-anneal.svg`
+- `schematic-anneal.full.png`, when PNG screenshots were generated
 - `schematic-map.svg`
 - `schematic-map.full.png`, when PNG screenshots were generated
 - `schematic-v2.svg`
@@ -168,7 +176,7 @@ Collect cases across these shapes:
 - Legend does not obscure the main network.
 - City name and title look reasonable.
 
-## Schematic-map Review Checklist
+## Schematic Product Review Checklist
 
 - Lines mostly use horizontal, vertical, and 45-degree directions.
 - Obvious straight corridors do not become awkward zigzags.
@@ -179,13 +187,13 @@ Collect cases across these shapes:
   visually distinct without cutting routes apart.
 - Important station labels are more prominent, while default/non-important
   station labels can still be hidden.
-- Route grammar safeguards are on for `schematic-map`: size presets should keep
+- Size presets should keep
   the same route shape, long non-octilinear spans should be bent into clean
   0/45/90-degree legs, and shallow ordinary kinks should be straightened when
   topology permits.
-- Check whether the full map looks better, not only whether
-  `schematic-map-audit.txt` warning counts decrease.
-- Intentional schematic-map doglegs may be reported as informational
+- Check whether the full map looks better, not only whether audit warning counts
+  or anneal cost decrease.
+- Intentional schematic doglegs may be reported as informational
   source-direction skips. This is expected when the route stays octilinear and
   the visual result is cleaner than the raw geographic direction.
 - True route crossings are marked or visually understandable.
@@ -246,6 +254,19 @@ Do not start these unless explicitly requested:
 - Manual drag editor.
 - New style preset.
 - Reopening old schematic-lite patch work.
+- Changing the game-wide language from this utility mod.
+
+## Mod Options Localization Smoke
+
+After deploying a new mod build and restarting CS2:
+
+1. Open `Options > CS2 Metro Diagram > Main`.
+2. Select `Auto`; verify Chinese game locale shows Chinese mod controls and an
+   English game locale shows English controls.
+3. Select `English`; verify only this mod page changes to English.
+4. Select `简体中文`; verify only this mod page changes to Chinese.
+5. Export real metro JSON in both explicit language modes and confirm the output
+   path and JSON content are unaffected.
 
 ## Verification For Code Changes
 

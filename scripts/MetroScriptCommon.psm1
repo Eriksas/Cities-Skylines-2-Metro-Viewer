@@ -42,7 +42,11 @@ function Convert-ToDouble {
 }
 
 function Convert-ToSafeName {
-    param([string] $Value, [string] $Fallback = 'case')
+    param(
+        [string] $Value,
+        [string] $Fallback = 'case',
+        [int] $MaxLength = 80
+    )
 
     if ([string]::IsNullOrWhiteSpace($Value)) {
         return $Fallback
@@ -59,7 +63,44 @@ function Convert-ToSafeName {
         return $Fallback
     }
 
+    if ($MaxLength -gt 0 -and $safe.Length -gt $MaxLength) {
+        $safe = $safe.Substring(0, $MaxLength).Trim('-')
+    }
+
     return $safe
+}
+
+function Get-PowerShellRunner {
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($null -ne $pwsh -and -not [string]::IsNullOrWhiteSpace($pwsh.Source)) {
+        return $pwsh.Source
+    }
+
+    $powershell = Get-Command powershell -ErrorAction SilentlyContinue
+    if ($null -ne $powershell -and -not [string]::IsNullOrWhiteSpace($powershell.Source)) {
+        return $powershell.Source
+    }
+
+    throw 'Neither pwsh nor powershell was found.'
+}
+
+function Get-DefaultDiagnosticsPath {
+    param([Parameter(Mandatory = $true)][string] $JsonPath)
+
+    $directory = [System.IO.Path]::GetDirectoryName($JsonPath)
+    $fileName = [System.IO.Path]::GetFileName($JsonPath)
+
+    if ($fileName -eq 'metro-export.json') {
+        return Join-Path $directory 'metro-export-diagnostics.txt'
+    }
+
+    if ($fileName -like 'metro-export-*.json') {
+        $diagnosticsName = $fileName -replace '^metro-export-', 'metro-export-diagnostics-'
+        $diagnosticsName = [System.IO.Path]::ChangeExtension($diagnosticsName, '.txt')
+        return Join-Path $directory $diagnosticsName
+    }
+
+    return [System.IO.Path]::ChangeExtension($JsonPath, '.diagnostics.txt')
 }
 
 function Parse-Points {
@@ -165,4 +206,4 @@ function Get-SegmentIntersection {
     }
 }
 
-Export-ModuleMember -Function Get-FullPath, Convert-ToDouble, Convert-ToSafeName, Parse-Points, Get-Distance, Get-AngleDegrees, Get-AngleDelta, Get-OctilinearDelta, Get-SegmentIntersection
+Export-ModuleMember -Function Get-FullPath, Convert-ToDouble, Convert-ToSafeName, Get-PowerShellRunner, Get-DefaultDiagnosticsPath, Parse-Points, Get-Distance, Get-AngleDegrees, Get-AngleDelta, Get-OctilinearDelta, Get-SegmentIntersection

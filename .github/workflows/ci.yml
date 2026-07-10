@@ -25,3 +25,11 @@ jobs:
       - name: Run preflight
         shell: pwsh
         run: ./scripts/preflight.ps1 -Configuration Debug
+
+      - name: Publish Viewer smoke package
+        shell: pwsh
+        run: >-
+          dotnet publish src/MetroDiagram.Viewer/MetroDiagram.Viewer.csproj
+          -c Release
+          --no-restore
+          -o artifacts/ci-viewer

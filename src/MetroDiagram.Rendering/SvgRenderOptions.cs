@@ -19,6 +19,7 @@ public enum SvgRenderSizePreset
 
 public enum SvgMapStyle
 {
+    Auto,
     Standard,
     TransitMap
 }
@@ -44,7 +45,7 @@ public sealed class SvgRenderOptions
 {
     public SvgLayoutMode LayoutMode { get; init; } = SvgLayoutMode.Geographic;
 
-    public SvgMapStyle MapStyle { get; init; } = SvgMapStyle.Standard;
+    public SvgMapStyle MapStyle { get; init; } = SvgMapStyle.Auto;
 
     public int Width { get; set; } = 1200;
 

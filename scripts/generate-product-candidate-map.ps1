@@ -3,8 +3,8 @@ param(
     [string] $InputJson = 'D:\CS2MetroDiagram\metro-export.json',
     [string] $CaseName = 'product-candidate',
     [string] $OutputRoot,
-    [ValidateSet('geographic', 'schematic-v2', 'schematic-map')]
-    [string] $Layout = 'schematic-map',
+    [ValidateSet('geographic', 'schematic-v2', 'schematic-map', 'schematic-anneal')]
+    [string] $Layout = 'schematic-anneal',
     [ValidateSet('compact', 'standard', 'poster', 'ultra')]
     [string] $Size = 'ultra',
     [ValidateSet('standard', 'transit-map')]
@@ -16,31 +16,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'MetroScriptCommon.psm1') -Force -DisableNameChecking
-
-function Convert-ToSafeName {
-    param([string] $Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return 'product-candidate'
-    }
-
-    $safe = $Value.Trim()
-    foreach ($invalid in [System.IO.Path]::GetInvalidFileNameChars()) {
-        $safe = $safe.Replace([string] $invalid, '-')
-    }
-
-    $safe = [regex]::Replace($safe, '\s+', '-')
-    $safe = [regex]::Replace($safe, '-{2,}', '-').Trim('-')
-    if ([string]::IsNullOrWhiteSpace($safe)) {
-        return 'product-candidate'
-    }
-
-    if ($safe.Length -gt 80) {
-        $safe = $safe.Substring(0, 80).Trim('-')
-    }
-
-    return $safe
-}
 
 function Read-ExportMetadata {
     param([Parameter(Mandatory = $true)][string] $JsonPath)
@@ -98,7 +73,7 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
 
 $outputRootPath = Get-FullPath $OutputRoot
 $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
-$safeCaseName = Convert-ToSafeName $CaseName
+$safeCaseName = Convert-ToSafeName $CaseName 'product-candidate'
 $outputPath = Join-Path $outputRootPath "$timestamp-$safeCaseName"
 $tempOutputPath = "$outputPath.tmp"
 

@@ -27,6 +27,8 @@ List<(string Name, Action Test)> tests =
     ("transit-map style adds official map framing", TransitMapStyleAddsOfficialMapFraming),
     ("transit-map header includes city name when available", TransitMapHeaderIncludesCityNameWhenAvailable),
     ("transit-map style keeps standard style unchanged", TransitMapStyleKeepsStandardStyleUnchanged),
+    ("schematic product layout honors explicit standard style", SchematicProductLayoutHonorsExplicitStandardStyle),
+    ("schematic product layout honors disabled service family merge", SchematicProductLayoutHonorsDisabledServiceFamilyMerge),
     ("transit-map legend explains express marker", TransitMapLegendExplainsExpressMarker),
     ("transit-map legend explains station hierarchy", TransitMapLegendExplainsStationHierarchy),
     ("transit-map route badges avoid placed labels", TransitMapRouteBadgesAvoidPlacedLabels),
@@ -323,6 +325,46 @@ static void TransitMapStyleKeepsStandardStyleUnchanged()
     Assert(legend.Attribute("data-legend-placement") is null, "Standard style unexpectedly moved the legend to the bottom key panel.");
     Assert(!xml.Descendants().Any(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "route-badges"), "Standard style unexpectedly rendered route badges.");
     AssertValidSvg(xml, "standard framed SVG");
+}
+
+static void SchematicProductLayoutHonorsExplicitStandardStyle()
+{
+    MetroExportDocument document = CreateMinimalDocument("Explicit Standard City");
+    SvgRenderOptions options = new()
+    {
+        LayoutMode = SvgLayoutMode.SchematicMap,
+        MapStyle = SvgMapStyle.Standard,
+        Width = 1200,
+        Height = 800
+    };
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+
+    Assert((string?)xml.Root?.Attribute("data-map-style") == "standard", "Schematic product layout ignored explicit standard map style.");
+    Assert(!xml.Descendants().Any(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "transit-map-header"), "Schematic product layout rendered a transit header despite explicit standard style.");
+    AssertValidSvg(xml, "schematic explicit standard SVG");
+}
+
+static void SchematicProductLayoutHonorsDisabledServiceFamilyMerge()
+{
+    MetroExportDocument document = CreateServiceFamilyDocument(
+        new ServiceLineSpec("line_10_express", "10号线（特快）", ["station_airport", "station_sports"], GeneratePathPoints(8, 0)),
+        new ServiceLineSpec("line_10_local", "10号线（站站停）", ["station_airport", "station_mid", "station_sports"], GeneratePathPoints(12, 0)));
+    SvgRenderOptions options = new()
+    {
+        LayoutMode = SvgLayoutMode.SchematicMap,
+        MapStyle = SvgMapStyle.Standard,
+        Width = 1200,
+        Height = 800,
+        EnableServiceFamilyMerge = false
+    };
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
+    IReadOnlyList<XElement> routes = GetRouteElements(xml);
+
+    Assert(routes.Count == 2, $"Disabled service-family merge should render two routes, but found {routes.Count}.");
+    Assert(routes.All(route => ReadInt(route.Attribute("data-display-family-member-count")) == 1), "Disabled service-family merge still emitted a merged display family.");
+    AssertValidSvg(xml, "schematic disabled family merge SVG");
 }
 
 static void TransitMapLegendExplainsExpressMarker()
@@ -4711,7 +4753,7 @@ static SvgRenderOptions CreateSchematicOverlapTestOptions(
     int height = 520,
     int legendWidth = 220,
     double minStationSpacing = 0,
-    SvgMapStyle mapStyle = SvgMapStyle.Standard,
+    SvgMapStyle mapStyle = SvgMapStyle.Auto,
     LayoutOverrideDocument? layoutOverrides = null)
 {
     return new SvgRenderOptions

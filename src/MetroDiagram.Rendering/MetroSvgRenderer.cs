@@ -15,7 +15,7 @@ public sealed partial class MetroSvgRenderer
     // the cached collections: overrides go onto copies, everything else reads.
     // Not thread-safe; callers must not run two Renders on one instance concurrently.
     private MetroExportDocument? _geometryCacheDocument;
-    private string? _geometryCacheKey;
+    private GeometryCacheKey? _geometryCacheKey;
     private RenderGeometry _geometryCacheValue;
     private List<string> _geometryCacheWarnings = [];
 
@@ -69,9 +69,9 @@ public sealed partial class MetroSvgRenderer
         bool hasLegend,
         List<string> warnings)
     {
-        string cacheKey = BuildGeometryCacheKey(options, hasLegend);
+        GeometryCacheKey cacheKey = BuildGeometryCacheKey(options, hasLegend);
         if (ReferenceEquals(_geometryCacheDocument, document)
-            && string.Equals(_geometryCacheKey, cacheKey, StringComparison.Ordinal))
+            && _geometryCacheKey == cacheKey)
         {
             // Replay the layout warnings (e.g. the anneal audit line) so a cache
             // hit is indistinguishable from a fresh layout run.
@@ -96,11 +96,43 @@ public sealed partial class MetroSvgRenderer
 
     // Every option that can influence CreateRenderGeometry's output, EXCEPT
     // LayoutOverrides (applied after layout, must not invalidate the cache).
-    private static string BuildGeometryCacheKey(SvgRenderOptions options, bool hasLegend)
+    private static GeometryCacheKey BuildGeometryCacheKey(SvgRenderOptions options, bool hasLegend)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{options.LayoutMode}|{options.MapStyle}|{options.Width}|{options.Height}|{options.Padding}|{options.Margin}|{options.LegendWidth}|{options.LegendGap}|{options.LineWidth}|{options.StationRadius}|{options.InterchangeStationRadius}|{options.LabelFontSize}|{options.LegendLabelFontSize}|{options.LabelGap}|{options.EnableCenterExpansion}|{options.CenterExpansionStrength}|{options.GridSize}|{options.HideGenericStationLabels}|{options.EnableVirtualTransferHints}|{options.HideCrowdedLabels}|{options.AlwaysShowInterchanges}|{options.AlwaysShowTerminals}|{options.UsePathPoints}|{options.PathPointSimplificationEnabled}|{options.PathPointSimplificationTolerance}|{options.MinPathSegmentLength}|{options.AdaptivePathPointSimplificationEnabled}|{options.EnableParallelCorridorOffset}|{options.EnableServiceFamilyMerge}|{options.EnableSharedCorridorCompositeStroke}|{options.EnableExpressCenterStripe}|{options.EnableStationRouteAnchoring}|{options.StationRouteAnchorMaxDistance}|{options.StationRouteAnchorMultiFamilyMaxSpread}|{options.SchematicMinimumStationSpacing}|{options.CompactTransitMapFrame}|{options.EnableSchematicMapOctilinearNormalization}|{options.SchematicMapOctilinearSnapAngleDegrees}|{options.EnableSchematicMapSimpleRunLinearization}|{options.SchematicMapPreferredStationSpacing}|{options.EnableSchematicMapLocalClearance}|{options.SchematicMapLocalClearanceDistance}|{options.EnableSchematicMapSyntheticBends}|{options.SchematicMapSyntheticBendMinimumLength}|{hasLegend}");
+        return new GeometryCacheKey(
+            options.LayoutMode,
+            options.MapStyle,
+            options.Width,
+            options.Height,
+            options.Padding,
+            options.Margin,
+            options.LegendWidth,
+            options.LegendGap,
+            options.LineWidth,
+            options.StationRadius,
+            options.InterchangeStationRadius,
+            options.LabelFontSize,
+            options.LegendLabelFontSize,
+            options.LabelGap,
+            options.EnableCenterExpansion,
+            options.CenterExpansionStrength,
+            options.GridSize,
+            options.UsePathPoints,
+            options.PathPointSimplificationEnabled,
+            options.PathPointSimplificationTolerance,
+            options.MinPathSegmentLength,
+            options.AdaptivePathPointSimplificationEnabled,
+            options.EnableServiceFamilyMerge,
+            options.SchematicMinimumStationSpacing,
+            options.CompactTransitMapFrame,
+            options.EnableSchematicMapOctilinearNormalization,
+            options.SchematicMapOctilinearSnapAngleDegrees,
+            options.EnableSchematicMapSimpleRunLinearization,
+            options.SchematicMapPreferredStationSpacing,
+            options.EnableSchematicMapLocalClearance,
+            options.SchematicMapLocalClearanceDistance,
+            options.EnableSchematicMapSyntheticBends,
+            options.SchematicMapSyntheticBendMinimumLength,
+            hasLegend);
     }
 
     private static RenderGeometry CreateRenderGeometry(
@@ -406,7 +438,7 @@ public sealed partial class MetroSvgRenderer
         return new SvgRenderOptions
         {
             LayoutMode = options.LayoutMode,
-            MapStyle = SvgMapStyle.TransitMap,
+            MapStyle = options.MapStyle == SvgMapStyle.Auto ? SvgMapStyle.TransitMap : options.MapStyle,
             Width = options.Width,
             Height = options.Height,
             Padding = options.Padding,
@@ -433,7 +465,7 @@ public sealed partial class MetroSvgRenderer
             MinPathSegmentLength = options.MinPathSegmentLength,
             AdaptivePathPointSimplificationEnabled = options.AdaptivePathPointSimplificationEnabled,
             EnableParallelCorridorOffset = options.EnableParallelCorridorOffset,
-            EnableServiceFamilyMerge = true,
+            EnableServiceFamilyMerge = options.EnableServiceFamilyMerge,
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = true,
             LayoutOverrides = options.LayoutOverrides,

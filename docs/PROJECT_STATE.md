@@ -2,18 +2,23 @@
 
 ## Current Version
 
-`v0.1.0-alpha.3`
+Repository and companion Viewer: `v0.1.0-alpha.7`
+
+Current Paradox Mods code-mod release: `v0.1.0-alpha.7` (ModId `146643`, Public)
+
+Alpha.7 aligns the GitHub/Viewer and Paradox Mods release lines again.
 
 This is alpha software. It is not a stable release.
 
 ## Current Status
 
-The project is in multi-city alpha validation and schematic-map refinement.
+The project is in multi-city alpha validation, `schematic-anneal` hardening,
+and Viewer workflow refinement.
 
-`v0.1.0-alpha.3` has been published as:
+Current publication state:
 
-- GitHub release: pending
-- Paradox Mods version: `0.1.0-alpha.3`
+- Repository/Viewer release line: `v0.1.0-alpha.7`
+- Paradox Mods version: `0.1.0-alpha.7`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
@@ -80,6 +85,24 @@ Phase 6A.1 adds a schematic-map regression gate so future renderer changes are
 checked across real exports and synthetic regression samples before visual
 acceptance.
 
+The regression/product workflow now uses `schematic-anneal` as its candidate
+layout by default. Alpha validation bundles still include `geographic`,
+`schematic-map`, and `schematic-v2` comparison outputs so regressions remain
+visible rather than silently replacing the evidence set.
+
+Current post-alpha.6 engineering changes:
+
+- the in-game options page has an `Auto / English / Simplified Chinese`
+  language selector that affects this mod only;
+- render option intent is preserved (`MapStyle=Standard` and disabled service
+  family merge are no longer overwritten by product-layout defaults);
+- the render geometry cache keys only geometry-affecting options, improving
+  reuse during label and presentation changes;
+- real export files are staged and committed per file, with the latest JSON
+  published last so the Viewer does not observe a partially written document;
+- shared PowerShell naming/runtime/diagnostics helpers were consolidated and CI
+  now includes a Release Viewer publish smoke step.
+
 Historical alpha.2 candidate release package:
 
 ```text
@@ -89,7 +112,7 @@ artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
 
 The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
 docs, samples, and regression samples. It is retained as historical release
-evidence; the current Paradox Mods public version is `0.1.0-alpha.3`.
+evidence; the current Paradox Mods public version is `0.1.0-alpha.7`.
 
 Latest real-export regression gate:
 
@@ -120,6 +143,8 @@ artifacts\schematic-regression\20260619-215440
 - The mod settings page has an `Export Folder` group with an editable path and
   presets for `Documents\CS2MetroDiagram`, `Desktop\CS2MetroDiagram`, and
   `D:\CS2MetroDiagram`.
+- The mod settings page can follow the game language or be fixed to English /
+  Simplified Chinese without changing the global game locale.
 - Real export writes latest files:
   - `<export folder>\metro-export.json`
   - `<export folder>\metro-export-diagnostics.txt`

@@ -1,6 +1,6 @@
 # CS2 Metro Diagram Viewer Quick Start
 
-Version: `v0.1.0-alpha.6`
+Version: `v0.1.0-alpha.7`
 
 This is an alpha build, not a stable release.
 

@@ -21,12 +21,12 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Alpha Validation
 
-- `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, geographic/schematic outputs, `schematic-map` product candidate output, optional screenshots, `manifest.json`, notes, and feedback template. Use `-SkipPng` for a fast SVG/diagnostics-only bundle.
+- `generate-alpha-validation-bundle.ps1` - creates a per-city alpha validation bundle with export JSON, diagnostics, the default `schematic-anneal` candidate, geographic/schematic comparison outputs, optional screenshots, `manifest.json`, notes, and feedback template. Use `-SkipPng` for a fast SVG/diagnostics-only bundle.
 - `generate-alpha-validation-set.ps1` - batch wrapper for multi-city alpha validation. It can scan recent timestamped exports, include the latest export, generate one bundle per input, and refresh the alpha validation index. Use `-SkipPng` for daily triage; omit it for full screenshot bundles.
 - `summarize-alpha-validation-bundles.ps1` - scans generated alpha validation bundles and writes `artifacts\alpha-validation\index.md` plus `index.csv` so multi-city review status is visible in one place.
-- `generate-schematic-regression-gate.ps1` - runs the current schematic-map regression gate across latest exports and regression samples, writing per-case geographic/schematic-map outputs, audit files, screenshots unless `-SkipPng` is used, and a `regression-summary.csv`.
+- `generate-schematic-regression-gate.ps1` - runs the current schematic regression gate across latest exports and regression samples. It validates `schematic-anneal` by default; pass `-CandidateLayout schematic-map` for the retained comparison layout. It writes per-case geographic/candidate outputs, audit files, screenshots unless `-SkipPng` is used, and a `regression-summary.csv`.
 - `generate-primary-city-baseline.ps1` - refreshes the primary city regression baseline.
-- `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, usually `schematic-map + ultra`, for human review of the current best map output.
+- `generate-product-candidate-map.ps1` - creates a focused product-candidate SVG/PNG, defaulting to `schematic-anneal + ultra`, for human review of the current best map output.
 - `compare-product-candidates.ps1` - creates an HTML/Markdown/CSV side-by-side comparison of recent product candidate PNGs plus schematic-map score/audit metrics.
 - `compare-schematic-layouts.ps1` - renders the sample corpus (plus optional real exports via `-ExtraInputJson`) in `schematic-map` and `schematic-anneal`, collects the shared CLI layout scores, and writes corpus median/worst comparison tables to `artifacts\layout-comparison\<timestamp>`. This is the acceptance evidence for layout changes.
 
