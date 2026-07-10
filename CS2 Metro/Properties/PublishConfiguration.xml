@@ -38,7 +38,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.1" />
+	<ModVersion Value="0.1.0-beta.2" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -47,13 +47,10 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.1:
-- Added PNG and PDF output alongside SVG in the companion Viewer and CLI.
-- Promoted schematic-anneal to the default product layout after multi-city regression testing.
-- Kept fast live preview plus manual station, label, bend, and segment adjustments.
-- Added Auto / English / Simplified Chinese switching for this mod's in-game options page.
-- Kept safer latest exports and timestamped snapshots without changing the JSON schema.
-- Geographic mode remains available as the faithful real-geometry fallback.
+Beta.2 hotfix:
+- Fixed a startup race that could leave the options page showing raw localization keys.
+- Register localization before exposing the options page and only for locales supported by the current game build.
+- Made partial initialization and mod disposal null-safe during playset or subscription refreshes.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

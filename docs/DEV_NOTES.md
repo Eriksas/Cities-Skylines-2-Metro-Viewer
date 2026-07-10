@@ -5,6 +5,18 @@ Living operational notes only. History:
 - Journal 2026-06-19 .. 2026-07-07: `docs/archive/2026-07-10-dev-notes-journal/DEV_NOTES-journal-2026-06-19-to-2026-07-07.md`
 - Everything before the 2026-06-18 cleanup: `docs/archive/2026-06-18-doc-consolidation/DEV_NOTES.full.md`
 
+## Beta.2 Mod Loading Hotfix - 2026-07-10
+
+- CS2 `1.6.0f1` logs showed `OnLoad` immediately followed by `OnDispose`, raw
+  options locale keys, and a secondary null reference at `Mod.cs:88`.
+- The localization code introduced in Alpha.7 registered Options UI before its
+  language sources, forced locale aliases in addition to the game's supported
+  list, and dereferenced `localizationManager` during partial disposal.
+- Beta.2 registers only reported supported locales, installs sources before the
+  UI, rolls back partial initialization, and makes source/UI cleanup null-safe.
+- A subscription or playset refresh can now interrupt initialization without
+  leaving a broken options page or hiding the original exception.
+
 ## Beta.1 Packaging - 2026-07-10
 
 - Version sources are unified at `v0.1.0-beta.1`; Windows file version is

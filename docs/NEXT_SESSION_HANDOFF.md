@@ -20,11 +20,12 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.1`
+Repository and Viewer: `v0.1.0-beta.2`
 
-Paradox Mods code mod: `v0.1.0-beta.1` (Public, ModId `146643`)
+Paradox Mods code mod target: `v0.1.0-beta.2` (Public, ModId `146643`)
 
-Beta.1 aligns the repository/Viewer and Paradox Mods release lines.
+Beta.2 is an emergency mod lifecycle/localization hotfix after Beta.1 could
+leave a half-loaded options page during a subscription/playset refresh.
 
 ## Current Direction
 

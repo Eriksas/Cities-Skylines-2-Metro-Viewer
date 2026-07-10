@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.0-beta.2 - 2026-07-10
+
+Emergency CS2 mod loading and localization hotfix.
+
+### Fixed
+
+- Register localization sources before exposing the options page, preventing a
+  playset or subscription refresh from leaving a half-loaded page full of raw
+  locale keys.
+- Register sources only for locale IDs reported by the running CS2 build rather
+  than forcing aliases that may not exist.
+- Make initialization rollback and `OnDispose` null-safe when the localization
+  manager is unavailable during an interrupted mod reload.
+- Log the original initialization exception before cleanup so future startup
+  failures are diagnosable instead of being hidden by a disposal exception.
+
 ## v0.1.0-beta.1 - 2026-07-10
 
 First beta. The core pipeline — in-game export, automatic octilinear layout,

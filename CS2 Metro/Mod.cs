@@ -18,6 +18,7 @@ namespace CS2_Metro
 
         private Setting m_Setting;
         private readonly List<LocaleRegistration> m_LocaleRegistrations = new List<LocaleRegistration>();
+        private bool m_OptionsRegistered;
         private static bool s_LocalizationReady;
 
         public void OnLoad(UpdateSystem updateSystem)
@@ -30,18 +31,31 @@ namespace CS2_Metro
                 log.Info($"Current mod asset at {asset.path}");
             }
 
-            m_Setting = new Setting(this);
-            Settings = m_Setting;
-            AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
-            m_Setting.RegisterInOptionsUI();
-            RegisterLocalizationSources();
+            try
+            {
+                m_Setting = new Setting(this);
+                Settings = m_Setting;
+                AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
 
-            log.Info($"Real metro JSON export directory: {RealMetroJsonExporter.GetDefaultExportDirectory()}");
+                // Localization must exist before the options page is exposed. Otherwise a
+                // playset refresh can leave a half-loaded page showing raw locale keys.
+                RegisterLocalizationSources();
+                m_Setting.RegisterInOptionsUI();
+                m_OptionsRegistered = true;
+
+                log.Info($"Real metro JSON export directory: {RealMetroJsonExporter.GetDefaultExportDirectory()}");
+            }
+            catch (Exception ex)
+            {
+                log.Error($"CS2 Metro Diagram failed to initialize: {ex}");
+                CleanupRegistrations();
+                throw;
+            }
         }
 
         internal static void NotifyInterfaceLanguageChanged()
         {
-            if (!s_LocalizationReady || GameManager.instance == null)
+            if (!s_LocalizationReady || GameManager.instance?.localizationManager == null)
             {
                 return;
             }
@@ -59,46 +73,105 @@ namespace CS2_Metro
 
         private void RegisterLocalizationSources()
         {
-            var localizationManager = GameManager.instance.localizationManager;
-            var localeIds = new HashSet<string>(localizationManager.GetSupportedLocales(), StringComparer.OrdinalIgnoreCase)
+            var localizationManager = GameManager.instance?.localizationManager;
+            if (localizationManager == null)
             {
-                "en-US",
-                "zh-HANS",
-                "zh-CN"
-            };
+                throw new InvalidOperationException("The CS2 localization manager is not available yet.");
+            }
+
+            var localeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            IEnumerable<string> supportedLocales = localizationManager.GetSupportedLocales();
+            if (supportedLocales != null)
+            {
+                foreach (string localeId in supportedLocales)
+                {
+                    if (!string.IsNullOrWhiteSpace(localeId))
+                    {
+                        localeIds.Add(localeId);
+                    }
+                }
+            }
+
+            if (localeIds.Count == 0)
+            {
+                throw new InvalidOperationException("CS2 reported no supported localization locales.");
+            }
 
             foreach (string localeId in localeIds)
             {
-                var source = new ModLocaleSource(m_Setting, localeId);
-                localizationManager.AddSource(localeId, source);
-                m_LocaleRegistrations.Add(new LocaleRegistration(localeId, source));
+                try
+                {
+                    var source = new ModLocaleSource(m_Setting, localeId);
+                    localizationManager.AddSource(localeId, source);
+                    m_LocaleRegistrations.Add(new LocaleRegistration(localeId, source));
+                }
+                catch (Exception ex)
+                {
+                    log.Warn($"Could not register CS2 Metro Diagram localization for '{localeId}': {ex.Message}");
+                }
+            }
+
+            if (m_LocaleRegistrations.Count == 0)
+            {
+                throw new InvalidOperationException("No CS2 Metro Diagram localization source could be registered.");
             }
 
             s_LocalizationReady = true;
-            localizationManager.ReloadActiveLocale();
+            try
+            {
+                localizationManager.ReloadActiveLocale();
+            }
+            catch (Exception ex)
+            {
+                log.Warn($"Could not reload the active locale after registering CS2 Metro Diagram: {ex.Message}");
+            }
+
+            log.Info($"Registered CS2 Metro Diagram localization for {m_LocaleRegistrations.Count} supported locale(s).");
         }
 
         public void OnDispose()
         {
             log.Info(nameof(OnDispose));
 
+            CleanupRegistrations();
+        }
+
+        private void CleanupRegistrations()
+        {
             s_LocalizationReady = false;
-            if (GameManager.instance != null)
+
+            var localizationManager = GameManager.instance?.localizationManager;
+            if (localizationManager != null)
             {
                 foreach (LocaleRegistration registration in m_LocaleRegistrations)
                 {
-                    GameManager.instance.localizationManager.RemoveSource(registration.LocaleId, registration.Source);
+                    try
+                    {
+                        localizationManager.RemoveSource(registration.LocaleId, registration.Source);
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Warn($"Could not remove CS2 Metro Diagram localization for '{registration.LocaleId}': {ex.Message}");
+                    }
                 }
             }
 
             m_LocaleRegistrations.Clear();
 
-            if (m_Setting != null)
+            if (m_OptionsRegistered && m_Setting != null)
             {
-                m_Setting.UnregisterInOptionsUI();
-                m_Setting = null;
+                try
+                {
+                    m_Setting.UnregisterInOptionsUI();
+                }
+                catch (Exception ex)
+                {
+                    log.Warn($"Could not unregister CS2 Metro Diagram options: {ex.Message}");
+                }
             }
 
+            m_OptionsRegistered = false;
+            m_Setting = null;
             Settings = null;
             UpdateSystem = null;
         }
