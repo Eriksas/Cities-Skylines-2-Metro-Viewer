@@ -2,9 +2,9 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.2`
+Repository and companion Viewer: `v0.1.0-beta.3`
 
-Current Paradox Mods code-mod release: `v0.1.0-beta.2` (ModId `146643`, Public).
+Current Paradox Mods code-mod release: `v0.1.0-beta.3` (ModId `146643`, Public).
 
 The repository, companion Viewer, and Paradox Mods listing are aligned on the
 first beta line.
@@ -18,8 +18,8 @@ and Viewer workflow refinement.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.2`
-- Paradox Mods published version: `0.1.0-beta.2`
+- Repository/Viewer release line: `v0.1.0-beta.3`
+- Paradox Mods published version: `0.1.0-beta.3`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 

@@ -20,9 +20,9 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.2`
+Repository and Viewer: `v0.1.0-beta.3`
 
-Paradox Mods code mod: `v0.1.0-beta.2` (published, Public, ModId `146643`)
+Paradox Mods code mod: `v0.1.0-beta.3` (published, Public, ModId `146643`)
 
 Beta.2 is an emergency mod lifecycle/localization hotfix after Beta.1 could
 leave a half-loaded options page during a subscription/playset refresh.

@@ -38,7 +38,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.2" />
+	<ModVersion Value="0.1.0-beta.3" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -47,10 +47,9 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.2 hotfix:
-- Fixed a startup race that could leave the options page showing raw localization keys.
-- Register localization before exposing the options page and only for locales supported by the current game build.
-- Made partial initialization and mod disposal null-safe during playset or subscription refreshes.
+Beta.3 hotfix:
+- Fixed the mod failing to load in beta.2 (options page and exporter were unavailable). If you saw the mod missing from Options, this update restores it.
+- Localization problems can no longer block the exporter; worst case the options page falls back to English labels.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

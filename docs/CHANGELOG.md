@@ -1,20 +1,26 @@
 # Changelog
 
-## v0.1.0-beta.2 - 2026-07-10
+## v0.1.0-beta.3 - 2026-07-10
 
-Emergency CS2 mod loading and localization hotfix.
+Emergency mod-loading hotfix. beta.2 failed to initialize in-game, which took
+the exporter down entirely.
 
 ### Fixed
 
-- Register localization sources before exposing the options page, preventing a
-  playset or subscription refresh from leaving a half-loaded page full of raw
-  locale keys.
-- Register sources only for locale IDs reported by the running CS2 build rather
-  than forcing aliases that may not exist.
-- Make initialization rollback and `OnDispose` null-safe when the localization
-  manager is unavailable during an interrupted mod reload.
-- Log the original initialization exception before cleanup so future startup
-  failures are diagnosable instead of being hidden by a disposal exception.
+- **The mod loads again.** beta.2 registered localization sources before the
+  options page. CS2's `AddSource` eagerly reads the setting's locale IDs
+  through the registered options machinery, so every locale registration threw
+  and mod initialization aborted before the exporter existed. The official
+  template order (options page first, locale sources second) is restored.
+- **Localization can no longer break the exporter.** If locale registration
+  fails for any reason, the mod now logs a warning and continues with raw
+  English labels instead of aborting initialization.
+
+## v0.1.0-beta.2 - 2026-07-10 (superseded)
+
+Attempted localization hotfix; the reordering it introduced prevented the mod
+from initializing in-game. Replaced by v0.1.0-beta.3 within the hour. Its
+null-safe cleanup and locale-ID handling improvements are retained.
 
 ## v0.1.0-beta.1 - 2026-07-10
 

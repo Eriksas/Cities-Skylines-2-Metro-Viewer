@@ -16,7 +16,7 @@ Living operational notes only. History:
   UI, rolls back partial initialization, and makes source/UI cleanup null-safe.
 - A subscription or playset refresh can now interrupt initialization without
   leaving a broken options page or hiding the original exception.
-- Paradox Mods `0.1.0-beta.2` was published successfully to public ModId
+- Paradox Mods `0.1.0-beta.3` was published successfully to public ModId
   `146643`; `ModPublisher.exe` ended with `New mod version published`.
 - Offline solution build, renderer tests, Viewer self-contained publish, CS2
   Release build, and mod post-process all passed. In-game subscription-update

@@ -37,11 +37,24 @@ namespace CS2_Metro
                 Settings = m_Setting;
                 AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
 
-                // Localization must exist before the options page is exposed. Otherwise a
-                // playset refresh can leave a half-loaded page showing raw locale keys.
-                RegisterLocalizationSources();
+                // Keep the official mod-template order: the options page must be
+                // registered BEFORE locale sources are added. AddSource eagerly
+                // reads the setting's locale IDs through the registered options
+                // machinery; in the reverse order every AddSource throws and the
+                // failure used to take the exporter down with it (beta.2 bug).
                 m_Setting.RegisterInOptionsUI();
                 m_OptionsRegistered = true;
+
+                try
+                {
+                    RegisterLocalizationSources();
+                }
+                catch (Exception ex)
+                {
+                    // Localized option labels are cosmetic. Never let them block
+                    // the exporter; the page falls back to raw English keys.
+                    log.Warn($"CS2 Metro Diagram localization unavailable, continuing without it: {ex.Message}");
+                }
 
                 log.Info($"Real metro JSON export directory: {RealMetroJsonExporter.GetDefaultExportDirectory()}");
             }
