@@ -19,11 +19,10 @@ Living operational notes only. History:
   and output-format copy were updated from Alpha.7 to Beta.1.
 - Paradox Mods `0.1.0-beta.1` was published successfully to public ModId
   `146643` after the generated Viewer and mod passed smoke testing.
-- Routine mod delivery now uses the subscribed Paradox Mods listing. Do not run
-  `scripts\deploy-local-mod.ps1` or copy builds into the game directory during
-  normal release work; publish the new PDX version and let the subscription
-  update it. Keep the local deploy script only as an explicit emergency/dev
-  fallback.
+- Routine mod delivery now uses the subscribed Paradox Mods listing. Do not
+  copy builds into the game directory during normal release work; publish the
+  new PDX version and let the subscription update it. The former local deploy
+  script has been removed from the active workflow.
 - `ModPublisher.exe` may emit a cross-volume `IOERR_101` warning while preparing
   its local content. For Beta.1 it continued through upload and ended with
   `New mod version published`; treat the final publisher status as authoritative.
