@@ -8,7 +8,15 @@ using MetroDiagram.Core.Models;
 using MetroDiagram.Core.Validation;
 using MetroDiagram.Rendering;
 
-SampleExpectation[] samples =
+return TestSuite.RunAll();
+
+// Wraps the former top-level test program so both entry points share one test
+// catalog: RunAll() keeps the classic `dotnet run` runner used by scripts and
+// CI, and XunitAdapter exposes the same catalog to `dotnet test`. Members keep
+// their original zero indentation to preserve history.
+internal static class TestSuite
+{
+private static readonly SampleExpectation[] samples =
 [
     new("sample-metro-small.json", "Example Metroville", ["Central", "North Pier"], 1, false),
     new("sample-metro-interchange.json", "Interchange City", ["Crossroads", "Blue Line", "Green Line"], 2, true),
@@ -19,7 +27,7 @@ SampleExpectation[] samples =
     new("sample-metro-pathpoints.json", "Path Geometry City", ["West", "Central Bend", "Path Line"], 1, false)
 ];
 
-List<(string Name, Action Test)> tests =
+public static readonly List<(string Name, Action Test)> tests =
 [
     ("all sample JSON files load and render valid SVG", () => AllSamplesLoadAndRender(samples)),
     ("legend sorts numeric line names naturally", LegendSortsNumericLineNamesNaturally),
@@ -152,22 +160,25 @@ List<(string Name, Action Test)> tests =
     ("geometry cache keeps repeat and override renders identical", GeometryCacheKeepsRepeatAndOverrideRendersIdentical)
 ];
 
-int failed = 0;
-foreach ((string name, Action test) in tests)
+public static int RunAll()
 {
-    try
+    int failed = 0;
+    foreach ((string name, Action test) in tests)
     {
-        test();
-        Console.WriteLine($"PASS {name}");
+        try
+        {
+            test();
+            Console.WriteLine($"PASS {name}");
+        }
+        catch (Exception ex)
+        {
+            failed++;
+            Console.Error.WriteLine($"FAIL {name}: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        failed++;
-        Console.Error.WriteLine($"FAIL {name}: {ex.Message}");
-    }
-}
 
-return failed == 0 ? 0 : 1;
+    return failed == 0 ? 0 : 1;
+}
 
 static void AllSamplesLoadAndRender(IEnumerable<SampleExpectation> samples)
 {
@@ -5169,6 +5180,7 @@ static void Assert(bool condition, string message)
     {
         throw new InvalidOperationException(message);
     }
+}
 }
 
 readonly record struct TestRect(string Name, double X, double Y, double Width, double Height)
