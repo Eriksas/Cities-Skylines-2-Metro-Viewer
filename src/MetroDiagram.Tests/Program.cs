@@ -157,7 +157,9 @@ public static readonly List<(string Name, Action Test)> tests =
     ("missing fields use documented fallbacks", MissingFieldsUseFallbacks),
     ("missing station references report a clear validation issue", MissingStationReferencesReportClearly),
     ("empty networks and empty lines do not crash", EmptyNetworksAndEmptyLinesDoNotCrash),
-    ("geometry cache keeps repeat and override renders identical", GeometryCacheKeepsRepeatAndOverrideRendersIdentical)
+    ("geometry cache keeps repeat and override renders identical", GeometryCacheKeepsRepeatAndOverrideRendersIdentical),
+    ("PNG export writes a decodable image at SVG size", PngExportWritesDecodableImageAtSvgSize),
+    ("PDF export writes a vector document", PdfExportWritesVectorDocument)
 ];
 
 public static int RunAll()
@@ -4818,6 +4820,50 @@ static void GeometryCacheKeepsRepeatAndOverrideRendersIdentical()
     SvgRenderResult freshOverride = new MetroSvgRenderer().Render(document, MakeOptions(overrides));
     Assert(string.Equals(cachedOverride.Svg, freshOverride.Svg, StringComparison.Ordinal), "geometry cache: cached-override render differs from a fresh render.");
     Assert(!string.Equals(cachedOverride.Svg, first.Svg, StringComparison.Ordinal), "geometry cache: station override had no visible effect.");
+}
+
+static void PngExportWritesDecodableImageAtSvgSize()
+{
+    RenderedSample rendered = LoadAndRenderSample("sample-metro-branch.json");
+    System.Text.RegularExpressions.Match sizeMatch = System.Text.RegularExpressions.Regex.Match(
+        rendered.Svg, "<svg\\b[^>]*\\bwidth=\"(\\d+)\"[^>]*\\bheight=\"(\\d+)\"");
+    Assert(sizeMatch.Success, "PNG export test could not read the SVG pixel size.");
+    int expectedWidth = int.Parse(sizeMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+    int expectedHeight = int.Parse(sizeMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+
+    string path = Path.Combine(Path.GetTempPath(), $"metro-png-test-{Guid.NewGuid():N}.png");
+    try
+    {
+        MetroDiagram.Export.SvgDocumentExporter.ExportPng(rendered.Svg, path);
+        byte[] bytes = File.ReadAllBytes(path);
+        Assert(bytes.Length > 4096, "PNG export produced a suspiciously small file.");
+        Assert(bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47, "PNG export did not write a PNG header.");
+        using SkiaSharp.SKBitmap? bitmap = SkiaSharp.SKBitmap.Decode(path);
+        Assert(bitmap is not null, "The exported PNG could not be decoded.");
+        Assert(bitmap!.Width == expectedWidth && bitmap.Height == expectedHeight,
+            $"Exported PNG is {bitmap.Width}x{bitmap.Height}, expected {expectedWidth}x{expectedHeight}.");
+    }
+    finally
+    {
+        File.Delete(path);
+    }
+}
+
+static void PdfExportWritesVectorDocument()
+{
+    RenderedSample rendered = LoadAndRenderSample("sample-metro-branch.json");
+    string path = Path.Combine(Path.GetTempPath(), $"metro-pdf-test-{Guid.NewGuid():N}.pdf");
+    try
+    {
+        MetroDiagram.Export.SvgDocumentExporter.ExportPdf(rendered.Svg, path);
+        byte[] bytes = File.ReadAllBytes(path);
+        Assert(bytes.Length > 8192, "PDF export produced a suspiciously small file.");
+        Assert(bytes[0] == (byte)'%' && bytes[1] == (byte)'P' && bytes[2] == (byte)'D' && bytes[3] == (byte)'F', "PDF export did not write a PDF header.");
+    }
+    finally
+    {
+        File.Delete(path);
+    }
 }
 
 static RenderedSample LoadAndRenderSample(string fileName)

@@ -2,11 +2,12 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using MetroDiagram.Core.Loading;
+using MetroDiagram.Export;
 using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg|.png|.pdf> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -72,8 +73,22 @@ if (!string.IsNullOrWhiteSpace(outputDirectory))
     Directory.CreateDirectory(outputDirectory);
 }
 
-File.WriteAllText(outputPath, renderResult.Svg, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-Console.WriteLine($"SVG written to {outputPath}");
+string outputExtension = Path.GetExtension(outputPath).ToLowerInvariant();
+switch (outputExtension)
+{
+    case ".png":
+        SvgDocumentExporter.ExportPng(renderResult.Svg, outputPath);
+        Console.WriteLine($"PNG written to {outputPath}");
+        break;
+    case ".pdf":
+        SvgDocumentExporter.ExportPdf(renderResult.Svg, outputPath);
+        Console.WriteLine($"PDF written to {outputPath}");
+        break;
+    default:
+        File.WriteAllText(outputPath, renderResult.Svg, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        Console.WriteLine($"SVG written to {outputPath}");
+        break;
+}
 
 if (layoutScorePath is not null)
 {

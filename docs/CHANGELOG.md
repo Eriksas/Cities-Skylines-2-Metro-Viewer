@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **PNG and PDF export.** The Viewer's save dialog now offers SVG, PNG, and PDF;
+  the CLI picks the format from the output file extension (`map.png`,
+  `map.pdf`). PNG rasterizes at the SVG's pixel size; PDF is a real vector
+  document with embedded, subsetted fonts (Chinese labels included).
+
 ## v0.1.0-alpha.7 - 2026-07-10
 
 ### Mod usability and export reliability

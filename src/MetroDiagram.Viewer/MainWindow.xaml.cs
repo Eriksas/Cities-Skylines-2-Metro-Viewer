@@ -337,12 +337,19 @@ public partial class MainWindow : Window
         RenderPreview();
     }
 
-    private void SaveSvg_Click(object sender, RoutedEventArgs e)
+    private async void SaveSvg_Click(object sender, RoutedEventArgs e)
     {
         if (_previewRenderIsDirty && _document is not null)
         {
             _manualEditPreviewRefreshTimer.Stop();
             RenderPreview();
+        }
+
+        // Renders run on a background thread; wait for the latest result so the
+        // export never captures a stale map.
+        while (_renderInFlight || (_previewRenderIsDirty && _document is not null))
+        {
+            await Task.Delay(50);
         }
 
         if (string.IsNullOrWhiteSpace(_currentSvg))
@@ -353,7 +360,7 @@ public partial class MainWindow : Window
 
         SaveFileDialog dialog = new()
         {
-            Filter = "SVG files (*.svg)|*.svg|All files (*.*)|*.*",
+            Filter = "SVG (*.svg)|*.svg|PNG (*.png)|*.png|PDF (*.pdf)|*.pdf",
             Title = T("SaveSvgTitle"),
             FileName = BuildDefaultSvgFileName()
         };
@@ -369,13 +376,31 @@ public partial class MainWindow : Window
             return;
         }
 
+        string svg = _currentSvg!;
+        string path = dialog.FileName;
+        string extension = Path.GetExtension(path).ToLowerInvariant();
         try
         {
-            File.WriteAllText(dialog.FileName, _currentSvg, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            SetStatus(string.Format(CultureInfo.CurrentCulture, T("SvgSaved"), dialog.FileName));
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("Exporting"), path));
+            await Task.Run(() =>
+            {
+                switch (extension)
+                {
+                    case ".png":
+                        MetroDiagram.Export.SvgDocumentExporter.ExportPng(svg, path);
+                        break;
+                    case ".pdf":
+                        MetroDiagram.Export.SvgDocumentExporter.ExportPdf(svg, path);
+                        break;
+                    default:
+                        File.WriteAllText(path, svg, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                        break;
+                }
+            });
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("SvgSaved"), path));
             ClearError();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             SetError(string.Format(CultureInfo.CurrentCulture, T("SaveFailed"), ex.Message));
         }

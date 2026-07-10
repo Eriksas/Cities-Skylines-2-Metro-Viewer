@@ -24,7 +24,7 @@ The project has three parts:
 2. Open **Options › CS2 Metro Diagram › Main**. The mod page can follow the game language or be fixed to English / Simplified Chinese. Optionally set an export folder (defaults to `Documents\CS2MetroDiagram`).
 3. Click **Export Real Metro JSON**. This writes `metro-export.json` (plus diagnostics and timestamped snapshots) to the export folder.
 4. Open **MetroDiagram.Viewer.exe** and click **Open Default Export** (or **Open JSON**).
-5. The map renders in `schematic-anneal`. Switch layout/size if you like, then **Save SVG**.
+5. The map renders in `schematic-anneal`. Switch layout/size if you like, then **Save Map** as SVG, PNG, or PDF.
 
 If the Viewer does not start on a clean PC, install the [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 
@@ -50,7 +50,7 @@ Restores the offline solution, builds it, and runs the tests (also run by CI). T
 ## Known limitations
 
 - Metro/subway only; export from a loaded city (no offline save parsing).
-- No in-game preview, and no PNG/PDF export yet.
+- No in-game preview yet.
 - Multi-city validation of `schematic-anneal` is ongoing.
 
 More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON schema](docs/JSON_SCHEMA.md) · [changelog](docs/CHANGELOG.md) · [known issues](docs/KNOWN_ISSUES.md) · [license](LICENSE.txt)
@@ -83,7 +83,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 2. 打开 **选项 › CS2 Metro Diagram › Main**。模组设置页可跟随游戏语言，也可固定为 English / 简体中文；并可设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
 3. 点击 **Export Real Metro JSON**，会把 `metro-export.json`（及诊断文件、带时间戳的快照）写入导出文件夹。
 4. 打开 **MetroDiagram.Viewer.exe**，点 **Open Default Export**（或 **Open JSON**）。
-5. 线路图以 `schematic-anneal` 渲染。可切换布局/尺寸，然后 **Save SVG** 保存。
+5. 线路图以 `schematic-anneal` 渲染。可切换布局/尺寸，然后 **保存地图** 为 SVG、PNG 或 PDF。
 
 若在干净的电脑上查看器无法启动，请安装 [Microsoft Edge WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
@@ -109,7 +109,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1
 ## 已知限制
 
 - 仅支持地铁/subway；需在已载入的城市中导出（不解析离线存档）。
-- 暂无游戏内预览，暂不支持 PNG/PDF 导出。
+- 暂无游戏内预览。
 - `schematic-anneal` 的多城市验证仍在进行中。
 
 更多：[docs/](docs/README.md) · [项目状态](docs/PROJECT_STATE.md) · [JSON 格式](docs/JSON_SCHEMA.md) · [更新日志](docs/CHANGELOG.md) · [已知问题](docs/KNOWN_ISSUES.md) · [许可证](LICENSE.txt)
