@@ -17,13 +17,16 @@ Living operational notes only. History:
   messages. Its Beta.1 output does not overwrite Alpha.7 artifacts.
 - The Paradox Mods thumbnail source remains editable in Figma; its release badge
   and output-format copy were updated from Alpha.7 to Beta.1.
-- This packaging pass does not publish to GitHub or Paradox Mods. Publish only
-  after the generated Viewer and mod are manually smoke-tested.
+- Paradox Mods `0.1.0-beta.1` was published successfully to public ModId
+  `146643` after the generated Viewer and mod passed smoke testing.
 - Routine mod delivery now uses the subscribed Paradox Mods listing. Do not run
   `scripts\deploy-local-mod.ps1` or copy builds into the game directory during
   normal release work; publish the new PDX version and let the subscription
   update it. Keep the local deploy script only as an explicit emergency/dev
   fallback.
+- `ModPublisher.exe` may emit a cross-volume `IOERR_101` warning while preparing
+  its local content. For Beta.1 it continued through upload and ended with
+  `New mod version published`; treat the final publisher status as authoritative.
 
 ## Alpha.7 Release - 2026-07-10
 

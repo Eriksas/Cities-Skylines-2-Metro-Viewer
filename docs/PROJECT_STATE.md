@@ -4,10 +4,10 @@
 
 Repository and companion Viewer: `v0.1.0-beta.1`
 
-Current Paradox Mods code-mod release: `v0.1.0-alpha.7` (ModId `146643`, Public); the repo is prepared to republish the unchanged mod as `0.1.0-beta.1`.
+Current Paradox Mods code-mod release: `v0.1.0-beta.1` (ModId `146643`, Public).
 
-The repository is now on the first beta line. Paradox Mods remains on Alpha.7
-until the Beta.1 mod update is manually published and verified in game.
+The repository, companion Viewer, and Paradox Mods listing are aligned on the
+first beta line.
 
 This is beta software. It is not a stable release.
 
@@ -19,7 +19,7 @@ and Viewer workflow refinement.
 Current publication state:
 
 - Repository/Viewer release line: `v0.1.0-beta.1`
-- Paradox Mods version: `0.1.0-alpha.7`
+- Paradox Mods version: `0.1.0-beta.1`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 

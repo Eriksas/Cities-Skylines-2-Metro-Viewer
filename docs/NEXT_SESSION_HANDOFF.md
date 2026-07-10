@@ -22,16 +22,16 @@ docs\archive\historical
 
 Repository and Viewer: `v0.1.0-beta.1`
 
-Paradox Mods code mod: `v0.1.0-alpha.7` (Public, ModId `146643`); repo prepared for a `0.1.0-beta.1` republish of the unchanged mod
+Paradox Mods code mod: `v0.1.0-beta.1` (Public, ModId `146643`)
 
-Alpha.7 aligns the GitHub/Viewer and Paradox Mods release lines.
+Beta.1 aligns the repository/Viewer and Paradox Mods release lines.
 
 ## Current Direction
 
-The project is focused on multi-city alpha validation and hardening the default
+The project is focused on multi-city beta validation and hardening the default
 `schematic-anneal` product workflow.
 
-Recommended alpha tester output:
+Recommended beta tester output:
 
 ```text
 schematic-anneal
