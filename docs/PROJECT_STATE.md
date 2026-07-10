@@ -4,7 +4,7 @@
 
 Repository and companion Viewer: `v0.1.0-beta.2`
 
-Current Paradox Mods code-mod release being prepared: `v0.1.0-beta.2` (ModId `146643`, Public).
+Current Paradox Mods code-mod release: `v0.1.0-beta.2` (ModId `146643`, Public).
 
 The repository, companion Viewer, and Paradox Mods listing are aligned on the
 first beta line.
@@ -19,9 +19,13 @@ and Viewer workflow refinement.
 Current publication state:
 
 - Repository/Viewer release line: `v0.1.0-beta.2`
-- Paradox Mods target version: `0.1.0-beta.2`
+- Paradox Mods published version: `0.1.0-beta.2`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
+
+Beta.2 was published on 2026-07-10 as an emergency lifecycle/localization
+hotfix. Offline build/tests and the CS2 Release post-process passed. Manual
+in-game confirmation after the subscription update is still pending.
 
 Default product mode: `schematic-anneal` (the Viewer opens on it). It won every
 layout metric on both median and worst case across the current corpus (9 samples

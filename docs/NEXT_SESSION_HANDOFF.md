@@ -22,10 +22,13 @@ docs\archive\historical
 
 Repository and Viewer: `v0.1.0-beta.2`
 
-Paradox Mods code mod target: `v0.1.0-beta.2` (Public, ModId `146643`)
+Paradox Mods code mod: `v0.1.0-beta.2` (published, Public, ModId `146643`)
 
 Beta.2 is an emergency mod lifecycle/localization hotfix after Beta.1 could
 leave a half-loaded options page during a subscription/playset refresh.
+The publisher completed with `New mod version published`. The next manual step
+is to let the subscription update, fully restart CS2, and verify that the
+localized options page and real export button load normally.
 
 ## Current Direction
 
