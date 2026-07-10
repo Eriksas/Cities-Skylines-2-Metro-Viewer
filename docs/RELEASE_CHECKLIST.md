@@ -45,27 +45,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-alpha-releas
 
 - [ ] Verify release folder exists.
 - [ ] Verify release zip exists.
-- [ ] Verify the release folder and zip use the intended version and do not overwrite the previous alpha package.
+- [ ] Verify the release folder and zip use the intended version and do not overwrite a previous package.
 - [ ] Verify zip contents include:
-  - [ ] `Mod`
-  - [ ] `Viewer`
-  - [ ] `docs`
-  - [ ] `samples`
-  - [ ] `README.md`
-  - [ ] `QUICK_START.md`
-  - [ ] `KNOWN_ISSUES.md`
-  - [ ] `CHANGELOG.md`
+  - [ ] `MetroDiagram.Viewer.exe`
+  - [ ] `README.txt`
   - [ ] `build-info.txt`
 - [ ] Launch Viewer exe from the release package.
 - [ ] Open sample JSON.
 - [ ] Open real `metro-export.json`.
 - [ ] Use `Open Default Export` to open the latest export.
 - [ ] Use `Open JSON` to manually open a timestamped snapshot.
-- [ ] Save SVG.
+- [ ] Save SVG, PNG, and PDF.
 
 ## In-Game Verification
 
-- [ ] Copy mod to CS2 local Mods.
+- [ ] Publish the new version to the existing Paradox Mods listing.
+- [ ] Allow the subscribed mod to update; do not copy a local build into the
+  game Mods directory during the normal release workflow.
 - [ ] Start Cities: Skylines II.
 - [ ] Enable/load the mod.
 - [ ] Load a city.
@@ -91,7 +87,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\generate-primary-cit
 
 ## Final Review
 
-- [ ] Confirm README states the release is alpha, not stable.
+- [ ] Confirm README states the correct prerelease stage and does not call it stable.
 - [ ] Confirm known issues are current.
 - [ ] Confirm feedback template is included.
 - [ ] Confirm build-info version, build time, and commit are present.

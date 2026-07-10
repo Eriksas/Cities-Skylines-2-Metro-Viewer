@@ -19,6 +19,11 @@ Living operational notes only. History:
   and output-format copy were updated from Alpha.7 to Beta.1.
 - This packaging pass does not publish to GitHub or Paradox Mods. Publish only
   after the generated Viewer and mod are manually smoke-tested.
+- Routine mod delivery now uses the subscribed Paradox Mods listing. Do not run
+  `scripts\deploy-local-mod.ps1` or copy builds into the game directory during
+  normal release work; publish the new PDX version and let the subscription
+  update it. Keep the local deploy script only as an explicit emergency/dev
+  fallback.
 
 ## Alpha.7 Release - 2026-07-10
 
