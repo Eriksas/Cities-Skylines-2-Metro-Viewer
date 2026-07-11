@@ -1,0 +1,41 @@
+name: "🚇 Share your city / 城市导出投稿"
+description: "Submit your metro-export.json so your city's map gets better in the next version. / 提交你的城市导出，让下个版本把你的图排得更好。"
+title: "[City] "
+labels: ["city-export"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your city! Submitted exports may be added to the public layout test corpus, so future layout tuning is validated against your network.
+        感谢投稿！提交的导出文件可能会加入公开的布局测试语料库，之后的排图调优都会拿你的城市做验证。
+
+        **How to export / 如何导出**: in game, Options → CS2 Metro Diagram → Export Real Metro JSON.
+  - type: input
+    id: city-name
+    attributes:
+      label: "City name / 城市名"
+      placeholder: "e.g. 谢菲尔德"
+    validations:
+      required: true
+  - type: input
+    id: network-size
+    attributes:
+      label: "Network size / 网络规模"
+      description: "Rough line and station count. / 大致线路数和站点数。"
+      placeholder: "e.g. 10 lines, 59 stations"
+  - type: textarea
+    id: what-to-improve
+    attributes:
+      label: "What looks wrong or could be better? / 哪里排得不好？（可选）"
+      description: "Optional, but very helpful: which stations/lines look wrong in the default schematic-anneal layout? / 默认布局下哪些站/线看着别扭？"
+  - type: textarea
+    id: files
+    attributes:
+      label: "Files / 文件"
+      description: |
+        Drag files into this box. GitHub does not accept bare .json — please ZIP it first (or rename to .txt).
+        把文件拖进这个框。GitHub 不接受裸 .json —— 请先打成 ZIP（或改名为 .txt）。
+        - metro-export.json (zipped) — required / 必需
+        - a screenshot or the saved SVG/PNG of the current render — optional / 可选
+    validations:
+      required: true

@@ -24,6 +24,9 @@ https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer
 Viewer download mirror (Baidu Netdisk) / Viewer 下载（百度网盘）:
 https://pan.baidu.com/s/5RspPYzFb0dPoOE0aZu7d4A
 
+Does your city's map not look quite right? Share your metro-export.json in a GitHub issue and the next version will be tuned against YOUR city.
+觉得你的城市图排得不够好？把 metro-export.json 发到 GitHub issue，下个版本就拿你的城市调优。
+
 Beta notes:
 - Metro/subway only.
 - Exports data only; it never edits your city.

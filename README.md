@@ -53,6 +53,10 @@ Restores the offline solution, builds it, and runs the tests (also run by CI). T
 - No in-game preview yet.
 - Multi-city validation of `schematic-anneal` is ongoing.
 
+## Feedback — share your city!
+
+Does your city's map not look quite right? [Open a "Share your city" issue](https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/issues/new?template=city-export.yml) and attach your `metro-export.json` (zipped). Submitted networks join the layout test corpus, so the next version is tuned against *your* city. Bugs go [here](https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/issues/new?template=bug-report.yml).
+
 More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON schema](docs/JSON_SCHEMA.md) · [changelog](docs/CHANGELOG.md) · [known issues](docs/KNOWN_ISSUES.md) · [license](LICENSE.txt)
 
 ---
@@ -111,5 +115,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1
 - 仅支持地铁/subway；需在已载入的城市中导出（不解析离线存档）。
 - 暂无游戏内预览。
 - `schematic-anneal` 的多城市验证仍在进行中。
+
+## 反馈——投稿你的城市！
+
+觉得你的城市图排得不够好？[发一个"城市导出投稿" issue](https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/issues/new?template=city-export.yml)，附上打包成 ZIP 的 `metro-export.json`。投稿的城市会加入布局测试语料库——下个版本就是拿**你的城市**调优的。Bug 请走[这里](https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/issues/new?template=bug-report.yml)。
 
 更多：[docs/](docs/README.md) · [项目状态](docs/PROJECT_STATE.md) · [JSON 格式](docs/JSON_SCHEMA.md) · [更新日志](docs/CHANGELOG.md) · [已知问题](docs/KNOWN_ISSUES.md) · [许可证](LICENSE.txt)
