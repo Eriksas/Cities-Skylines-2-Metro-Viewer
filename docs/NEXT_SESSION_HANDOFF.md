@@ -24,11 +24,12 @@ Repository and Viewer: `v0.1.0-beta.3`
 
 Paradox Mods code mod: `v0.1.0-beta.3` (published, Public, ModId `146643`)
 
-Beta.2 is an emergency mod lifecycle/localization hotfix after Beta.1 could
-leave a half-loaded options page during a subscription/playset refresh.
-The publisher completed with `New mod version published`. The next manual step
-is to let the subscription update, fully restart CS2, and verify that the
-localized options page and real export button load normally.
+Beta.2 was broken: it registered locale sources before Options UI, but
+`AddSource()` eagerly reads locale IDs that depend on Options registration.
+Beta.3 restores the official order and isolates localization failure from core
+mod startup. In-game loading is confirmed restored. Current logs still show
+locale-source registration warnings and raw locale keys, so localization itself
+is not yet fixed and must remain non-blocking.
 
 ## Current Direction
 

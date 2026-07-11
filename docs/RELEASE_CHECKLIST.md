@@ -29,6 +29,12 @@ dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-resto
 ```
 
 - [ ] Build CS2 mod with the local CS2 modding toolchain.
+- [ ] If `Mod.OnLoad`, `Mod.OnDispose`, settings, Options UI, or localization
+  changed, run an in-game smoke test before updating the public PDX version.
+  Offline build/tests and post-processing do not exercise the CS2 lifecycle.
+- [ ] Inspect `CS2_Metro.Mod.log`: initialization must reach the export-directory
+  log without an outer `failed to initialize` error. Locale warnings may be
+  non-blocking only when the Options page and exporter remain usable.
 - [ ] Run Viewer publish script:
 
 ```text
@@ -59,7 +65,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-alpha-releas
 
 ## In-Game Verification
 
-- [ ] Publish the new version to the existing Paradox Mods listing.
+- [ ] For lifecycle-sensitive changes, complete the staged/private in-game smoke
+  before public publication. Do not use the public subscriber base as the first
+  runtime test.
+- [ ] Publish the validated new version to the existing Paradox Mods listing.
 - [ ] Allow the subscribed mod to update; do not copy a local build into the
   game Mods directory during the normal release workflow.
 - [ ] Start Cities: Skylines II.

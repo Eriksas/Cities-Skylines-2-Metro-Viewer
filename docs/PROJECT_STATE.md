@@ -23,9 +23,11 @@ Current publication state:
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
-Beta.2 was published on 2026-07-10 as an emergency lifecycle/localization
-hotfix. Offline build/tests and the CS2 Release post-process passed. Manual
-in-game confirmation after the subscription update is still pending.
+Beta.2 was superseded after its localization reorder prevented `OnLoad` from
+completing. Beta.3 restores the official Options/localization lifecycle order,
+keeps localization failure isolated from the exporter, and has passed in-game
+mod-loading validation. Dynamic localization still falls back to raw locale
+keys on the current CS2 build and remains a non-blocking known issue.
 
 Default product mode: `schematic-anneal` (the Viewer opens on it). It won every
 layout metric on both median and worst case across the current corpus (9 samples

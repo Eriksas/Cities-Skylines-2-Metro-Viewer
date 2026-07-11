@@ -14,7 +14,7 @@ the exporter down entirely.
   template order (options page first, locale sources second) is restored.
 - **Localization can no longer break the exporter.** If locale registration
   fails for any reason, the mod now logs a warning and continues with raw
-  English labels instead of aborting initialization.
+  locale keys instead of aborting initialization.
 
 ## v0.1.0-beta.2 - 2026-07-10 (superseded)
 

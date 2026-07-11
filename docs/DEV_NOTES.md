@@ -5,22 +5,32 @@ Living operational notes only. History:
 - Journal 2026-06-19 .. 2026-07-07: `docs/archive/2026-07-10-dev-notes-journal/DEV_NOTES-journal-2026-06-19-to-2026-07-07.md`
 - Everything before the 2026-06-18 cleanup: `docs/archive/2026-06-18-doc-consolidation/DEV_NOTES.full.md`
 
-## Beta.2 Mod Loading Hotfix - 2026-07-10
+## Beta.2/Beta.3 Mod Loading Incident - 2026-07-10
 
 - CS2 `1.6.0f1` logs showed `OnLoad` immediately followed by `OnDispose`, raw
   options locale keys, and a secondary null reference at `Mod.cs:88`.
-- The localization code introduced in Alpha.7 registered Options UI before its
-  language sources, forced locale aliases in addition to the game's supported
-  list, and dereferenced `localizationManager` during partial disposal.
-- Beta.2 registers only reported supported locales, installs sources before the
-  UI, rolls back partial initialization, and makes source/UI cleanup null-safe.
-- A subscription or playset refresh can now interrupt initialization without
-  leaving a broken options page or hiding the original exception.
+- Beta.2 incorrectly moved localization-source registration before
+  `RegisterInOptionsUI()`. `LocalizationManager.AddSource()` eagerly enumerates
+  `ModLocaleSource.ReadEntries()`, whose generated locale IDs require the
+  Options registration to exist. All locale registrations therefore threw and
+  `OnLoad` aborted before the exporter became available.
+- Beta.3 restores the official template order: load settings, register Options
+  UI, then register localization sources. It retains Beta.2's supported-locale
+  filtering, initialization rollback, and null-safe cleanup.
+- Localization is a presentation feature, not an exporter prerequisite.
+  Beta.3 catches localization failure outside the core initialization path so
+  the exporter remains usable. Current game logs still show locale-source
+  registration failures, so the fallback is raw locale keys, not translated or
+  guaranteed English labels; this remains follow-up work.
+- The successful Beta.3 log contains `Real metro JSON export directory` after
+  the localization warnings and reaches a normal `OnDispose`, confirming that
+  localization failure no longer aborts the mod.
 - Paradox Mods `0.1.0-beta.3` was published successfully to public ModId
   `146643`; `ModPublisher.exe` ended with `New mod version published`.
-- Offline solution build, renderer tests, Viewer self-contained publish, CS2
-  Release build, and mod post-process all passed. In-game subscription-update
-  verification remains a manual follow-up.
+- Offline solution build, renderer tests, CS2 Release build, and mod
+  post-process pass. The user also confirmed in game that Beta.3 restored mod
+  loading. Offline green tests alone must never be treated as proof that a CS2
+  lifecycle change works in game.
 
 ## Beta.1 Packaging - 2026-07-10
 

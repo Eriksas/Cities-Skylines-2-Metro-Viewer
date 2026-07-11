@@ -461,3 +461,22 @@ Consequence: preview HTML is loaded in-memory with WebView2 `NavigateToString`,
 manual edit messages use `window.chrome.webview.postMessage`, and the Viewer
 depends on the Microsoft Edge WebView2 Runtime. This is Viewer-only and does
 not alter exporter data, renderer output, or `metro-export.json`.
+
+## Keep CS2 Options Registration Before Dynamic Localization
+
+Decision: preserve the official CS2 mod-template lifecycle order: load the
+setting, call `RegisterInOptionsUI()`, and only then add dynamic localization
+sources. Localization failures must be caught outside the exporter-critical
+initialization path.
+
+Reason: `LocalizationManager.AddSource()` eagerly enumerates the source.
+`ModLocaleSource.ReadEntries()` asks the setting for generated Options locale
+IDs, which are not valid before Options registration. Reversing the order in
+Beta.2 caused every locale to throw and aborted `OnLoad`, disabling the entire
+exporter for a cosmetic feature.
+
+Consequence: lifecycle order must not be changed from intuition alone. Any
+change to `Mod.OnLoad`, `Mod.OnDispose`, settings, Options UI, or localization
+requires a real in-game smoke test before public PDX publication. Build,
+post-process, and offline tests are necessary but do not validate this runtime
+contract. Localization may degrade to raw keys; it may never take down export.
