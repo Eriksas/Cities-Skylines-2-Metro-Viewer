@@ -39,7 +39,20 @@ Goal: move from "debug schematic" toward a readable metro-map product.
 - Decide which schematic-map behavior is mature enough to expose as a
   recommended Viewer preset.
 
-## Long Term: Product Packaging And Power-user Tools
+## Long Term Active Track: In-Game Metro Preview
+
+The next major product track is documented in `INGAME_PREVIEW_PLAN.md`.
+
+- Add a supported universal mod-menu entry and a polished map workspace.
+- Reuse one in-memory CS2 metro snapshot for export and preview.
+- Port/extract the existing C# render engine instead of duplicating layout in
+  the UI frontend.
+- Support schematic/geographic preview, refresh, pan/zoom/fit, label controls,
+  JSON export, and SVG save.
+- Keep all Phase 7 development off the public PDX listing until the owner has
+  tested and explicitly approved the release candidate.
+
+## Later: Product Packaging And Power-user Tools
 
 Goal: make the tool easier to distribute and more flexible without risking the
 export/schema contract.
@@ -47,11 +60,8 @@ export/schema contract.
 - Reduce Viewer package size after alpha behavior stabilizes. Candidates:
   framework-dependent package, trimmed publish, split portable package, or a
   smaller preview technology if WPF self-contained size remains too high.
-- Add PNG export only after SVG output is stable.
-- Add style presets after the core schematic behavior is stable across multiple
-  cities.
-- Add optional manual overrides for station/label positions if automatic layout
-  cannot cover advanced cases.
+- Keep the complete manual override workflow in the desktop Viewer until the
+  in-game preview is stable.
 - Investigate broader transit support only after metro/subway remains stable.
 - Consider richer installer/release flow after the mod and Viewer packaging are
   no longer changing frequently.

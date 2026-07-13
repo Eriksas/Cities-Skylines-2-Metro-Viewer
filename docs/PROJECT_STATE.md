@@ -13,8 +13,14 @@ This is beta software. It is not a stable release.
 
 ## Current Status
 
-The project is in multi-city beta validation, `schematic-anneal` hardening,
-and Viewer workflow refinement.
+The project is entering Phase 7 long-line development: a polished, read-only
+in-game metro preview with refresh, layout/label controls, JSON export, and SVG
+save. The architecture and acceptance gates are in
+`docs\INGAME_PREVIEW_PLAN.md`.
+
+The current public Beta.3 remains the stable PDX baseline. Phase 7 development
+must not be published to PDX until the owner tests and explicitly approves the
+release candidate.
 
 Current publication state:
 

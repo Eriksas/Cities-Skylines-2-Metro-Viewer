@@ -22,6 +22,8 @@ Read these in order:
 ## Technical Reference
 
 - `JSON_SCHEMA.md` - current export JSON format.
+- `INGAME_PREVIEW_PLAN.md` - Phase 7 architecture, phases, acceptance gates,
+  and the no-PDX-before-owner-test rule.
 - `..\README.md` - public project README for GitHub.
 - `..\scripts\README.md` - script index and validation helpers.
 

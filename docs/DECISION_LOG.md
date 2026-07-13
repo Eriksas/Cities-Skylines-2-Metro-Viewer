@@ -480,3 +480,22 @@ change to `Mod.OnLoad`, `Mod.OnDispose`, settings, Options UI, or localization
 requires a real in-game smoke test before public PDX publication. Build,
 post-process, and offline tests are necessary but do not validate this runtime
 contract. Localization may degrade to raw keys; it may never take down export.
+
+## Use Snapshot-To-Renderer-To-UI For In-Game Preview
+
+Decision: the Phase 7 in-game preview will use a C# backend pipeline: capture an
+immutable metro snapshot on the game side, render it through a portable form of
+the existing C# engine, and send sanitized SVG plus small state DTOs to the
+game UI. The frontend will display and interact with the map, not reimplement
+the schematic layout or read ECS.
+
+Reason: duplicating layout in JavaScript would split product behavior between
+the Viewer and game, while letting UI callbacks access ECS would introduce
+threading and lifecycle hazards. A shared snapshot and renderer preserve map
+parity, isolate game data access, and allow explicit caching/cancellation.
+
+Consequence: Phase 7 begins with an official UI/binding spike, then separates
+export data capture from file writing, then resolves .NET runtime compatibility
+for the renderer. The desktop Viewer remains the advanced editor. The public
+PDX listing stays on the accepted Beta.3 until the owner approves the exact
+in-game release candidate.

@@ -114,6 +114,21 @@ presets are `Documents\CS2MetroDiagram`, `Desktop\CS2MetroDiagram`, and
 
 Use PowerShell 7 (`pwsh`) for scripts when available. Older Windows PowerShell can still run many scripts, but screenshot/capture helpers are more reliable through `pwsh`.
 
+## Phase 7 In-Game Preview Track - 2026-07-13
+
+- Product and architecture plan: `docs\INGAME_PREVIEW_PLAN.md`.
+- The installed game/mod set confirms that current code mods can ship UI
+  JavaScript/CSS bundles, and the current game line includes a universal mod
+  button/menu. Exact extension APIs must still be validated against the local
+  toolchain during Phase 7A rather than copied from an older mod.
+- Current compatibility constraint: the CS2 project uses the game/.NET
+  Framework toolchain, while Core/Rendering target .NET 8. Do not duplicate the
+  schematic algorithm in the frontend. Audit multi-targeting or extract a
+  dependency-light portable render engine in Phase 7C.
+- ECS capture stays on the game thread and produces an immutable snapshot.
+  Rendering/UI must never keep live ECS handles.
+- Do not publish any Phase 7 build to PDX before the owner's in-game acceptance.
+
 ## Build And Test
 
 Run from repo root:

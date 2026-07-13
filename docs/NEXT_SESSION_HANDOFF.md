@@ -33,8 +33,15 @@ is not yet fixed and must remain non-blocking.
 
 ## Current Direction
 
-The project is focused on multi-city beta validation and hardening the default
-`schematic-anneal` product workflow.
+The active long-line track is Phase 7, documented in
+`docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
+preserving the exporter, Viewer, CLI, JSON schema, and current public Beta.3.
+
+Start with Phase 7A only: validate the supported universal mod entry, a static
+responsive panel, and C#/UI command binding. Do not begin ECS/render integration
+until the UI shell repeatedly opens and closes safely in game.
+
+No Phase 7 build may be published to PDX before owner acceptance.
 
 Recommended beta tester output:
 
