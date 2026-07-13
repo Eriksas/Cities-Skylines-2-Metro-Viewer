@@ -388,3 +388,295 @@ still moving.
 - Prefer validation bundles over ad hoc screenshots.
 - Keep docs short; archive long historical notes.
 
+## Phase 7A UI And Binding Spike (2026-07-13)
+
+Implementation branch:
+
+```text
+feature/ingame-preview
+```
+
+The installed CS2 assemblies and a current installed code mod were inspected
+with `ilspycmd` installed under `E:\Tools\ilspycmd`. The supported pattern used
+by the corrected spike is:
+
+- backend `UISystemBase` with `ValueBinding<T>` and `TriggerBinding`;
+- frontend `bindValue`, `useValue`, and `trigger` from `cs2/api`;
+- entry appended to `GameTopRight`;
+- binding-driven panel root appended to `Game`.
+
+The first build registered `gamePanelComponents` and called only the game's
+`togglePanel` trigger. Its top-right icon appeared, but the panel did not mount
+and the C# log never recorded an open transition. The corrected build toggles
+the C# `panelOpen` binding directly and renders `PreviewRoot` from that binding.
+
+Phase 7A files:
+
+```text
+CS2 Metro\InGamePreviewUISystem.cs
+CS2 Metro\CS2 Metro.mjs
+CS2 Metro\Mod.cs
+CS2 Metro\CS2 Metro.csproj
+```
+
+The backend currently exposes only panel-open state, health JSON, and refresh
+commands. The frontend renders a responsive static sample map. There are no ECS
+queries and no portable renderer integration in this phase.
+
+Verification completed:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore
+node --check "CS2 Metro\CS2 Metro.mjs"
+```
+
+All commands passed, including CS2 IL post-process and Burst outputs. The CS2
+toolchain stages the development build at:
+
+```text
+E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
+```
+
+The user-level `CSII_LOCALMODSPATH` was moved to that E-drive directory on
+2026-07-13. Future CS2 builds should not use the C-drive local Mods directory.
+The first build left one loaded native DLL in the old C-drive folder while the
+game was running; remove that final file after Cities: Skylines II exits.
+
+The owner completed the in-game checklist on 2026-07-13. Phase 7A is closed;
+the accepted shell is the base for Phase 7D.
+
+## Phase 7B/7C Snapshot And Portable Runtime (2026-07-13)
+
+The shared runtime is implemented as a new `src\MetroDiagram.Engine` project
+targeting `netstandard2.0`. It deliberately does not reference the net8 desktop
+renderer or JSON/file APIs that are unsuitable for the CS2 net48 runtime.
+
+Key boundaries:
+
+- `MetroNetworkSnapshotService` performs capture through the existing exporter
+  path on the game thread and retains the latest immutable snapshot.
+- `RealMetroJsonExporter` writes JSON from that snapshot through
+  `MetroSnapshotJsonWriter`; the schema and ECS extraction logic are unchanged.
+- `MetroSnapshotRevision` excludes `exportedAt`, so identical network content
+  can reuse a cached render after refresh.
+- `PortableMetroSvgRenderer` owns the small runtime geographic and
+  schematic-anneal profiles. It is not a second JavaScript layout engine.
+- `InGamePreviewRenderService` keeps at most four revision/options results. A
+  `List<string>` is used for FIFO order because the CS2 net48 references expose
+  an ambiguous `Queue<T>` through both `System` and `mscorlib`.
+
+Validation completed sequentially:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+node --check "CS2 Metro\CS2 Metro.mjs"
+```
+
+The Release build passed IL post-process and Burst generation for Windows,
+macOS, and Linux with zero warnings/errors. The E-drive staged package includes
+`CS2 Metro.dll`, `CS2 Metro.mjs`, and `MetroDiagram.Engine.dll`.
+
+Phase 7C was delivered as a runtime foundation; Phase 7D subsequently replaced
+the static sample panel with the real capture/render state pipeline.
+
+## Phase 7D/7E Real In-Game Preview And Export Controls (2026-07-13)
+
+`InGamePreviewUISystem` is now a small game-thread controller rather than a
+static health spike. Trigger bindings only set pending flags; `OnUpdate`
+performs snapshot capture, render, JSON export, or SVG save. This preserves the
+rule that browser callbacks never read ECS.
+
+Bindings:
+
+```text
+CS2MetroPreview.panelOpen
+CS2MetroPreview.stateJson
+CS2MetroPreview.svg
+CS2MetroPreview.setPanelOpen(bool)
+CS2MetroPreview.refresh
+CS2MetroPreview.setLayout(string)
+CS2MetroPreview.setShowGenericStationNames(bool)
+CS2MetroPreview.setHideCrowdedLabels(bool)
+CS2MetroPreview.exportJson
+CS2MetroPreview.saveSvg
+```
+
+The frontend displays renderer-owned SVG as responsive inline SVG. Pan, zoom,
+and fit are client-side transforms and therefore do not rerun layout.
+Changing layout or labels rerenders from the cached immutable snapshot. The
+bounded C# render cache is keyed by revision, layout, and label options.
+
+The first real D/E game pass showed a white map surface even though the log
+confirmed successful captures/renders. Moving from a data URI to inline SVG was
+a useful transport hardening step but did not fix the blank surface. The next
+pass recorded complete payloads (schematic `24,588` chars, geographic
+`307,344` chars), while `Player.log` repeatedly reported:
+
+```text
+[UI] [ERROR] Combining percents in calc() expressions with other types is not supported!
+```
+
+The actual failure was `width/height: calc(100% - 28rem)` on the map layer.
+CS2 Coherent UI could not compute its size. Use `top/right/bottom/left: 14rem`
+for absolute fill instead; do not introduce percentage-plus-rem `calc()` in
+the game UI. A source regression test now rejects `calc(100%` in the MJS.
+Inline SVG and `stateJson.svgLength` remain because they provide a simpler,
+diagnosable payload path.
+
+SVG save paths:
+
+```text
+<configured export folder>\metro-diagram.svg
+<configured export folder>\exports\metro-diagram-{citySlug}-{yyyyMMdd-HHmmss}.svg
+```
+
+Same-second saves receive `-2`, `-3`, and later suffixes. Writes are UTF-8
+without BOM and publish the stable latest file atomically after the snapshot.
+
+Validation completed sequentially:
+
+```text
+node --check "CS2 Metro\CS2 Metro.mjs"
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+```
+
+All passed with zero build warnings/errors. The mod post-process and Burst
+steps completed, and the E-drive package includes the mod DLL, MJS, and
+`MetroDiagram.Engine.dll`. Runtime/manual validation is still required; do not
+publish this Phase 7 build to PDX yet.
+
+## Phase 7F Geographic Default And CJK Typography (2026-07-13)
+
+The owner confirmed that the Coherent sizing hotfix makes the real SVG visible.
+The visible portable schematic is not yet as readable as geographic in the game
+panel, so geographic is now the in-game-only default. This does not change the
+desktop Viewer or CLI product defaults. `InGamePreviewGeographicDefaultApplied`
+provides a one-time migration for existing development settings; after that,
+the user's selected in-game layout persists normally.
+
+Chinese tofu boxes were not corrupt JSON or missing station names. The portable
+renderer explicitly emitted `font-family="Arial, sans-serif"`, overriding CS2's
+locale-aware font stack. CS2 ships Noto Sans SC and exposes it through
+`--fontFamily`. Inline preview preparation now removes descendant SVG
+`font-family` attributes and sets the root to `var(--fontFamily)`. Standalone
+portable SVG declares Overpass plus Noto Sans SC/TC/JP/KR fallbacks so saved
+files remain readable outside the game.
+
+Phase 7F also separates the close action from a wrapping layout/command toolbar
+and publishes the mod interface-language setting to the panel. Code-side
+validation passed sequentially:
+
+```text
+node --check "CS2 Metro\CS2 Metro.mjs"
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+```
+
+The source, E-drive development package, and CS2 staged MJS hashes matched after
+post-process. Owner validation is still required for Chinese glyphs, language
+override behavior, toolbar wrapping, and supported display resolutions. Do not
+publish this branch to PDX yet.
+
+The first visible Phase 7F pass also showed that raw HTML checkbox inputs are
+not suitable in Coherent: they appeared as empty text-entry boxes. Use
+`ui.Button` with `aria-pressed` for binary preview controls. The filter controls
+now use a compact track/knob indicator and the full control surface toggles the
+setting. Command buttons use the built-in `flat` theme and selected layout
+buttons use `primary`; this retains CS2 focus and sound behavior while avoiding
+the white default-button treatment. A source regression test rejects native
+checkboxes and requires the game button variants.
+
+## Phase 7F Pan And Canvas Safety Follow-up
+
+CS2 Coherent did not reliably dispatch the Pointer Events/pointer-capture path
+used by the first map viewport implementation. The viewport now begins a drag
+with `onMouseDown` and tracks `mousemove`/`mouseup` on `window`, so panning
+continues when the cursor leaves the map and always terminates on release.
+
+The portable renderer previously projected station centers exactly to the map
+bounds. That ignored interchange radius, route half-width, and label extent.
+`CreateMapFrame` now supplies one shared safe frame to geographic projection,
+schematic snapping/annealing, station markers, and label placement. Edge labels
+prefer the right side but flip left when needed and clamp vertically.
+
+Validation passed sequentially:
+
+```text
+node --check "CS2 Metro\CS2 Metro.mjs"
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+```
+
+The CS2 build completed IL post-processing and Burst generation for all target
+platforms with zero warnings/errors. The owner subsequently accepted drag and
+edge-station behavior after in-game review.
+
+## Phase 7G First Hardening Tranche
+
+- Schematic mode now appends a low-contrast Viewer recommendation to the
+  existing pan/zoom hint. Geographic mode does not show the recommendation.
+- Refresh captures and renders the latest options itself, so it clears any
+  earlier queued option render. A successful JSON export likewise clears a
+  redundant queued refresh/render before rendering its authoritative snapshot.
+- Clearing an unavailable/error preview also clears pending render/save work.
+  This is request coalescing for the current synchronous controller, not an
+  asynchronous renderer rewrite.
+- Validation passed sequentially: MJS syntax, solution build, complete offline
+  tests, CS2 Release build/post-process, and E-drive staging. The source and
+  staged MJS SHA256 both equal
+  `E85D2BB8777E92564AF084749AE66A8A16E531A2C3A22F867B2F8D3A6C1015D8`.
+
+## Phase 7G Runtime Telemetry And Lifecycle Hardening
+
+- `MetroNetworkSnapshotService` measures capture time at the single game-thread
+  ECS boundary and records UTC capture time with the immutable snapshot.
+- `InGamePreviewRenderService` returns request timing/cache metadata and keeps
+  at most four entries using LRU access order.
+- The controller publishes capture/request/renderer timings separately. On a
+  cache hit, `renderMs` is the user-facing request duration while `rendererMs`
+  remains the original renderer measurement for that cached SVG.
+- Panel close cancels queued refresh/render/save work. JSON export is not
+  cancelled because it is an explicit data action rather than disposable
+  preview work.
+- The controller remains synchronous and processes one operation per update;
+  counters measure coalescing and lifecycle behavior without adding thread
+  access to ECS.
+- Owner game testing passed on 2026-07-13 with no blocking issue. Treat the
+  current Phase 7G behavior as frozen while preparing Phase 7H; do not publish
+  to PDX until the owner approves the exact release candidate.
+
+## Phase 7H Candidate Packaging
+
+`scripts\package-phase7-release-candidate.ps1` is intentionally separate from
+the public Viewer release script. It builds/tests, publishes the Viewer, runs
+the CS2 Release post-process to the E-drive `cs2-local-mods` path, verifies the
+staged MJS hash, and packages Mod/Viewer/docs plus a SHA-256 manifest under
+`artifacts\release-candidates`. Candidate identity is separate from the
+embedded Beta.3 baseline version until owner approval, preventing an accidental
+PDX version/configuration update during private validation.
+
+The first candidate run completed successfully on 2026-07-13:
+
+```text
+Candidate: phase7-rc1
+Folder: artifacts\release-candidates\CS2MetroDiagram-phase7-rc1
+ZIP: artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
+Files: 16
+Unpacked: 76.23 MiB
+ZIP: 70.86 MiB
+Source/staged MJS SHA256: E85D2BB8777E92564AF084749AE66A8A16E531A2C3A22F867B2F8D3A6C1015D8
+```
+
+Manifest and ZIP required-entry verification passed. The packaged
+`MetroDiagram.Viewer.exe` remained running after a six-second hidden launch
+smoke and was then stopped deliberately. `manifest.sha256` covers all package
+payload files except itself, avoiding a recursive self-hash.
+

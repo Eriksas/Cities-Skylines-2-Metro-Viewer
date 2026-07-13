@@ -1,6 +1,6 @@
 # Alpha Test Plan
 
-Use this plan for `v0.1.0-beta.3`.
+Use this plan for `v0.1.0-beta.4`.
 
 The testing unit is an alpha validation bundle, not a loose screenshot.
 
@@ -274,3 +274,87 @@ After deploying a new mod build and restarting CS2:
 dotnet build CS2MetroDiagram.slnx --no-restore
 dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
 ```
+
+## Phase 7D/7E In-Game Preview Checklist
+
+Use the E-drive development build and restart CS2 before testing:
+
+```text
+E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
+```
+
+1. At the main menu/no-city state, open the panel and confirm a clear no-city
+   message appears without disabling Options or export.
+2. Load a city with no metro and confirm the no-metro state does not crash.
+3. Load a real metro city. Opening the panel should automatically show the real
+   map, city name, line count, station count, and render time.
+   If counts/render time appear but the map surface is blank, inspect
+   `CS2_Metro.Mod.log` for `svgChars` and `Player.log` for `[UI] [ERROR]`.
+   This indicates a UI sizing/payload failure rather than an ECS capture
+   failure. In particular, no mixed percentage/rem `calc()` errors should be
+   present after the 2026-07-13 sizing hotfix.
+4. Close/reopen repeatedly. The unchanged map should appear from cache without
+   another visible capture delay or duplicate top-right buttons.
+5. Change the network, press Refresh, and confirm the revision/map/counts update.
+6. On the first open after this build, confirm Geographic is selected and the
+   map uses true route geometry. Switch to Schematic and back; both must remain
+   valid, and the later explicit choice must persist after close/reopen.
+7. Test wheel zoom, pointer drag, zoom buttons, and Fit. None should trigger a
+   backend rerender.
+8. Toggle default station names and crowded labels, close/reopen, and confirm
+   the preferences persist.
+9. Press Export JSON and verify existing latest plus timestamped JSON and
+   diagnostics outputs still work.
+10. Press Save current SVG and verify `metro-diagram.svg` plus a timestamped
+    SVG under `exports`; open the file and confirm it matches the visible layout.
+11. Trigger or simulate an unavailable/error state and confirm details are
+    visible/copyable and the panel remains closable.
+12. Inspect the game log/UI console for uncaught errors. Do not publish to PDX
+    until this checklist passes and the owner explicitly approves the build.
+
+## Phase 7F Visual And Localization Checklist
+
+1. With the mod language set to Auto and the game in Simplified Chinese, confirm
+   city name, station labels, line names, title, summary, and legend contain
+   readable Chinese glyphs with no tofu boxes.
+2. Select English in the mod options and confirm panel controls/status text use
+   English without changing exported station names. Select Simplified Chinese
+   and confirm controls/status text switch back.
+3. Confirm localization/font failure cannot prevent opening/closing the panel,
+   refreshing the city snapshot, exporting JSON, or saving SVG.
+4. Review the panel at 1920x1080, 2560x1440, 3840x2160, and one ultrawide
+   resolution where available. The map remains dominant; controls wrap without
+   clipping or covering the map; title, summary, filters, zoom controls, and
+   notifications remain readable.
+5. Verify keyboard/controller focus order where supported: close, layout,
+   refresh/export/save, filters, then map controls. Mouse hover/focus states
+   should remain visible.
+6. Open a saved standalone SVG outside CS2 and confirm Chinese glyphs render
+   with the Noto CJK fallback stack on the test machine.
+7. Confirm `Show default station names` and `Hide crowded labels` appear as
+   switch-style controls rather than text inputs. Clicking anywhere on each
+   control must toggle it, show a clear selected state, rerender the map, and
+   persist after close/reopen. Layout and command buttons should use the same
+   dark CS2 visual language with no white browser-style buttons.
+8. At 100% zoom, drag the map in all directions. Repeat after zooming in, move
+   the cursor outside the canvas while holding the button, then release. The map
+   must follow smoothly and stop moving immediately after release.
+9. In geographic and schematic views, inspect terminal/interchange stations at
+   every edge. No station circle may be clipped, and edge labels must remain
+   inside the map area rather than entering the legend or leaving the canvas.
+10. Confirm geographic mode shows only the normal pan/zoom hint. Switch to
+    schematic mode and confirm a small, subdued note recommends the desktop
+    Viewer without covering the map or behaving like a warning banner.
+11. Rapidly change a label option, then press Refresh or Export JSON. The panel
+    should settle on the latest selected options without a second visible stale
+    rerender.
+12. Close the panel immediately after pressing Refresh or Save SVG, reopen it,
+    and confirm no stale visual operation changes the reopened panel. Repeat
+    with Export JSON and confirm the explicit export still completes.
+13. Reopen the same unchanged network and toggle back to a previously rendered
+    option combination. Confirm `renderCacheHit` becomes true, cache entries do
+    not exceed four, and the map appears without a full renderer delay.
+14. In `CS2_Metro.Mod.log`, confirm Capture and Render entries include revision,
+    counts, timings, and cache status. A slow test report should quote
+    `captureMs`, `requestMs`, and `rendererMs` rather than only saying the panel
+    felt slow.

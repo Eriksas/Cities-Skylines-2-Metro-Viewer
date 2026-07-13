@@ -21,6 +21,8 @@ namespace CS2_Metro
         public const string LanguageAuto = "auto";
         public const string LanguageEnglish = "en";
         public const string LanguageChinese = "zh-HANS";
+        public const string PreviewLayoutSchematic = "schematic";
+        public const string PreviewLayoutGeographic = "geographic";
 
         private string m_InterfaceLanguage = LanguageAuto;
 
@@ -109,6 +111,18 @@ namespace CS2_Metro
             return ExportDirectoryResolver.GetConfiguredOrDefaultExportDirectory(ExportDirectory);
         }
 
+        [SettingsUIHidden]
+        public string InGamePreviewLayout { get; set; } = PreviewLayoutGeographic;
+
+        [SettingsUIHidden]
+        public bool InGamePreviewGeographicDefaultApplied { get; set; }
+
+        [SettingsUIHidden]
+        public bool InGamePreviewShowGenericStationNames { get; set; }
+
+        [SettingsUIHidden]
+        public bool InGamePreviewHideCrowdedLabels { get; set; } = true;
+
         [SettingsUISection(kSection, kExportGroup)]
         [SettingsUIButton]
         public bool ExportRealMetroJson
@@ -123,6 +137,10 @@ namespace CS2_Metro
         {
             InterfaceLanguage = LanguageAuto;
             ExportDirectory = ExportDirectoryResolver.GetDocumentsExportDirectory();
+            InGamePreviewLayout = PreviewLayoutGeographic;
+            InGamePreviewGeographicDefaultApplied = false;
+            InGamePreviewShowGenericStationNames = false;
+            InGamePreviewHideCrowdedLabels = true;
         }
 
         internal bool ShouldUseChinese(string localeId)

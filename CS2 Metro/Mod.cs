@@ -33,6 +33,18 @@ namespace CS2_Metro
 
             try
             {
+                // The preview controller is isolated from exporter initialization.
+                // A UI failure must never make the existing export workflow unavailable.
+                try
+                {
+                    updateSystem.UpdateAt<InGamePreviewUISystem>(SystemUpdatePhase.Rendering);
+                    log.Info("Registered CS2 Metro Diagram in-game preview UI system.");
+                }
+                catch (Exception ex)
+                {
+                    log.Warn($"Could not register the in-game preview UI system; exporter remains available: {ex.Message}");
+                }
+
                 m_Setting = new Setting(this);
                 Settings = m_Setting;
                 AssetDatabase.global.LoadSettings(nameof(CS2_Metro), m_Setting, new Setting(this));
@@ -152,9 +164,11 @@ namespace CS2_Metro
         private void CleanupRegistrations()
         {
             s_LocalizationReady = false;
+            InGamePreviewRenderService.Clear();
+            MetroNetworkSnapshotService.Clear();
 
             var localizationManager = GameManager.instance?.localizationManager;
-            if (localizationManager != null)
+            if (localizationManager != null && m_LocaleRegistrations != null)
             {
                 foreach (LocaleRegistration registration in m_LocaleRegistrations)
                 {
@@ -169,7 +183,10 @@ namespace CS2_Metro
                 }
             }
 
-            m_LocaleRegistrations.Clear();
+            if (m_LocaleRegistrations != null)
+            {
+                m_LocaleRegistrations.Clear();
+            }
 
             if (m_OptionsRegistered && m_Setting != null)
             {

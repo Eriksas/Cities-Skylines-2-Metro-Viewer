@@ -4,11 +4,11 @@ Turn your **Cities: Skylines II** metro network into a clean, readable metro map
 
 **English** · [中文](#cs2-地铁线路图)
 
-Current version: `v0.1.0-beta.3` · Beta software — export only, it does not change your city. Back up saves before testing any mod.
+Current version: `v0.1.0-beta.4` · Beta software — read-only preview and export; it does not change your city. Back up saves before testing any mod.
 
 The project has three parts:
 
-- a **CS2 code mod** that exports your metro/subway network to JSON,
+- a **CS2 code mod** with an in-game read-only preview and JSON/SVG export,
 - a **Windows Viewer** that opens the JSON and renders the map,
 - a **command-line renderer** for batch generation.
 
@@ -21,10 +21,10 @@ The project has three parts:
 ## Quick start
 
 1. Install the mod, launch CS2, and load a city.
-2. Open **Options › CS2 Metro Diagram › Main**. The mod page can follow the game language or be fixed to English / Simplified Chinese. Optionally set an export folder (defaults to `Documents\CS2MetroDiagram`).
-3. Click **Export Real Metro JSON**. This writes `metro-export.json` (plus diagnostics and timestamped snapshots) to the export folder.
-4. Open **MetroDiagram.Viewer.exe** and click **Open Default Export** (or **Open JSON**).
-5. The map renders in `schematic-anneal`. Switch layout/size if you like, then **Save Map** as SVG, PNG, or PDF.
+2. Use the top-right metro-map button for the in-game preview. It opens in geographic mode and supports refresh, layout/label controls, zoom/pan, JSON export, and SVG save.
+3. Open **Options › CS2 Metro Diagram › Main** to choose Auto / English / Simplified Chinese and an export folder (defaults to `Documents\CS2MetroDiagram`).
+4. For the full product map, export JSON and open **MetroDiagram.Viewer.exe**, then click **Open Default Export** (or **Open JSON**).
+5. The Viewer renders in `schematic-anneal`. Switch layout/size if you like, then **Save Map** as SVG, PNG, or PDF.
 
 If the Viewer does not start on a clean PC, install the [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 
@@ -67,11 +67,11 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 [English](#cs2-metro-diagram) · **中文**
 
-当前版本：`v0.1.0-beta.3` · Beta 阶段软件 —— 只导出数据，不会改动你的城市。测试任何 mod 前请先备份存档。
+当前版本：`v0.1.0-beta.4` · Beta 阶段软件 —— 只读预览和导出，不会改动你的城市。测试任何 mod 前请先备份存档。
 
 项目分三部分：
 
-- 一个**游戏内 mod**，把地铁网络导出为 JSON，
+- 一个带**游戏内只读预览**及 JSON/SVG 导出的 CS2 mod，
 - 一个 **Windows 查看器**，打开 JSON 并渲染线路图，
 - 一个**命令行渲染器**，用于批量生成。
 
@@ -83,11 +83,11 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 ## 快速上手
 
-1. 安装 mod（在此仅需要下载releases打包好的包解压即可），百度网盘链接 https://pan.baidu.com/s/5RspPYzFb0dPoOE0aZu7d4A ，启动 CS2，载入城市。
-2. 打开 **选项 › CS2 Metro Diagram › Main**。模组设置页可跟随游戏语言，也可固定为 English / 简体中文；并可设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
-3. 点击 **Export Real Metro JSON**，会把 `metro-export.json`（及诊断文件、带时间戳的快照）写入导出文件夹。
-4. 打开 **MetroDiagram.Viewer.exe**，点 **Open Default Export**（或 **Open JSON**）。
-5. 线路图以 `schematic-anneal` 渲染。可切换布局/尺寸，然后 **保存地图** 为 SVG、PNG 或 PDF。
+1. 从 Paradox Mods 安装 **CS2 Metro Diagram** mod，启动 CS2 并载入城市。GitHub Releases / 百度网盘提供的是 Windows Viewer（百度网盘：https://pan.baidu.com/s/5RspPYzFb0dPoOE0aZu7d4A）。
+2. 点击右上角地铁图按钮打开游戏内预览。默认显示地理图，并支持刷新、布局/标签控制、缩放/拖动、导出 JSON 和保存 SVG。
+3. 打开 **选项 › CS2 Metro Diagram › Main**，可跟随游戏语言或固定为 English / 简体中文，并设置导出文件夹（默认 `Documents\CS2MetroDiagram`）。
+4. 若要生成完整产品级线路图，导出 JSON 后打开 **MetroDiagram.Viewer.exe**，点 **Open Default Export**（或 **Open JSON**）。
+5. Viewer 以 `schematic-anneal` 渲染。可切换布局/尺寸，然后 **保存地图** 为 SVG、PNG 或 PDF。
 
 若在干净的电脑上查看器无法启动，请安装 [Microsoft Edge WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)。
 

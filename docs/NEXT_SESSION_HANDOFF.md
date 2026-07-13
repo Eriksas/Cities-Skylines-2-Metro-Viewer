@@ -20,9 +20,13 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.3`
+Repository and Viewer release candidate: `v0.1.0-beta.4`
 
 Paradox Mods code mod: `v0.1.0-beta.3` (published, Public, ModId `146643`)
+
+The owner accepted `phase7-rc1` on 2026-07-13 and authorized the coordinated
+Beta.4 GitHub/PDX release. The PDX line above remains Beta.3 only until the
+publisher completes.
 
 Beta.2 was broken: it registered locale sources before Options UI, but
 `AddSource()` eagerly reads locale IDs that depend on Options registration.
@@ -35,13 +39,53 @@ is not yet fixed and must remain non-blocking.
 
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
-preserving the exporter, Viewer, CLI, JSON schema, and current public Beta.3.
+preserving the exporter, Viewer, CLI, and JSON schema. Beta.4 packages the
+accepted Phase 7 in-game preview.
 
-Start with Phase 7A only: validate the supported universal mod entry, a static
-responsive panel, and C#/UI command binding. Do not begin ECS/render integration
-until the UI shell repeatedly opens and closes safely in game.
+Phase 7A passed owner in-game validation on 2026-07-13 and is closed. Phase 7B
+through 7E are code-side complete on branch `feature/ingame-preview`:
+
+- `MetroNetworkSnapshotService` captures the existing real-export data into an
+  immutable `MetroDiagram.Engine` snapshot and caches the latest capture;
+- `RealMetroJsonExporter` writes the same schema from that shared snapshot;
+- portable geographic and deterministic schematic-anneal SVG rendering target
+  `netstandard2.0` and are included in the CS2 package;
+- a bounded render cache and game-specific profiles are ready for the next UI
+  controller and now drive the accepted panel;
+- empty snapshots, JSON round-trip, route semantics, XML validity, determinism,
+  and a 200-station budget are covered by tests.
+- the panel displays real inline SVG and supports refresh, layout switching,
+  fit/zoom/pan, persisted label controls, JSON export, and SVG latest/snapshot
+  save;
+- no-city, no-metro, loading, rendering, saving, and error states are explicit.
+
+The owner confirmed after the 2026-07-13 sizing hotfix that the real current-city
+map is visible. The blank-canvas blocker is closed. Geographic is now the
+in-game default because it is currently clearer than the portable schematic;
+the desktop Viewer default remains `schematic-anneal` and schematic remains
+selectable in game.
+
+Phase 7F is owner-reviewed and closed for continued development. Inline SVG removes renderer-level font
+overrides and inherits CS2's locale-aware `--fontFamily`, while standalone SVG
+keeps a Noto CJK fallback stack. The panel also receives the mod's explicit
+English/Simplified Chinese override and has a regrouped layout/command toolbar.
+Phase 7G hardening is now active. Its first tranche adds a muted note only in
+schematic mode that recommends the desktop Viewer for the most reliable result,
+and coalesces redundant render work after refresh/export/clear. Continue with
+large-city timing, repeated open/close/refresh soak, and categorized failure
+logging; do not add new map styles or publish to PDX yet.
 
 No Phase 7 build may be published to PDX before owner acceptance.
+
+Phase 7A development output is staged by the CS2 toolchain at:
+
+```text
+E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
+```
+
+Expected files include `CS2 Metro.dll`, `CS2 Metro.mjs`, and
+`MetroDiagram.Engine.dll`. This is a local development build only; it has not
+been published to PDX.
 
 Recommended beta tester output:
 
@@ -228,3 +272,52 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1 -LatestExports 2
 ```
+
+## In-game Preview Follow-up
+
+Phase 7F now replaces pointer capture with Coherent-compatible mouse dragging
+and adds a marker-aware map frame for both portable layouts. Build, tests,
+post-process, and E-drive staging pass. The owner accepted these pan and
+safe-frame fixes after in-game review. Do not publish to PDX before final Phase
+7 owner acceptance.
+
+## Phase 7G Handoff
+
+Runtime hardening now publishes `captureMs`, `renderMs`, `rendererMs`,
+`renderCacheHit`, `renderCacheEntries`, `openCount`, and `coalescedRequests`.
+Game logs use `[CS2MetroPreview][Lifecycle|Capture|Render|Export|Save|Settings]`
+categories. The render cache is bounded to four LRU entries, and closing the
+panel discards pending visual work but never an explicit JSON export.
+
+Next priority is owner stress testing with repeated open/close, rapid setting
+changes, refresh/export overlap, and the largest available city. Treat
+geographic as the reliable default and do not add new visual features before
+that evidence is reviewed.
+
+Owner game validation completed on 2026-07-13 with no blocking issues.
+**Phase 7G is closed and passed.** The next work should enter Phase 7H release
+candidate preparation: freeze behavior, review the accumulated Phase 7 diff,
+run the full release checklist, package a candidate, and obtain explicit owner
+approval before GitHub/PDX publication.
+
+Use `scripts\package-phase7-release-candidate.ps1` for the private Phase 7H
+bundle. It deliberately writes to `artifacts\release-candidates`, includes the
+E-drive staged mod and self-contained Viewer, verifies source/staged MJS hashes,
+and records dirty working-tree state. Do not use the normal public release
+script or edit `PublishConfiguration.xml` until the exact RC passes
+`docs\PHASE7_RC_MANUAL_TEST.md`.
+
+`phase7-rc1` was generated, mechanically verified, and owner-approved at:
+
+```text
+artifacts\release-candidates\CS2MetroDiagram-phase7-rc1
+artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
+```
+
+Automated verification passed for build/tests, Viewer publish and launch, CS2
+post-process, MJS source/staging identity, package manifest, and ZIP contents.
+Owner in-game and Viewer acceptance is complete. The current action is to bump
+every version source to Beta.4, rebuild the final package, publish GitHub and
+PDX, then record the verified public endpoints. Do not upload the private
+`phase7-rc1` ZIP as the public Beta.4 asset because it intentionally embeds the
+Beta.3 baseline version.

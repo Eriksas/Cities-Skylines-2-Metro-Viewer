@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MetroDiagram.Core\MetroDiagram.Core.csproj" />
+    <ProjectReference Include="..\MetroDiagram.Engine\MetroDiagram.Engine.csproj" />
     <ProjectReference Include="..\MetroDiagram.Rendering\MetroDiagram.Rendering.csproj" />
     <ProjectReference Include="..\MetroDiagram.Export\MetroDiagram.Export.csproj" />
   </ItemGroup>

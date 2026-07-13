@@ -17,6 +17,10 @@
 	</Target>
 
 	<ItemGroup>
+		<ProjectReference Include="..\src\MetroDiagram.Engine\MetroDiagram.Engine.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Reference Include="Game">
 			<Private>false</Private>
 		</Reference>
@@ -27,6 +31,9 @@
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="Colossal.Localization">
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Colossal.UI.Binding">
 			<Private>false</Private>
 		</Reference>
 		<Reference Include="Colossal.IO.AssetDatabase">
@@ -68,6 +75,8 @@
 		<Compile Include="..\src\MetroDiagram.Core\Geometry\PathGeometrySampler.cs" Link="Shared\PathGeometrySampler.cs" />
 		<Compile Include="..\src\MetroDiagram.Core\Exporting\ExportDirectoryResolver.cs" Link="Shared\ExportDirectoryResolver.cs" />
 		<Compile Include="..\src\MetroDiagram.Core\Exporting\ExportSnapshotPathBuilder.cs" Link="Shared\ExportSnapshotPathBuilder.cs" />
+		<Compile Include="..\src\MetroDiagram.Core\Exporting\SvgSnapshotFileWriter.cs" Link="Shared\SvgSnapshotFileWriter.cs" />
+		<None Update="CS2 Metro.mjs" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>

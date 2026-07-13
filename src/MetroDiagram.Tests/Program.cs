@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Reflection;
+using System.Text.Json;
 using System.Xml.Linq;
 using MetroDiagram.Core.Exporting;
 using MetroDiagram.Core.Geometry;
 using MetroDiagram.Core.Loading;
 using MetroDiagram.Core.Models;
 using MetroDiagram.Core.Validation;
+using MetroDiagram.Engine;
 using MetroDiagram.Rendering;
 
 return TestSuite.RunAll();
@@ -79,6 +81,26 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal renders deterministic valid svg", SchematicAnnealRendersDeterministicValidSvg),
     ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
+    ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
+    ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
+    ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
+    ("portable schematic anneal is deterministic valid XML", PortableSchematicAnnealIsDeterministicValidXml),
+    ("portable schematic anneal handles 200 stations within budget", PortableSchematicAnnealHandlesTwoHundredStationsWithinBudget),
+    ("portable empty snapshot exports and renders safely", PortableEmptySnapshotExportsAndRendersSafely),
+    ("in-game preview render profiles keep stable defaults", InGamePreviewRenderProfilesKeepStableDefaults),
+    ("portable renderer emits CJK-capable font fallbacks", PortableRendererEmitsCjkCapableFontFallbacks),
+    ("portable renderer keeps stations and labels inside map frame", PortableRendererKeepsStationsAndLabelsInsideMapFrame),
+    ("SVG snapshot writer keeps latest stable and snapshots unique", SvgSnapshotWriterKeepsLatestStableAndSnapshotsUnique),
+    ("in-game preview UI avoids unsupported mixed-unit calc", InGamePreviewUiAvoidsUnsupportedMixedUnitCalc),
+    ("in-game preview defaults to geographic and inherits the game font", InGamePreviewDefaultsToGeographicAndInheritsGameFont),
+    ("in-game preview honors the mod interface language override", InGamePreviewHonorsModInterfaceLanguageOverride),
+    ("in-game preview uses game-style buttons and toggles", InGamePreviewUsesGameStyleButtonsAndToggles),
+    ("in-game preview uses Coherent-compatible mouse dragging", InGamePreviewUsesCoherentCompatibleMouseDragging),
+    ("in-game preview gives subtle schematic Viewer guidance", InGamePreviewGivesSubtleSchematicViewerGuidance),
+    ("in-game preview coalesces redundant render work", InGamePreviewCoalescesRedundantRenderWork),
+    ("in-game preview publishes categorized runtime telemetry", InGamePreviewPublishesCategorizedRuntimeTelemetry),
+    ("in-game preview render cache is bounded LRU", InGamePreviewRenderCacheIsBoundedLru),
+    ("closing in-game preview cancels pending visual work", ClosingInGamePreviewCancelsPendingVisualWork),
     ("layout score reports clean metrics for octilinear corner", LayoutScoreReportsCleanMetricsForOctilinearCorner),
     ("layout override loader builds default sidecar path", LayoutOverrideLoaderBuildsDefaultSidecarPath),
     ("layout overrides move station markers and routes", LayoutOverridesMoveStationMarkersAndRoutes),
@@ -2949,6 +2971,373 @@ static void SchematicAnnealAuditReportsNonIncreasingQualityCost()
 
     Assert(result.LayoutScore is not null, "Schematic-anneal render did not compute a layout score.");
     Assert(result.LayoutScore!.MinimumSpacingViolationCount == 0, "Schematic-anneal layout violated minimum station spacing.");
+}
+
+static void PortableSnapshotIsImmutableAndRevisionIgnoresExportTime()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-small.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Small sample did not load for portable snapshot test.");
+
+    MetroExportDocument document = loadResult.Document!;
+    MetroNetworkSnapshot first = MetroNetworkSnapshotAdapter.FromDocument(document);
+    string originalStationName = first.Stations[0].Name;
+    document.Network!.Stations![0].Name = "Mutated after capture";
+    document.City!.ExportedAtUtc = "2099-01-01T00:00:00Z";
+    MetroNetworkSnapshot second = MetroNetworkSnapshotAdapter.FromDocument(document);
+
+    Assert(first.Stations[0].Name == originalStationName, "Portable snapshot changed after source DTO mutation.");
+    Assert(first.Revision != second.Revision, "Station data mutation did not invalidate portable snapshot revision.");
+
+    document.Network.Stations[0].Name = originalStationName;
+    MetroNetworkSnapshot third = MetroNetworkSnapshotAdapter.FromDocument(document);
+    Assert(first.Revision == third.Revision, "Export timestamp alone changed portable snapshot revision.");
+}
+
+static void PortableSnapshotJsonPreservesExporterSchema()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-pathpoints.json");
+    MetroLoadResult source = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(source.IsValid && source.Document is not null, "Path-point sample did not load for portable JSON test.");
+
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(source.Document!);
+    string json = MetroSnapshotJsonWriter.Write(snapshot, "CS2 Metro Diagram Real Exporter", "test-version", "unknown");
+    MetroLoadResult roundTrip = MetroJsonLoader.LoadFromJson(json);
+    Assert(roundTrip.IsValid && roundTrip.Document is not null, "Portable snapshot JSON did not round-trip through the existing loader.");
+    Assert(roundTrip.Document!.City!.Name == source.Document!.City!.Name, "Portable snapshot JSON changed city name.");
+    Assert(roundTrip.Document.Network!.Stations!.Count == source.Document.Network!.Stations!.Count, "Portable snapshot JSON changed station count.");
+    Assert(roundTrip.Document.Network.Lines!.Count == source.Document.Network.Lines!.Count, "Portable snapshot JSON changed line count.");
+    Assert(roundTrip.Document.Network.Lines[0].PathPoints!.Count == source.Document.Network.Lines[0].PathPoints!.Count, "Portable snapshot JSON changed path-point count.");
+
+    using JsonDocument parsed = JsonDocument.Parse(json);
+    JsonElement root = parsed.RootElement;
+    Assert(root.GetProperty("schemaVersion").GetInt32() == 1, "Portable snapshot JSON changed schemaVersion.");
+    Assert(root.GetProperty("generator").GetProperty("version").GetString() == "test-version", "Portable snapshot JSON changed generator version.");
+}
+
+static void PortableGeographicRendererMatchesDesktopRouteSemantics()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-small.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Small sample did not load for portable geographic parity test.");
+
+    MetroExportDocument document = loadResult.Document!;
+    XDocument desktop = XDocument.Parse(new MetroSvgRenderer().Render(document, new SvgRenderOptions
+    {
+        LayoutMode = SvgLayoutMode.Geographic,
+        UsePathPoints = true
+    }).Svg);
+    PortableRenderResult portableResult = new PortableMetroSvgRenderer().Render(
+        MetroNetworkSnapshotAdapter.FromDocument(document),
+        new PortableRenderOptions { LayoutMode = PortableLayoutMode.Geographic });
+    XDocument portable = XDocument.Parse(portableResult.Svg);
+
+    int desktopRoutes = desktop.Descendants().Count(element => (string?)element.Attribute("class") == "route");
+    int portableRoutes = portable.Descendants().Count(element => (string?)element.Attribute("class") == "route");
+    Assert(desktopRoutes == portableRoutes, $"Desktop/runtime route counts differed: {desktopRoutes} vs {portableRoutes}.");
+    Assert(portableRoutes == 1, "Portable geographic sample did not render its route.");
+    Assert(portable.Descendants().Count(element => (string?)element.Attribute("class") == "station") == 4, "Portable geographic sample did not preserve station semantics.");
+    AssertValidSvg(portable, "portable geographic SVG");
+}
+
+static void PortableSchematicAnnealIsDeterministicValidXml()
+{
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(samplePath);
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Large sample did not load for portable anneal test.");
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(loadResult.Document!);
+    PortableRenderOptions options = new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal };
+
+    string first = new PortableMetroSvgRenderer().Render(snapshot, options).Svg;
+    string second = new PortableMetroSvgRenderer().Render(snapshot, options).Svg;
+    Assert(first == second, "Portable schematic-anneal output was not deterministic.");
+    XDocument xml = XDocument.Parse(first);
+    Assert((string?)xml.Root!.Attribute("data-layout") == "schematic-anneal", "Portable renderer did not record schematic-anneal layout.");
+    Assert((string?)xml.Root.Attribute("data-snapshot-revision") == snapshot.Revision, "Portable renderer did not record snapshot revision.");
+    AssertValidSvg(xml, "portable schematic-anneal SVG");
+}
+
+static void PortableSchematicAnnealHandlesTwoHundredStationsWithinBudget()
+{
+    List<MetroSnapshotStation> stations = new();
+    List<string> stops = new();
+    for (int i = 0; i < 200; i++)
+    {
+        string id = $"station_{i}";
+        stops.Add(id);
+        stations.Add(new MetroSnapshotStation(id, $"Station {i + 1}", i * 50, Math.Sin(i * 0.22) * 300, ["line_1"], false));
+    }
+
+    MetroNetworkSnapshot snapshot = new(
+        "Performance City",
+        "2026-07-13T00:00:00Z",
+        stations,
+        [new MetroSnapshotLine("line_1", "Line 1", "#1565C0", "metro", stops, [])]);
+    PortableRenderResult result = new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal, AnnealAttemptLimit = 6000 });
+
+    Assert(result.ElapsedMilliseconds < 5000, $"Portable 200-station render exceeded 5 s budget: {result.ElapsedMilliseconds} ms.");
+    Assert(result.StationCount == 200, $"Portable 200-station render reported {result.StationCount} stations.");
+    AssertValidSvg(XDocument.Parse(result.Svg), "portable 200-station SVG");
+}
+
+static void PortableEmptySnapshotExportsAndRendersSafely()
+{
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshot.Empty("2026-07-13T00:00:00Z");
+    string json = MetroSnapshotJsonWriter.Write(snapshot, "CS2 Metro Diagram Real Exporter", "test-version", "unknown");
+    MetroLoadResult roundTrip = MetroJsonLoader.LoadFromJson(json);
+
+    Assert(roundTrip.IsValid && roundTrip.Document is not null, "Empty portable snapshot JSON did not load.");
+    Assert(roundTrip.Document!.Network!.Stations!.Count == 0, "Empty portable snapshot JSON created stations.");
+    Assert(roundTrip.Document.Network.Lines!.Count == 0, "Empty portable snapshot JSON created lines.");
+
+    foreach (PortableLayoutMode layoutMode in new[] { PortableLayoutMode.Geographic, PortableLayoutMode.SchematicAnneal })
+    {
+        PortableRenderResult result = new PortableMetroSvgRenderer().Render(
+            snapshot,
+            new PortableRenderOptions { LayoutMode = layoutMode });
+        Assert(result.StationCount == 0 && result.LineCount == 0, $"Empty {layoutMode} render reported network content.");
+        AssertValidSvg(XDocument.Parse(result.Svg), $"portable empty {layoutMode} SVG");
+    }
+}
+
+static void InGamePreviewRenderProfilesKeepStableDefaults()
+{
+    PortableRenderOptions schematic = PortableRenderProfiles.CreateInGameSchematic(false, true);
+    Assert(schematic.LayoutMode == PortableLayoutMode.SchematicAnneal, "In-game schematic profile selected the wrong layout.");
+    Assert(schematic.Width == 1800 && schematic.Height == 1100, "In-game schematic profile dimensions changed unexpectedly.");
+    Assert(schematic.MergeServiceFamilies, "In-game schematic profile stopped merging service families.");
+    Assert(!schematic.ShowGenericStationNames && schematic.HideCrowdedLabels, "In-game schematic profile label defaults changed unexpectedly.");
+
+    PortableRenderOptions geographic = PortableRenderProfiles.CreateInGameGeographic(true, false);
+    Assert(geographic.LayoutMode == PortableLayoutMode.Geographic, "In-game geographic profile selected the wrong layout.");
+    Assert(geographic.Width == schematic.Width && geographic.Height == schematic.Height, "In-game layouts no longer share one viewport size.");
+    Assert(geographic.ShowGenericStationNames && !geographic.HideCrowdedLabels, "In-game geographic profile did not preserve requested label options.");
+}
+
+static void PortableRendererEmitsCjkCapableFontFallbacks()
+{
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-small.json"));
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Small sample did not load for portable font fallback test.");
+
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(loadResult.Document!);
+    string svg = new PortableMetroSvgRenderer().Render(
+        snapshot,
+        PortableRenderProfiles.CreateInGameGeographic(false, true)).Svg;
+
+    Assert(svg.Contains("Noto Sans SC", StringComparison.Ordinal), "Portable SVG no longer includes the Simplified Chinese font fallback used by CS2.");
+    Assert(svg.Contains("Noto Sans TC", StringComparison.Ordinal), "Portable SVG no longer includes the Traditional Chinese font fallback used by CS2.");
+    AssertValidSvg(XDocument.Parse(svg), "portable CJK font fallback SVG");
+}
+
+static void PortableRendererKeepsStationsAndLabelsInsideMapFrame()
+{
+    MetroLoadResult loadResult = MetroJsonLoader.LoadFromFile(Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-small.json"));
+    Assert(loadResult.IsValid && loadResult.Document is not null, "Small sample did not load for portable map-frame test.");
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(loadResult.Document!);
+
+    foreach (PortableLayoutMode layoutMode in new[] { PortableLayoutMode.Geographic, PortableLayoutMode.SchematicAnneal })
+    {
+        PortableRenderOptions options = new()
+        {
+            LayoutMode = layoutMode,
+            Width = 720,
+            Height = 480,
+            Padding = 24,
+            LegendWidth = 120,
+            RouteWidth = 12,
+            StationRadius = 10,
+            LabelFontSize = 16,
+            ShowGenericStationNames = true,
+            HideCrowdedLabels = false
+        };
+        XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+        double safetyInset = Math.Max(options.StationRadius * 1.55 + 3, options.RouteWidth / 2 + 3);
+        double left = options.Padding + safetyInset;
+        double right = options.Width - options.Padding - options.LegendWidth - safetyInset;
+        double top = options.Padding + 60 + safetyInset;
+        double bottom = options.Height - options.Padding - safetyInset;
+
+        foreach (XElement station in xml.Descendants().Where(element => (string?)element.Attribute("class") == "station"))
+        {
+            double cx = ReadDouble(station.Attribute("cx"));
+            double cy = ReadDouble(station.Attribute("cy"));
+            double radius = ReadDouble(station.Attribute("r"));
+            Assert(cx - radius >= options.Padding - 0.001 && cx + radius <= options.Width - options.Padding - options.LegendWidth + 0.001,
+                $"Portable {layoutMode} station marker escaped the horizontal map frame.");
+            Assert(cy - radius >= options.Padding + 60 - 0.001 && cy + radius <= options.Height - options.Padding + 0.001,
+                $"Portable {layoutMode} station marker escaped the vertical map frame.");
+        }
+
+        foreach (XElement label in xml.Descendants().Where(element => (string?)element.Attribute("class") == "station-label"))
+        {
+            double x = ReadDouble(label.Attribute("x"));
+            double y = ReadDouble(label.Attribute("y"));
+            double estimatedWidth = Math.Max(label.Value.Length, 2) * options.LabelFontSize * 0.72;
+            Assert(x >= left - 0.001 && x + estimatedWidth <= right + 0.001,
+                $"Portable {layoutMode} station label escaped the horizontal safe frame.");
+            Assert(y - options.LabelFontSize >= top - 0.001 && y + 4 <= bottom + 0.001,
+                $"Portable {layoutMode} station label escaped the vertical safe frame.");
+        }
+    }
+}
+
+static void SvgSnapshotWriterKeepsLatestStableAndSnapshotsUnique()
+{
+    string root = Path.Combine(FindRepositoryRoot(), "artifacts", "test-temp", "svg-snapshot-" + Guid.NewGuid().ToString("N"));
+    DateTime timestamp = new(2026, 7, 13, 14, 25, 30, DateTimeKind.Local);
+    const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Preview</title></svg>";
+
+    try
+    {
+        SvgSnapshotWriteResult first = SvgSnapshotFileWriter.Write(root, "Test: City", svg, timestamp);
+        SvgSnapshotWriteResult second = SvgSnapshotFileWriter.Write(root, "Test: City", svg, timestamp);
+
+        Assert(first.LatestPath == second.LatestPath, "Repeated SVG saves changed the stable latest path.");
+        Assert(Path.GetFileName(first.LatestPath) == SvgSnapshotFileWriter.LatestFileName, "SVG latest filename changed unexpectedly.");
+        Assert(Path.GetDirectoryName(first.SnapshotPath) == Path.Combine(root, "exports"), "SVG snapshot was not written under exports.");
+        Assert(first.SnapshotPath != second.SnapshotPath, "Repeated same-second SVG saves overwrote a snapshot.");
+        Assert(Path.GetFileName(first.SnapshotPath).Contains("Test-City-20260713-142530", StringComparison.Ordinal), "SVG snapshot filename did not contain the sanitized city and shared timestamp.");
+        Assert(File.ReadAllText(first.LatestPath) == svg, "SVG latest content changed during write.");
+        Assert(File.ReadAllText(first.SnapshotPath) == svg && File.ReadAllText(second.SnapshotPath) == svg, "SVG snapshot content changed during write.");
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, true);
+        }
+    }
+}
+
+static void InGamePreviewUiAvoidsUnsupportedMixedUnitCalc()
+{
+    string scriptPath = Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs");
+    string script = File.ReadAllText(scriptPath);
+
+    Assert(
+        !script.Contains("calc(100%", StringComparison.OrdinalIgnoreCase),
+        "In-game preview UI reintroduced percentage/rem calc(), which CS2 Coherent UI cannot resolve.");
+    Assert(
+        script.Contains("dangerouslySetInnerHTML", StringComparison.Ordinal),
+        "In-game preview UI no longer mounts renderer-owned SVG inline.");
+}
+
+static void InGamePreviewDefaultsToGeographicAndInheritsGameFont()
+{
+    string repositoryRoot = FindRepositoryRoot();
+    string script = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "CS2 Metro.mjs"));
+    string setting = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "Setting.cs"));
+    string controller = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "InGamePreviewUISystem.cs"));
+
+    Assert(script.Contains("layout: \"geographic\"", StringComparison.Ordinal), "In-game preview JavaScript fallback layout is no longer geographic.");
+    Assert(script.Contains("font-family:var(--fontFamily)", StringComparison.Ordinal), "Inline SVG no longer inherits the CS2 locale-aware font family.");
+    Assert(script.Contains("replace(/\\sfont-family", StringComparison.Ordinal), "Inline SVG no longer removes renderer hard-coded font attributes before mounting.");
+    Assert(setting.Contains("InGamePreviewLayout { get; set; } = PreviewLayoutGeographic", StringComparison.Ordinal), "New preview settings no longer default to geographic.");
+    Assert(setting.Contains("InGamePreviewGeographicDefaultApplied", StringComparison.Ordinal), "Preview settings no longer contain the one-time geographic default migration marker.");
+    Assert(controller.Contains("Applied the geographic in-game preview default migration", StringComparison.Ordinal), "Existing preview settings are no longer migrated to the geographic default once.");
+}
+
+static void InGamePreviewHonorsModInterfaceLanguageOverride()
+{
+    string repositoryRoot = FindRepositoryRoot();
+    string script = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "CS2 Metro.mjs"));
+    string controller = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "InGamePreviewUISystem.cs"));
+
+    Assert(script.Contains("state.interfaceLanguage === \"en\"", StringComparison.Ordinal), "Preview UI no longer applies the explicit English override.");
+    Assert(script.Contains("state.interfaceLanguage === \"zh-HANS\"", StringComparison.Ordinal), "Preview UI no longer applies the explicit Simplified Chinese override.");
+    Assert(controller.Contains("\"interfaceLanguage\"", StringComparison.Ordinal), "Preview controller no longer publishes the mod interface language.");
+}
+
+static void InGamePreviewUsesGameStyleButtonsAndToggles()
+{
+    string script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs"));
+
+    Assert(!script.Contains("type: \"checkbox\"", StringComparison.Ordinal), "In-game preview reintroduced a native checkbox that Coherent renders as an input box.");
+    Assert(script.Contains("variant: selected === true ? \"primary\" : \"flat\"", StringComparison.Ordinal), "Preview command buttons no longer use CS2 flat/primary variants.");
+    Assert(script.Contains("variant: checked === true ? \"primary\" : \"flat\"", StringComparison.Ordinal), "Preview filter toggles no longer use CS2 flat/primary variants.");
+    Assert(script.Contains("\"aria-pressed\": checked === true", StringComparison.Ordinal), "Preview filter toggles no longer publish their pressed state.");
+    Assert(script.Contains("onClick: () => onChange(checked !== true)", StringComparison.Ordinal), "Preview filter toggles no longer change state from the complete control surface.");
+}
+
+static void InGamePreviewUsesCoherentCompatibleMouseDragging()
+{
+    string script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs"));
+
+    Assert(script.Contains("onMouseDown", StringComparison.Ordinal), "Preview map no longer starts dragging from a Coherent-compatible mouse event.");
+    Assert(script.Contains("window.addEventListener(\"mousemove\"", StringComparison.Ordinal), "Preview map no longer tracks drag movement outside the viewport.");
+    Assert(script.Contains("window.addEventListener(\"mouseup\"", StringComparison.Ordinal), "Preview map no longer ends a drag through the global mouse release event.");
+    Assert(!script.Contains("setPointerCapture", StringComparison.Ordinal), "Preview map still depends on pointer capture, which is unreliable in CS2 Coherent UI.");
+}
+
+static void InGamePreviewGivesSubtleSchematicViewerGuidance()
+{
+    string script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs"));
+
+    Assert(script.Contains("示意图预览仍在优化；需要完整效果时建议使用桌面 Viewer。", StringComparison.Ordinal), "Chinese schematic Viewer guidance is missing.");
+    Assert(script.Contains("Schematic preview is still being refined; use the desktop Viewer for the most reliable result.", StringComparison.Ordinal), "English schematic Viewer guidance is missing.");
+    Assert(script.Contains("state.layout !== \"geographic\"", StringComparison.Ordinal), "Schematic Viewer guidance is no longer limited to non-geographic layouts.");
+    Assert(script.Contains("opacity: 0.82", StringComparison.Ordinal), "Schematic Viewer guidance is no longer visually subdued.");
+}
+
+static void InGamePreviewCoalescesRedundantRenderWork()
+{
+    string controller = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "InGamePreviewUISystem.cs"))
+        .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+    Assert(
+        controller.Contains("private void ProcessRefresh()\n        {\n            // Refresh captures and renders the latest options, so an older queued option render is redundant.\n            DiscardRequest(ref m_RenderRequested);", StringComparison.Ordinal),
+        "Refresh no longer discards a redundant queued option render.");
+    Assert(
+        controller.Contains("DiscardRequest(ref m_RefreshRequested);\n                DiscardRequest(ref m_RenderRequested);\n                RenderCurrent(\"json-exported\");", StringComparison.Ordinal),
+        "Successful JSON export no longer coalesces queued refresh/render work before rendering the latest capture.");
+    Assert(
+        controller.Contains("private void ClearPreview(string status, string notice, string error)\n        {\n            DiscardRequest(ref m_RenderRequested);\n            DiscardRequest(ref m_SaveSvgRequested);", StringComparison.Ordinal),
+        "Clearing the preview no longer clears stale render/save requests.");
+}
+
+static void InGamePreviewPublishesCategorizedRuntimeTelemetry()
+{
+    string controller = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "InGamePreviewUISystem.cs"));
+    string captureService = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "MetroNetworkSnapshotService.cs"));
+
+    foreach (string field in new[] { "captureMs", "renderMs", "rendererMs", "renderCacheEntries", "renderCacheHit", "openCount", "coalescedRequests" })
+    {
+        Assert(controller.Contains("\"" + field + "\"", StringComparison.Ordinal), $"Preview state no longer publishes {field} telemetry.");
+    }
+
+    foreach (string category in new[] { "[Lifecycle]", "[Capture]", "[Render]", "[Export]", "[Save]", "[Settings]" })
+    {
+        Assert(controller.Contains(category, StringComparison.Ordinal), $"Preview logs no longer include the {category} category.");
+    }
+
+    Assert(captureService.Contains("Stopwatch.StartNew()", StringComparison.Ordinal), "Snapshot capture timing is no longer measured at the ECS boundary.");
+    Assert(captureService.Contains("CaptureMilliseconds", StringComparison.Ordinal), "Snapshot capture timing is no longer stored with the capture.");
+}
+
+static void InGamePreviewRenderCacheIsBoundedLru()
+{
+    string service = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "InGamePreviewRenderService.cs"));
+
+    Assert(service.Contains("internal const int MaxCacheEntries = 4", StringComparison.Ordinal), "Preview render cache capacity changed unexpectedly.");
+    Assert(service.Contains("TouchCacheKey(cacheKey);", StringComparison.Ordinal), "Preview render cache no longer refreshes recency on access.");
+    Assert(service.Contains("CacheOrder.Remove(cacheKey);", StringComparison.Ordinal), "Preview render cache no longer removes an existing LRU entry before touching it.");
+    Assert(service.Contains("while (CacheOrder.Count > MaxCacheEntries)", StringComparison.Ordinal), "Preview render cache is no longer bounded.");
+    Assert(service.Contains("WasCacheHit", StringComparison.Ordinal), "Preview render cache no longer reports cache hits.");
+}
+
+static void ClosingInGamePreviewCancelsPendingVisualWork()
+{
+    string controller = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "InGamePreviewUISystem.cs"))
+        .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+    Assert(
+        controller.Contains("if (!open)\n            {\n                DiscardRequest(ref m_RefreshRequested);\n                DiscardRequest(ref m_RenderRequested);\n                DiscardRequest(ref m_SaveSvgRequested);", StringComparison.Ordinal),
+        "Closing the preview no longer cancels pending refresh/render/save work.");
+    Assert(
+        !controller.Contains("DiscardRequest(ref m_ExportJsonRequested);", StringComparison.Ordinal),
+        "Closing the preview must not discard an explicit JSON export request.");
 }
 
 static void LayoutScoreReportsCleanMetricsForOctilinearCorner()

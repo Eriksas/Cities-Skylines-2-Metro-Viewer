@@ -7,14 +7,17 @@
 	<ShortDescription Value="Turn your city's metro network into a clean, readable metro map." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<LongDescription>
-Turn the metro/subway network of your Cities: Skylines II city into a clean, official-style metro map.
+Turn the metro/subway network of your Cities: Skylines II city into a clean, readable metro map.
 
-This mod exports your city's metro network to a JSON file. You then open that file in the free companion Windows Viewer app to render the map and save it as SVG, PNG, or PDF (great for wallpapers, posters, printing, or sharing your transit system).
+Beta.4 adds a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
+
+For the most complete official-style schematic map, export your city's metro network to JSON and open it in the free companion Windows Viewer. The Viewer can save SVG, PNG, or PDF for wallpapers, posters, printing, and sharing.
 
 How to use:
-1. In game: Options &gt; CS2 Metro Diagram, choose Auto / English / Simplified Chinese, pick an export folder, and click "Export Real Metro JSON".
-2. Open the Viewer app, click "Open Default Export", and your map appears.
-3. Adjust the layout/size if you like, then save as SVG, PNG, or PDF.
+1. Load a city and click the metro-map button in the top-right toolbar for the in-game preview.
+2. In Options &gt; CS2 Metro Diagram, choose Auto / English / Simplified Chinese and an export folder.
+3. Export JSON, then open the Viewer and click "Open Default Export" for the full schematic workflow.
+4. Adjust the layout/size if you like, then save as SVG, PNG, or PDF.
 
 The default map layout draws lines horizontal, vertical, or 45-degree, renders lines that share a track as parallel lines, and fills the canvas — the same conventions real metro maps use.
 
@@ -29,8 +32,8 @@ Does your city's map not look quite right? Share your metro-export.json in a Git
 
 Beta notes:
 - Metro/subway only.
-- Exports data only; it never edits your city.
-- No in-game preview yet — rendering happens in the Viewer app.
+- Preview/export only; it never edits your city.
+- The in-game schematic is intentionally lightweight; use the Viewer for the most complete result.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
@@ -44,7 +47,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.3" />
+	<ModVersion Value="0.1.0-beta.4" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -53,9 +56,12 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.3 hotfix:
-- Fixed the mod failing to load in beta.2 (options page and exporter were unavailable). If you saw the mod missing from Options, this update restores it.
-- Localization problems can no longer block the exporter; worst case the options page falls back to raw locale keys.
+Beta.4:
+- Added a read-only in-game metro preview opened from the top-right toolbar.
+- Added geographic/schematic switching, refresh, label controls, zoom/pan, JSON export, and SVG save inside the preview.
+- Added Chinese/English UI support, explicit no-city/no-metro/error states, safe edge framing, and categorized runtime diagnostics.
+- Hardened repeated open/close and rapid setting changes with request coalescing and a bounded LRU render cache.
+- Preserved the existing exporter schema and desktop Viewer workflow.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

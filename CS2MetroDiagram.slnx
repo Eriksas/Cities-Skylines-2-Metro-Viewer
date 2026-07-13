@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/MetroDiagram.Cli/MetroDiagram.Cli.csproj" />
     <Project Path="src/MetroDiagram.Core/MetroDiagram.Core.csproj" />
+    <Project Path="src/MetroDiagram.Engine/MetroDiagram.Engine.csproj" />
     <Project Path="src/MetroDiagram.Export/MetroDiagram.Export.csproj" />
     <Project Path="src/MetroDiagram.Rendering/MetroDiagram.Rendering.csproj" />
     <Project Path="src/MetroDiagram.Tests/MetroDiagram.Tests.csproj" />

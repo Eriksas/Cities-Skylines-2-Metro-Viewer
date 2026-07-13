@@ -2,12 +2,13 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.3`
+Repository and companion Viewer release candidate: `v0.1.0-beta.4`
 
 Current Paradox Mods code-mod release: `v0.1.0-beta.3` (ModId `146643`, Public).
 
-The repository, companion Viewer, and Paradox Mods listing are aligned on the
-first beta line.
+The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.4 source and
+metadata are prepared; the public PDX listing remains Beta.3 only until the
+final publish command completes.
 
 This is beta software. It is not a stable release.
 
@@ -18,13 +19,66 @@ in-game metro preview with refresh, layout/label controls, JSON export, and SVG
 save. The architecture and acceptance gates are in
 `docs\INGAME_PREVIEW_PLAN.md`.
 
-The current public Beta.3 remains the stable PDX baseline. Phase 7 development
-must not be published to PDX until the owner tests and explicitly approves the
-release candidate.
+Phase 7A passed owner in-game validation on 2026-07-13 and is closed. The
+official top-right entry opens the responsive static preview workspace, the
+binding-driven panel lifecycle is stable, and the existing Options/export
+workflow remains available.
+
+Phase 7B through Phase 7E are now code-side complete on branch
+`feature/ingame-preview`. The exporter and preview share one immutable
+`MetroNetworkSnapshot`; JSON generation preserves the existing schema and real
+ECS extraction behavior. The new dependency-light `MetroDiagram.Engine`
+targets `netstandard2.0`, renders geographic and deterministic
+schematic-anneal SVG from memory, and ships with a bounded render cache and
+dedicated in-game profiles. Empty networks are supported and the 200-station
+fixture remains within the current five-second test budget.
+
+The static sample panel has been replaced by a real current-city SVG workspace.
+Phase 7D provides refresh, schematic/geographic switching, fit/zoom/pan,
+revision caching, and loading/no-city/no-metro/error states. Phase 7E adds
+persisted label controls, the established JSON export action, and saving the
+visible SVG as stable latest plus timestamped snapshot files. The complete
+Phase 7 candidate has passed owner in-game validation.
+
+The owner confirmed on 2026-07-13 that the real current-city map is now visible
+after the Coherent sizing hotfix. The blank-canvas blocker is closed. The first
+visible schematic pass is useful as a secondary diagnostic view, but geographic
+is currently the clearer in-game presentation. The in-game panel therefore now
+opens on geographic by default while retaining the schematic switch. A one-time
+preference migration changes existing development settings to geographic; later
+user layout choices continue to persist normally.
+
+Phase 7F has passed the owner's in-game visual and interaction review on
+2026-07-13. The toolbar has
+been regrouped into layout and command sections, the panel follows the mod's
+Auto/English/Simplified Chinese language override, and inline SVG text inherits
+CS2's locale-aware `--fontFamily`. Saved portable SVG also declares Noto CJK
+fallbacks. This fixes the tofu boxes caused by the old explicit Arial override
+without changing captured names or the export schema. Chinese text and the
+responsive layout passed the candidate acceptance review.
+The filter controls no longer use native HTML checkboxes: each is now a
+game-style pressed toggle with a visible switch state. Layout and command
+buttons use CS2's `primary`/`flat` button themes instead of the white browser
+fallback. Coherent-compatible map dragging and marker-aware canvas bounds were
+also accepted as suitable for continued development.
+
+Phase 7G hardening passed owner acceptance. It keeps geographic as the default,
+adds a subdued schematic-only note recommending the desktop Viewer, exposes
+capture/render telemetry, categorizes logs, coalesces stale work, and bounds the
+render cache to four LRU entries. No exporter/schema contract changed.
+
+Current Phase 7B-E development output:
+
+```text
+E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
+```
+
+The public Beta.3 remains the PDX baseline only while the accepted Beta.4
+release is being rebuilt and published. The Phase 7 publication gate is open.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.3`
+- Repository/Viewer release line: `v0.1.0-beta.4`
 - Paradox Mods published version: `0.1.0-beta.3`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
@@ -35,10 +89,14 @@ keeps localization failure isolated from the exporter, and has passed in-game
 mod-loading validation. Dynamic localization still falls back to raw locale
 keys on the current CS2 build and remains a non-blocking known issue.
 
-Default product mode: `schematic-anneal` (the Viewer opens on it). It won every
+Default desktop product mode: `schematic-anneal` (the Viewer opens on it). It won every
 layout metric on both median and worst case across the current corpus (9 samples
 + 2 real cities), so it is the default schematic direction pending broader
 multi-city validation.
+
+Default in-game preview mode: `geographic`. This is an in-game presentation
+choice only and does not change the Viewer/CLI product default. The portable
+schematic remains available from the panel for comparison.
 
 `geographic` remains the most faithful render of exported route geometry and is
 available for anyone who wants true geometry rather than a schematic
@@ -311,3 +369,61 @@ Run these after code or script changes:
 dotnet build CS2MetroDiagram.slnx --no-restore
 dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
 ```
+
+## Phase 7F Interaction And Safe-frame Follow-up
+
+Code-side work is complete for two owner-reported in-game preview issues:
+
+- Map panning now uses Coherent-compatible mouse events with window-level move
+  and release tracking instead of relying on pointer capture.
+- The portable renderer now reserves a marker-aware safe frame in both
+  geographic and schematic-anneal layouts. Station circles remain inside the
+  map area, and edge labels switch sides or clamp vertically instead of
+  escaping the canvas.
+
+The offline solution, full test suite, and CS2 Release post-process pass with
+zero warnings/errors. The owner reviewed the staged build and accepted the pan
+and safe-frame behavior for continued development. Do not publish this branch
+to PDX until the complete Phase 7 release candidate is approved.
+
+## Phase 7G Runtime Hardening
+
+The in-game preview controller now exposes capture time, end-to-end render
+request time, renderer time, cache hits/entry count, panel-open count, and
+coalesced request count in its state payload. Logs use stable Lifecycle,
+Capture, Render, Export, Save, and Settings categories so a slow or blank
+preview can be diagnosed without guessing which layer failed.
+
+The four-entry render cache now uses least-recently-used ordering. Repeated UI
+requests are coalesced, and closing the panel cancels pending refresh, rerender,
+and SVG-save work while preserving an explicit JSON export. These are runtime
+hardening changes only: exporter ECS reads, JSON schema, map geometry, and
+visual defaults are unchanged.
+
+**Phase 7G: Passed.** The owner completed the in-game acceptance pass on
+2026-07-13 and reported no blocking issues. Repeated panel use, current preview
+behavior, request handling, and the staged development build are accepted for
+the next release-candidate phase. PDX publication still requires the explicit
+final release approval described in Phase 7H.
+
+## Phase 7H Release Candidate
+
+Phase 7H is active and behavior is frozen. Private candidate `phase7-rc1` was
+generated on 2026-07-13 at:
+
+```text
+artifacts\release-candidates\CS2MetroDiagram-phase7-rc1
+artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
+```
+
+The offline solution build, complete test executable, self-contained Viewer
+publish, CS2 Release post-process/Burst build, source-to-staged MJS hash check,
+package manifest verification, ZIP-content verification, and Viewer launch
+smoke all passed. The candidate contains 16 files (76.23 MiB unpacked); its ZIP
+is 70.86 MiB.
+
+The bundle deliberately kept the existing Beta.3 version sources unchanged
+while packaging the staged E-drive mod, self-contained Viewer, hashes, build
+identity, known issues, and manual acceptance checklist. The owner approved
+this exact candidate on 2026-07-13. Version sources have now moved together to
+Beta.4 and final GitHub/PDX publication is authorized.

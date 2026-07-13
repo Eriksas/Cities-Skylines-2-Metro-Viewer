@@ -7,6 +7,7 @@ using Game.Routes;
 using Game.SceneFlow;
 using Game.UI;
 using MetroDiagram.Core.Exporting;
+using MetroDiagram.Engine;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -66,17 +67,20 @@ namespace CS2_Metro
             {
                 Directory.CreateDirectory(exportDirectory);
 
-                ExportContext context = new ExportContext(updateSystem, initialPaths.LatestJsonPath, initialPaths.LatestDiagnosticsPath);
-                MetroExport export = BuildExport(context);
-                ExportSnapshotPaths exportPaths = BuildExportPaths(exportDirectory, GetSnapshotCityName(export), exportTimestampLocal);
+                MetroNetworkSnapshotCapture capture = MetroNetworkSnapshotService.Capture(
+                    updateSystem,
+                    initialPaths.LatestJsonPath,
+                    initialPaths.LatestDiagnosticsPath);
+                MetroNetworkSnapshot snapshot = capture.Snapshot;
+                ExportSnapshotPaths exportPaths = BuildExportPaths(exportDirectory, GetSnapshotCityName(snapshot), exportTimestampLocal);
                 Directory.CreateDirectory(exportPaths.SnapshotDirectory);
 
-                string json = BuildJson(export);
-                string diagnostics = BuildDiagnosticsReport(context.Diagnostics.ToString(), export, exportPaths, exportTimestampLocal);
+                string json = BuildJson(snapshot);
+                string diagnostics = BuildDiagnosticsReport(capture.Diagnostics, snapshot, exportPaths, exportTimestampLocal);
 
                 WriteExportFiles(exportPaths, json, diagnostics);
 
-                Mod.log.Info($"Export Real Metro JSON succeeded. Lines: {export.Lines.Count}, stations: {export.Stations.Count}. Latest export: {exportPaths.LatestJsonPath}. Snapshot export: {exportPaths.SnapshotJsonPath}. Latest diagnostics: {exportPaths.LatestDiagnosticsPath}. Snapshot diagnostics: {exportPaths.SnapshotDiagnosticsPath}");
+                Mod.log.Info($"Export Real Metro JSON succeeded. Revision: {snapshot.Revision}. Lines: {snapshot.Lines.Count}, stations: {snapshot.Stations.Count}. Latest export: {exportPaths.LatestJsonPath}. Snapshot export: {exportPaths.SnapshotJsonPath}. Latest diagnostics: {exportPaths.LatestDiagnosticsPath}. Snapshot diagnostics: {exportPaths.SnapshotDiagnosticsPath}");
                 return true;
             }
             catch (Exception ex)
@@ -102,6 +106,13 @@ namespace CS2_Metro
 
                 return false;
             }
+        }
+
+        internal static MetroNetworkSnapshotCapture CaptureSnapshotCore(UpdateSystem updateSystem, string jsonPath, string diagnosticsPath)
+        {
+            ExportContext context = new ExportContext(updateSystem, jsonPath, diagnosticsPath);
+            MetroExport export = BuildExport(context);
+            return new MetroNetworkSnapshotCapture(ToSnapshot(export), context.Diagnostics.ToString());
         }
 
         private static void WriteExportFiles(ExportSnapshotPaths exportPaths, string json, string diagnostics)
@@ -886,77 +897,13 @@ namespace CS2_Metro
             return entity != Entity.Null && entity.Index >= 0 && entityManager.Exists(entity);
         }
 
-        private static string BuildJson(MetroExport export)
+        private static string BuildJson(MetroNetworkSnapshot snapshot)
         {
-            StringBuilder json = new StringBuilder();
-            json.AppendLine("{");
-            json.AppendLine("  \"schemaVersion\": 1,");
-            json.AppendLine("  \"generator\": {");
-            json.AppendLine("    \"name\": \"CS2 Metro Diagram Real Exporter\",");
-            json.AppendLine($"    \"version\": \"{VersionInfo.ReleaseVersion}\"");
-            json.AppendLine("  },");
-            json.AppendLine("  \"game\": {");
-            json.AppendLine("    \"name\": \"Cities: Skylines II\",");
-            json.AppendLine("    \"version\": \"unknown\"");
-            json.AppendLine("  },");
-            json.AppendLine("  \"city\": {");
-            json.AppendLine($"    \"name\": \"{EscapeJson(GetJsonCityName(export))}\",");
-            json.AppendLine($"    \"exportedAtUtc\": \"{EscapeJson(export.ExportedAtUtc)}\"");
-            json.AppendLine("  },");
-            json.AppendLine("  \"network\": {");
-            json.AppendLine("    \"type\": \"metro\",");
-            json.AppendLine("    \"stations\": [");
-
-            for (int i = 0; i < export.Stations.Count; i++)
-            {
-                MetroStationExport station = export.Stations[i];
-                json.AppendLine("      {");
-                json.AppendLine($"        \"id\": \"{EscapeJson(station.Id)}\",");
-                json.AppendLine($"        \"name\": \"{EscapeJson(station.Name)}\",");
-                json.AppendLine($"        \"position\": {{ \"x\": {FormatDouble(station.X)}, \"z\": {FormatDouble(station.Z)} }},");
-                json.AppendLine($"        \"lines\": [{string.Join(", ", station.Lines.Select(lineId => $"\"{EscapeJson(lineId)}\"").ToArray())}],");
-                json.AppendLine($"        \"isInterchange\": {(station.IsInterchange ? "true" : "false")}");
-                json.Append("      }");
-                json.AppendLine(i == export.Stations.Count - 1 ? string.Empty : ",");
-            }
-
-            json.AppendLine("    ],");
-            json.AppendLine("    \"lines\": [");
-
-            for (int i = 0; i < export.Lines.Count; i++)
-            {
-                MetroLineExport line = export.Lines[i];
-                json.AppendLine("      {");
-                json.AppendLine($"        \"id\": \"{EscapeJson(line.Id)}\",");
-                json.AppendLine($"        \"name\": \"{EscapeJson(line.Name)}\",");
-                json.AppendLine($"        \"color\": \"{EscapeJson(line.Color)}\",");
-                json.AppendLine($"        \"mode\": \"{EscapeJson(line.Mode)}\",");
-                json.AppendLine($"        \"stops\": [{string.Join(", ", line.Stops.Select(stopId => $"\"{EscapeJson(stopId)}\"").ToArray())}]" + (line.PathPoints.Count > 0 ? "," : string.Empty));
-                if (line.PathPoints.Count > 0)
-                {
-                    json.AppendLine("        \"pathPoints\": [");
-                    for (int j = 0; j < line.PathPoints.Count; j++)
-                    {
-                        RoutePathPointExport point = line.PathPoints[j];
-                        json.AppendLine("          {");
-                        json.AppendLine($"            \"x\": {FormatDouble(point.X)},");
-                        json.AppendLine($"            \"z\": {FormatDouble(point.Z)},");
-                        json.AppendLine($"            \"source\": \"{EscapeJson(point.Source)}\",");
-                        json.AppendLine($"            \"segmentEntity\": \"{EscapeJson(point.SegmentEntity)}\"");
-                        json.Append("          }");
-                        json.AppendLine(j == line.PathPoints.Count - 1 ? string.Empty : ",");
-                    }
-
-                    json.AppendLine("        ]");
-                }
-                json.Append("      }");
-                json.AppendLine(i == export.Lines.Count - 1 ? string.Empty : ",");
-            }
-
-            json.AppendLine("    ]");
-            json.AppendLine("  }");
-            json.AppendLine("}");
-            return json.ToString();
+            return MetroSnapshotJsonWriter.Write(
+                snapshot,
+                "CS2 Metro Diagram Real Exporter",
+                VersionInfo.ReleaseVersion,
+                "unknown");
         }
 
         private static ExportSnapshotPaths BuildExportPaths(string exportDirectory, string cityName, DateTime exportTimestampLocal)
@@ -971,11 +918,12 @@ namespace CS2_Metro
                 exportTimestampLocal);
         }
 
-        private static string BuildDiagnosticsReport(string diagnosticsBody, MetroExport export, ExportSnapshotPaths exportPaths, DateTime exportTimestampLocal)
+        private static string BuildDiagnosticsReport(string diagnosticsBody, MetroNetworkSnapshot snapshot, ExportSnapshotPaths exportPaths, DateTime exportTimestampLocal)
         {
             StringBuilder report = new StringBuilder(diagnosticsBody.Length + 512);
             report.AppendLine("Export File Paths");
-            report.AppendLine($"City name: {GetSnapshotCityName(export)}");
+            report.AppendLine($"City name: {GetSnapshotCityName(snapshot)}");
+            report.AppendLine($"Snapshot revision: {snapshot.Revision}");
             report.AppendLine($"City slug: {exportPaths.CitySlug}");
             report.AppendLine($"Export timestamp local: {exportTimestampLocal.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}");
             report.AppendLine($"Latest export path: {exportPaths.LatestJsonPath}");
@@ -987,14 +935,34 @@ namespace CS2_Metro
             return report.ToString();
         }
 
-        private static string GetJsonCityName(MetroExport export)
+        private static string GetSnapshotCityName(MetroNetworkSnapshot snapshot)
         {
-            return string.IsNullOrWhiteSpace(export.CityName) ? "CS2 Metro Export" : export.CityName;
+            return string.IsNullOrWhiteSpace(snapshot.CityName) ? ExportSnapshotPathBuilder.FallbackCitySlug : snapshot.CityName;
         }
 
-        private static string GetSnapshotCityName(MetroExport export)
+        private static MetroNetworkSnapshot ToSnapshot(MetroExport export)
         {
-            return string.IsNullOrWhiteSpace(export.CityName) ? ExportSnapshotPathBuilder.FallbackCitySlug : export.CityName;
+            List<MetroSnapshotStation> stations = export.Stations.Select(station => new MetroSnapshotStation(
+                station.Id,
+                station.Name,
+                station.X,
+                station.Z,
+                station.Lines,
+                station.IsInterchange)).ToList();
+
+            List<MetroSnapshotLine> lines = export.Lines.Select(line => new MetroSnapshotLine(
+                line.Id,
+                line.Name,
+                line.Color,
+                line.Mode,
+                line.Stops,
+                line.PathPoints.Select(point => new MetroSnapshotPathPoint(
+                    point.X,
+                    point.Z,
+                    point.Source,
+                    point.SegmentEntity)))).ToList();
+
+            return new MetroNetworkSnapshot(export.CityName, export.ExportedAtUtc, stations, lines);
         }
 
         private static string FormatEntityId(string prefix, Entity entity)

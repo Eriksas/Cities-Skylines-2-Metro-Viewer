@@ -2,6 +2,17 @@
 
 Use this checklist for future releases.
 
+For Phase 7, first create the private candidate without changing or
+overwriting the public Beta.3 package:
+
+```text
+pwsh -NoProfile -File scripts\package-phase7-release-candidate.ps1
+```
+
+Complete `docs\PHASE7_RC_MANUAL_TEST.md` against that exact candidate. Only
+after owner approval should version sources, changelog, GitHub release, and PDX
+configuration be changed to the final public version.
+
 ## Build And Test
 
 - [ ] Update version number.

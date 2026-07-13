@@ -499,3 +499,216 @@ export data capture from file writing, then resolves .NET runtime compatibility
 for the renderer. The desktop Viewer remains the advanced editor. The public
 PDX listing stays on the accepted Beta.3 until the owner approves the exact
 in-game release candidate.
+
+## Use Current CS2 Game-Panel Extensions For The Preview Shell
+
+Decision: Phase 7A registers its entry through `GameTopRight`, appends its panel
+root to `Game`, and uses `Colossal.UI.Binding` value/trigger bindings for C#/UI
+communication. It does not use the legacy HookUI path.
+
+Reason: these extension points and binding classes were verified against the
+installed game assemblies and a current working code mod. Using the current
+game-panel lifecycle lowers API-drift risk and keeps the spike representative
+of the panel that later phases will ship.
+
+Consequence: `InGamePreviewUISystem` owns panel visibility and small health
+state during Phase 7A, while the `.mjs` frontend owns presentation. The button
+changes the binding directly and the `Game` root mounts the panel when it is
+true. This replaced an initial `game.togglePanel`-only attempt whose button
+appeared but whose panel did not mount in the owner's game. Registration is
+wrapped so preview failure cannot prevent exporter/settings initialization.
+Any future entry or binding change still requires an in-game lifecycle smoke
+test before Phase 7B or publication.
+
+## Use A Small Netstandard Engine Instead Of Porting The Desktop Renderer
+
+Decision: Phase 7B/7C introduce `MetroDiagram.Engine` as a dependency-light
+`netstandard2.0` runtime boundary. It owns immutable snapshot DTOs, stable
+revision calculation, exporter-compatible JSON writing, and compact geographic
+and schematic-anneal SVG rendering. The CS2 mod references this assembly; the
+existing net8 Viewer/CLI renderer remains unchanged.
+
+Reason: the desktop rendering assembly depends on a broad net8 and desktop API
+surface and cannot safely be referenced by the CS2 net48 mod. Linking or
+mass-copying its implementation would make game compatibility fragile. A small
+engine keeps the captured data contract shared, preserves stops/pathPoints
+semantics, and avoids implementing layout in the frontend.
+
+Consequence: portable output is tested for schema, route/station semantics,
+determinism, valid XML, empty networks, and a 200-station budget. It is not
+claimed to be byte-identical to the advanced desktop renderer. Phase 7D now
+consumes the portable engine through a bounded cache; no game UI callback may
+read ECS directly. The public PDX build remains Beta.3 until owner acceptance.
+
+## Queue Preview Operations And Keep Viewport Interaction Client-side
+
+Decision: Phase 7D/7E UI triggers only queue capture/render/export/save work for
+`InGamePreviewUISystem.OnUpdate`. Pan, zoom, and fit change only the frontend
+image transform; layout and label changes rerender the cached immutable
+snapshot.
+
+Reason: ECS access from browser callbacks would make game-thread ownership
+unclear, while rerendering for every viewport gesture would introduce avoidable
+latency. The snapshot revision and option-keyed cache already provide the
+correct invalidation boundary.
+
+Consequence: opening without a cached map queues one capture; reopening an
+unchanged map restores the current SVG immediately. JSON export continues to
+use `RealMetroJsonExporter`, while SVG save uses the configured folder and a
+separate latest/snapshot writer. The frontend never implements layout logic,
+and exporter ECS/schema behavior remains unchanged.
+
+## Mount In-Game Preview SVG Inline Instead Of Using A Data URI
+
+Decision: the game UI mounts the trusted SVG produced by
+`MetroDiagram.Engine` directly as responsive inline SVG. It removes XML/doctype
+headers for HTML embedding but does not rewrite route geometry or saved SVG.
+
+Reason: the first real Phase 7D/E validation proved capture and rendering were
+successful while the map area stayed blank. Inline SVG removes URL-size/CSP
+ambiguity and preserves the existing `viewBox`, pan, zoom, and fit transforms.
+Follow-up validation showed that data transport was not the actual blank-canvas
+root cause; the complete payload reached the UI.
+
+Consequence: only renderer-owned, XML-escaped SVG is mounted; external JSON or
+arbitrary HTML is never inserted. Preview state includes `svgLength`, and the
+frontend shows an explicit payload-missing message if C# reports an SVG but the
+binding is empty. The exporter, schema, snapshot, and portable renderer are
+unchanged.
+
+## Avoid Mixed Percentage And Rem Calculations In CS2 UI
+
+Decision: size the in-game SVG layer with absolute `top/right/bottom/left`
+offsets. Do not use expressions such as `calc(100% - 28rem)` in CS2 UI code.
+
+Reason: Coherent UI logs `Combining percents in calc() expressions with other
+types is not supported!` and leaves the affected layer without usable
+dimensions. This produced a white canvas even though C# generated and bound a
+complete SVG.
+
+Consequence: game UI source tests reject `calc(100%`, and layout code should
+prefer flex sizing or same-unit edge positioning. This is frontend-only; no
+exporter, schema, snapshot, or route-rendering behavior changes.
+
+## Default The In-Game Preview To Geographic
+
+Decision: open the Phase 7 game panel on geographic by default, with a one-time
+migration for older development preferences. Keep schematic available and keep
+the desktop Viewer/CLI product default unchanged.
+
+Reason: after the blank-canvas fix, the owner confirmed that the geographic
+portable render is currently the clearer and more trustworthy in-game view.
+The game panel should lead with the best current experience without weakening
+the longer-term schematic work or changing exported data.
+
+Consequence: this is a presentation preference only. Exporter ECS logic, JSON
+schema, snapshot contents, route geometry, and desktop defaults are unchanged.
+Once migrated, an explicit in-game user layout choice persists normally.
+
+## Inherit The CS2 Locale-Aware Font In Inline SVG
+
+Decision: remove explicit descendant font-family attributes when mounting the
+trusted renderer SVG in the game panel and set the SVG root to CS2's
+`var(--fontFamily)`. Standalone portable SVG uses an explicit Overpass/Noto CJK
+fallback stack.
+
+Reason: the game already loads Noto Sans SC/TC/JP/KR according to locale, but
+the renderer's explicit Arial declaration bypassed that stack and produced tofu
+boxes for Chinese names. Font inheritance fixes presentation without touching
+the source strings.
+
+Consequence: inline preview typography follows the active game/mod locale and
+saved SVG remains portable. Localization or font failure remains isolated from
+capture, export, and panel startup.
+
+## Use Game Buttons For In-Game Preview Toggles And Commands
+
+Decision: represent binary preview filters as pressed `ui.Button` controls with
+a switch indicator, and use CS2 `flat`/`primary` button variants for panel
+commands and selected layouts. Do not use native HTML checkbox inputs in the
+Coherent panel.
+
+Reason: Coherent rendered the native checkboxes as white input boxes, and the
+unspecified button theme produced conspicuous white command buttons. The game
+button component provides the expected focus, input sounds, disabled state, and
+visual language.
+
+Consequence: bindings and persisted settings are unchanged. Tests protect the
+control semantics and theme variants; future visual adjustment should change
+only spacing/colors, not reintroduce native form controls.
+
+## Use Mouse Capture Semantics And A Marker-aware Portable Map Frame
+
+Decision: use mouse-down plus window-level mouse-move/mouse-up listeners for
+the in-game map viewport, and calculate one renderer safe frame that includes
+the largest station marker and route stroke allowance.
+
+Reason: CS2 Coherent did not reliably support the original Pointer Events
+capture path. Separately, projecting station centers to the mathematical map
+edge allowed the visible marker or its label to leave the SVG canvas.
+
+Consequence: pan/zoom state remains UI-only, while both portable layouts share
+the same visible-content bounds. Exporter data, schema, route geometry, and
+desktop renderer behavior remain unchanged.
+
+## Keep The In-game Schematic Recommendation Contextual And Subdued
+
+Decision: show a small desktop Viewer recommendation beside the existing
+pan/zoom hint only while the in-game schematic layout is selected. Do not show
+it in geographic mode and do not use a banner, modal, or warning color.
+
+Reason: geographic is the reliable in-game default, while the portable
+schematic remains useful but less mature than the desktop renderer. The user
+should receive the expectation without losing map space or feeling blocked.
+
+Consequence: the hint is presentation-only and bilingual. Phase 7G also
+coalesces redundant synchronous refresh/export render requests, with no changes
+to ECS capture, JSON schema, or rendering semantics.
+
+## Measure The Synchronous Preview Pipeline Before Adding Concurrency
+
+Decision: keep the game-thread capture/controller synchronous, add categorized
+timings and lifecycle counters, use a four-entry LRU render cache, and cancel
+only disposable visual work when the panel closes.
+
+Reason: ECS capture is intentionally constrained to the game thread, and the
+controller already executes at most one operation per update. Adding worker
+threads before measuring capture versus render cost would increase lifecycle
+risk without identifying the real bottleneck.
+
+Consequence: logs and UI state can distinguish capture cost, renderer cost,
+cache reuse, and duplicate requests. Explicit JSON exports survive panel close;
+map output, exporter contracts, and schema remain unchanged. Async work should
+be considered only if owner stress evidence shows a measured blocker.
+
+## Separate The Phase 7 Candidate From Public Versioning
+
+Decision: package Phase 7H into `artifacts\release-candidates` with a candidate
+label and complete hashes while leaving all embedded/public version sources at
+Beta.3 until the owner accepts the exact candidate.
+
+Reason: the PDX listing is public and Beta.3 is the known-good fallback. Reusing
+the normal release directory or editing `PublishConfiguration.xml` before game
+acceptance creates avoidable overwrite or accidental-publication risk.
+
+Consequence: the private bundle records both candidate identity and embedded
+baseline version. After acceptance, version sources move together to Beta.4,
+the full preflight is rerun, and only then are GitHub and PDX updated.
+
+## Publish The Accepted Phase 7 Candidate As Beta.4
+
+Decision: after owner acceptance of `phase7-rc1` on 2026-07-13, move all code,
+Viewer, generator, documentation, and PDX version sources together to
+`v0.1.0-beta.4`, rebuild from the final committed source, and update the
+existing public ModId `146643` rather than creating another listing.
+
+Reason: Phase 7 adds a substantial read-only in-game preview but preserves the
+exporter schema and established desktop workflow. The private candidate passed
+mechanical verification and owner-visible game testing, so keeping it hidden
+behind the Beta.3 version would make support and diagnostics ambiguous.
+
+Consequence: Beta.4 is the first public release with the game-native preview.
+Geographic remains the reliable in-game default; schematic preview stays
+secondary and recommends the desktop Viewer. GitHub and PDX publication must
+use binaries rebuilt after the Beta.4 commit so product versions and build
+hashes remain traceable.

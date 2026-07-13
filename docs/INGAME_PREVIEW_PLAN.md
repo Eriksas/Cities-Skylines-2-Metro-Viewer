@@ -61,7 +61,7 @@ the Windows Viewer for the first release.
 ```text
 CS2 ECS world
   -> MetroNetworkSnapshotService (game thread)
-  -> immutable MetroExportDocument-compatible snapshot
+  -> immutable MetroDiagram.Engine snapshot
   -> portable render service (cached, no ECS access)
   -> SVG string + render diagnostics
   -> official CS2 UI binding/event bridge
@@ -106,6 +106,32 @@ CS2 ECS world
 
 ### Phase 7A - UI And Binding Spike
 
+Status (2026-07-13): passed and closed after owner in-game validation.
+
+Implemented on `feature/ingame-preview`:
+
+- Official `GameTopRight` entry and a binding-driven panel root appended through
+  the current CS2 UI extension API.
+- Responsive CS2-style panel with a large static sample SVG.
+- `InGamePreviewUISystem` bindings for panel state, health JSON, refresh, and
+  lifecycle logging.
+- Preview registration is isolated so a preview failure cannot disable the
+  existing exporter or Options page.
+- CS2 Release build/post-process, offline solution build, and tests pass.
+
+This spike intentionally contains no ECS queries, real-city snapshot capture,
+or MetroDiagram renderer integration.
+
+Runtime correction (2026-07-13): the first spike used only `game.togglePanel`
+and game-panel renderer registration. The entry appeared, but the panel did not
+mount in the owner's game. The corrected spike drives a `Game` root component
+directly from the C# `panelOpen` binding. This keeps the official top-right
+entry while removing the failed toggle-only dependency.
+
+Owner validation confirmed that the corrected entry opens and closes normally,
+the static workspace is visible, and the existing Options/export workflow is
+still intact. Phase 7B/7C therefore proceed from this accepted UI shell.
+
 Deliver:
 
 - A feature branch, with no PDX publication.
@@ -121,7 +147,41 @@ Acceptance:
   JavaScript errors block the mod.
 - Existing export button still works.
 
+Manual validation checklist:
+
+1. Restart Cities: Skylines II with the development build installed.
+2. Confirm `CS2 Metro Diagram` appears exactly once in the top-right game UI.
+3. Open the panel and confirm the static map uses the main responsive workspace,
+   rather than a small fixed preview frame.
+4. Press Refresh several times and confirm its counter/time changes and the mod
+   log records each request.
+5. Close and reopen the panel at least 10 times; confirm there are no duplicate
+   buttons, stuck overlays, or uncaught UI errors.
+6. Repeat at the main menu/no-city state and in a loaded city. If practical,
+   also test a city with no metro lines.
+7. Open the existing Options page and run `Export Real Metro JSON`; confirm the
+   established latest/snapshot export behavior remains intact.
+8. Inspect the game log and UI console. There must be no outer `failed to
+   initialize` error and no JavaScript exception that blocks the mod.
+
+Only after all checks pass should Phase 7A be marked closed and Phase 7B begin.
+
 ### Phase 7B - Reusable In-Memory Snapshot
+
+Status (2026-07-13): code-side complete.
+
+Implemented:
+
+- `MetroDiagram.Engine.MetroNetworkSnapshot` is an immutable, dependency-light
+  capture contract for city, stations, lines, stops, colors, and pathPoints.
+- `MetroNetworkSnapshotService` captures once on the game thread and retains the
+  latest successful snapshot plus diagnostics for later preview use.
+- `RealMetroJsonExporter` consumes that same snapshot; its ECS filtering,
+  station grouping, stop/path extraction, schema version, and output paths are
+  unchanged.
+- Stable snapshot revisions exclude export time, allowing unchanged cities to
+  reuse rendered output.
+- Empty/no-city snapshots serialize and render without exceptions.
 
 Deliver:
 
@@ -138,6 +198,23 @@ Acceptance:
 
 ### Phase 7C - Portable Rendering Runtime
 
+Status (2026-07-13): code-side complete; game-panel wiring is intentionally
+deferred to Phase 7D.
+
+Implemented:
+
+- New `MetroDiagram.Engine` targets `netstandard2.0` and is packaged beside the
+  net48 CS2 mod without desktop-only dependencies.
+- The portable renderer supports `geographic` and deterministic
+  `schematic-anneal` SVG output directly from `MetroNetworkSnapshot`.
+- Dedicated in-game render profiles centralize bounded canvas, labels, service
+  family merge, and annealing limits.
+- `InGamePreviewRenderService` provides a bounded revision/options cache for the
+  future controller.
+- Tests cover schema round-trip, immutability/revision behavior, desktop/runtime
+  route semantics, valid deterministic SVG, empty networks, and a 200-station
+  performance fixture.
+
 Deliver:
 
 - CS2-compatible rendering project or multi-targeted runtime subset.
@@ -153,6 +230,23 @@ Acceptance:
 
 ### Phase 7D - Real In-Game Preview MVP
 
+Status (2026-07-13): code-side complete; real map visibility owner-validated.
+The remaining D acceptance checks are cache reopen, refresh after a network
+change, both layouts, and explicit empty/error-state exercises.
+
+Implemented:
+
+- The accepted panel now captures the current city on the game update thread
+  and renders the immutable snapshot with `MetroDiagram.Engine`.
+- Real inline SVG replaces the Phase 7A sample map. Schematic and geographic
+  layouts, revision/options caching, refresh, fit, wheel zoom, and pointer pan
+  are wired end to end.
+- Explicit idle, loading, rendering, no-city, no-metro, and error states are
+  exposed through one small state binding. Reopening an unchanged snapshot
+  restores the cached SVG without another ECS capture.
+- UI trigger callbacks only queue operations. ECS capture never runs from a
+  browser callback or worker thread.
+
 Deliver:
 
 - Current-city capture, render, and inline SVG display.
@@ -166,6 +260,21 @@ Acceptance:
 - Refresh updates the map after a network change.
 
 ### Phase 7E - Product Controls And Export
+
+Status (2026-07-13): code-side complete; panel visibility owner-validated.
+Export/save/control and persistence checks remain in the owner checklist.
+
+Implemented:
+
+- `Show default station names` and `Hide crowded labels` rerender from the
+  cached snapshot and persist as hidden mod presentation preferences.
+- `Export JSON` calls the established real exporter, whose resulting snapshot
+  also refreshes the visible map.
+- `Save current SVG` writes `<configured folder>\metro-diagram.svg` plus a
+  unique timestamped file under `<configured folder>\exports\`.
+- Busy/disabled/success/failure states, last output path, and copyable error
+  details are present. Captured city data itself is never persisted as a UI
+  preference.
 
 Deliver:
 
@@ -182,6 +291,24 @@ Acceptance:
 
 ### Phase 7F - Visual Design And Localization
 
+Status (2026-07-13): owner-reviewed and closed for continued development.
+
+Implemented:
+
+- Geographic is the in-game first-open default, with a one-time migration for
+  older development preferences. Schematic remains selectable; desktop defaults
+  are unchanged.
+- Layout and command actions use a separate wrapping toolbar, while Close stays
+  in the header and label filters remain a distinct row.
+- Binary filters use game-style pressed buttons with switch indicators; command
+  buttons use CS2 `flat` and selected `primary` variants rather than native
+  browser checkboxes/default buttons.
+- The panel honors Auto/English/Simplified Chinese from the mod setting.
+- Inline renderer SVG inherits CS2's locale-aware `--fontFamily`; standalone
+  portable SVG declares Noto CJK fallbacks, removing the Arial tofu-box issue.
+- Source tests cover the geographic migration, language state, CJK font stack,
+  and Coherent-safe SVG preparation.
+
 Deliver:
 
 - CS2-consistent panel, toolbar, icons, spacing, focus, hover, and tooltips.
@@ -196,6 +323,10 @@ Acceptance:
 - Localization failure cannot block panel or exporter startup.
 
 ### Phase 7G - Hardening And Regression
+
+Status (2026-07-13): started. The first low-risk tranche coalesces redundant
+refresh/export render work and adds a subdued schematic-only recommendation for
+the desktop Viewer. Geographic remains the in-game default.
 
 Deliver:
 
@@ -268,3 +399,33 @@ CS2-native panel, see a correct schematic metro map, pan/zoom/fit it, change the
 supported label/layout options, refresh after edits, export JSON or save SVG,
 close/reopen without lag or errors, and encounter clear empty/error states.
 The owner must approve the exact build in game before PDX publication.
+
+## Phase 7F Follow-up Acceptance
+
+- Mouse dragging must work through CS2 Coherent without pointer capture and
+  must keep tracking until a global mouse release.
+- Geographic and schematic portable renders must keep station markers and
+  labels inside a shared marker-aware map frame.
+- These fixes are presentation-only: they do not change exporter ECS reads,
+  `metro-export.json`, raw station positions, or route geometry.
+- Code-side validation and owner game review passed for this follow-up.
+
+## Phase 7G Runtime Evidence
+
+The state payload and categorized game log must make these boundaries visible:
+
+- ECS snapshot capture duration and captured revision/counts.
+- End-to-end render request duration versus renderer duration.
+- Render-cache hit/miss and bounded cache entry count.
+- Panel open count and redundant request coalescing count.
+- Lifecycle, capture, render, export, save, and settings failures as separate
+  log categories.
+
+The current controller is synchronous and processes at most one queued
+operation per update. Phase 7G therefore stabilizes it with request coalescing,
+panel-close cancellation, and a bounded LRU cache; it does not introduce an
+asynchronous renderer or change the map output.
+
+Owner acceptance: passed in game on 2026-07-13 with no blocking issue reported.
+Phase 7G is closed; proceed to the Phase 7H release gate without adding new
+preview behavior to the accepted candidate.

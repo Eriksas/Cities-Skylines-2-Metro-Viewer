@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.0-beta.4 - 2026-07-13
+
+Adds the first owner-validated, read-only in-game metro preview while preserving
+the established exporter, JSON schema, desktop Viewer, and CLI workflows.
+
+### Added
+
+- A top-right CS2 toolbar entry and responsive in-game metro-map workspace.
+- Geographic and lightweight schematic previews rendered directly from the
+  current city's immutable metro snapshot.
+- Refresh, layout switching, persisted label filters, zoom/pan/Fit, JSON export,
+  and saving the currently visible SVG from the panel.
+- Chinese/English interface support plus explicit loading, no-city, no-metro,
+  saving, and error states.
+- Runtime capture/render telemetry and categorized Lifecycle, Capture, Render,
+  Export, Save, and Settings logging.
+
+### Improved
+
+- Marker-aware safe framing keeps edge stations and labels inside the canvas.
+- Repeated panel use and rapid controls are hardened with request coalescing,
+  cancellation of stale visual work, and a four-entry LRU render cache.
+- Export and preview now share one immutable network snapshot without changing
+  the public `metro-export.json` schema or real ECS extraction semantics.
+
+### Notes
+
+- Geographic is the reliable default in game. The in-game schematic remains a
+  lightweight preview; the desktop Viewer is recommended for the complete
+  product schematic and PNG/PDF output.
+- This exact Phase 7 candidate passed owner in-game acceptance before release.
+
 ## v0.1.0-beta.3 - 2026-07-10
 
 Emergency mod-loading hotfix. beta.2 failed to initialize in-game, which took
