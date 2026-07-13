@@ -680,3 +680,24 @@ Manifest and ZIP required-entry verification passed. The packaged
 smoke and was then stopped deliberately. `manifest.sha256` covers all package
 payload files except itself, avoiding a recursive self-hash.
 
+## Beta.4 Publication
+
+The owner accepted the exact Phase 7 candidate on 2026-07-13. All release-facing
+version sources moved to `v0.1.0-beta.4`; `FileVersion` is `0.1.0.11`.
+
+Final verification rebuilt from commit `99a4259`:
+
+```text
+Offline build/tests: passed, zero warnings/errors
+Viewer self-contained publish and launch smoke: passed
+CS2 Release post-process and Burst targets: passed, zero warnings/errors
+Viewer/Mod ProductVersion: v0.1.0-beta.4+99a4259...
+Viewer ZIP SHA256: BA526BCD203733DEE7E8E0F611DF6251BF0EEA8FFE4B587F5A2F9EC010A51EC1
+```
+
+`scripts\publish-mod.ps1 -Mode NewVersion -SkipRestore` updated existing public
+ModId `146643`; `ModPublisher.exe` ended with `New mod version published`. The
+known cross-volume `IOERR_101` warning appeared before upload preparation but
+did not prevent publication. GitHub Release `v0.1.0-beta.4` is public with the
+self-contained Viewer ZIP and checksum asset; its tag points to `99a4259`.
+

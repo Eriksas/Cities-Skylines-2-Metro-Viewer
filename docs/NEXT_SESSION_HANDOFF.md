@@ -20,13 +20,12 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer release candidate: `v0.1.0-beta.4`
+Repository and Viewer: `v0.1.0-beta.4`
 
-Paradox Mods code mod: `v0.1.0-beta.3` (published, Public, ModId `146643`)
+Paradox Mods code mod: `v0.1.0-beta.4` (published, Public, ModId `146643`)
 
 The owner accepted `phase7-rc1` on 2026-07-13 and authorized the coordinated
-Beta.4 GitHub/PDX release. The PDX line above remains Beta.3 only until the
-publisher completes.
+Beta.4 GitHub/PDX release. Both publication endpoints completed successfully.
 
 Beta.2 was broken: it registered locale sources before Options UI, but
 `AddSource()` eagerly reads locale IDs that depend on Options registration.
@@ -316,8 +315,18 @@ artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
 
 Automated verification passed for build/tests, Viewer publish and launch, CS2
 post-process, MJS source/staging identity, package manifest, and ZIP contents.
-Owner in-game and Viewer acceptance is complete. The current action is to bump
-every version source to Beta.4, rebuild the final package, publish GitHub and
-PDX, then record the verified public endpoints. Do not upload the private
-`phase7-rc1` ZIP as the public Beta.4 asset because it intentionally embeds the
-Beta.3 baseline version.
+Owner in-game and Viewer acceptance, the coordinated Beta.4 version bump,
+final rebuild, GitHub release, and PDX update are complete. The public Viewer
+asset is the formal Beta.4 package, not the private `phase7-rc1` ZIP that
+intentionally embedded the Beta.3 baseline version.
+
+Published endpoints:
+
+```text
+GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.4
+PDX: ModId 146643, version 0.1.0-beta.4, Public
+```
+
+Tag `v0.1.0-beta.4` points to release source commit `99a4259`. The uploaded
+Viewer ZIP SHA-256 is
+`BA526BCD203733DEE7E8E0F611DF6251BF0EEA8FFE4B587F5A2F9EC010A51EC1`.

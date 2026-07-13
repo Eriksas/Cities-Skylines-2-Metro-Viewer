@@ -2,13 +2,12 @@
 
 ## Current Version
 
-Repository and companion Viewer release candidate: `v0.1.0-beta.4`
+Repository and companion Viewer: `v0.1.0-beta.4`
 
-Current Paradox Mods code-mod release: `v0.1.0-beta.3` (ModId `146643`, Public).
+Current Paradox Mods code-mod release: `v0.1.0-beta.4` (ModId `146643`, Public).
 
-The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.4 source and
-metadata are prepared; the public PDX listing remains Beta.3 only until the
-final publish command completes.
+The owner accepted the exact Phase 7 candidate on 2026-07-13. GitHub and the
+existing public PDX listing are aligned on Beta.4.
 
 This is beta software. It is not a stable release.
 
@@ -73,13 +72,12 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-The public Beta.3 remains the PDX baseline only while the accepted Beta.4
-release is being rebuilt and published. The Phase 7 publication gate is open.
+Beta.4 is now the public PDX baseline. Phase 7 publication is complete.
 
 Current publication state:
 
 - Repository/Viewer release line: `v0.1.0-beta.4`
-- Paradox Mods published version: `0.1.0-beta.3`
+- Paradox Mods published version: `0.1.0-beta.4`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
@@ -426,4 +424,6 @@ The bundle deliberately kept the existing Beta.3 version sources unchanged
 while packaging the staged E-drive mod, self-contained Viewer, hashes, build
 identity, known issues, and manual acceptance checklist. The owner approved
 this exact candidate on 2026-07-13. Version sources have now moved together to
-Beta.4 and final GitHub/PDX publication is authorized.
+Beta.4. The existing public PDX ModId `146643` reported `New mod version
+published`, and GitHub Release `v0.1.0-beta.4` contains the self-contained
+Viewer ZIP plus its SHA-256 file. **Phase 7H: Passed.**
