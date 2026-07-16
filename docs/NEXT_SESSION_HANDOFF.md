@@ -20,9 +20,27 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.5`
+Repository and Viewer: `v0.1.0-beta.6`
 
-Paradox Mods code mod: `v0.1.0-beta.5` (published, Public, ModId `146643`)
+Paradox Mods release target: `v0.1.0-beta.6` (Public, existing ModId `146643`)
+
+## Beta.6 Publication Note
+
+The 2026-07-16 single-line framing/vector-zoom fix is code-side complete and
+staged by the CS2 Release build. Test this with the reported one-line city:
+
+1. Open the in-game schematic and press Fit. The complete line and all stations
+   must stay inside the white sheet.
+2. Zoom to roughly 200-220%. Labels and route strokes should remain crisp.
+3. Drag while zoomed, then press Fit. The map should pan smoothly and reset to
+   the centered full sheet.
+
+Offline evidence is under
+`artifacts\ingame-schematic-audit\single-line-framing-fix`. On 2026-07-16 the
+owner authorized publishing Beta.6 after the universal framing matrix, real-city
+comparison, build, tests, and CS2 post-process passed. The Coherent-runtime
+crispness check remains requested as post-publication feedback rather than a
+release blocker.
 
 The owner accepted `phase7-rc1` on 2026-07-13 and authorized the coordinated
 Beta.4 GitHub/PDX release. Both publication endpoints completed successfully.
@@ -326,13 +344,10 @@ intentionally embedded the Beta.3 baseline version.
 Published endpoints:
 
 ```text
-GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.5
-PDX: ModId 146643, version 0.1.0-beta.5, Public
+GitHub target: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.6
+PDX target: ModId 146643, version 0.1.0-beta.6, Public
 ```
 
-Tag `v0.1.0-beta.5` points to release source commit `99a4259`. The uploaded
+Tag `v0.1.0-beta.6` will point to the release source commit. The generated
 Viewer ZIP SHA-256 is
-`BA526BCD203733DEE7E8E0F611DF6251BF0EEA8FFE4B587F5A2F9EC010A51EC1`.
-
-No post-Beta.4 follow-up may be published until the current portable schematic
-fix passes owner game review.
+`BC5AB5042EC930942183D8C1A7709496F65A6C4CFADB39F867C8C7858E2F4109`.

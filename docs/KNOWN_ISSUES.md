@@ -1,4 +1,4 @@
-# Known Issues - v0.1.0-beta.5
+# Known Issues - v0.1.0-beta.6
 
 This is a beta build. It is intended for testing and feedback, not production use.
 

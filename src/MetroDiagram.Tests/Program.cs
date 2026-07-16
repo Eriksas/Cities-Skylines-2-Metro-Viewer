@@ -92,12 +92,15 @@ public static readonly List<(string Name, Action Test)> tests =
     ("in-game preview render profiles keep stable defaults", InGamePreviewRenderProfilesKeepStableDefaults),
     ("portable renderer emits CJK-capable font fallbacks", PortableRendererEmitsCjkCapableFontFallbacks),
     ("portable renderer keeps stations and labels inside map frame", PortableRendererKeepsStationsAndLabelsInsideMapFrame),
+    ("portable schematic keeps single-family networks on the stable preview canvas", PortableSchematicKeepsSingleFamilyNetworksOnStablePreviewCanvas),
+    ("in-game preview profiles contain extreme aspect networks", InGamePreviewProfilesContainExtremeAspectNetworks),
     ("SVG snapshot writer keeps latest stable and snapshots unique", SvgSnapshotWriterKeepsLatestStableAndSnapshotsUnique),
     ("in-game preview UI avoids unsupported mixed-unit calc", InGamePreviewUiAvoidsUnsupportedMixedUnitCalc),
     ("in-game preview defaults to geographic and inherits the game font", InGamePreviewDefaultsToGeographicAndInheritsGameFont),
     ("in-game preview honors the mod interface language override", InGamePreviewHonorsModInterfaceLanguageOverride),
     ("in-game preview uses game-style buttons and toggles", InGamePreviewUsesGameStyleButtonsAndToggles),
     ("in-game preview uses Coherent-compatible mouse dragging", InGamePreviewUsesCoherentCompatibleMouseDragging),
+    ("in-game preview zooms through the SVG viewBox", InGamePreviewZoomsThroughSvgViewBox),
     ("in-game preview gives subtle schematic Viewer guidance", InGamePreviewGivesSubtleSchematicViewerGuidance),
     ("in-game preview coalesces redundant render work", InGamePreviewCoalescesRedundantRenderWork),
     ("in-game preview publishes categorized runtime telemetry", InGamePreviewPublishesCategorizedRuntimeTelemetry),
@@ -3180,12 +3183,14 @@ static void InGamePreviewRenderProfilesKeepStableDefaults()
     PortableRenderOptions schematic = PortableRenderProfiles.CreateInGameSchematic(false, true);
     Assert(schematic.LayoutMode == PortableLayoutMode.SchematicAnneal, "In-game schematic profile selected the wrong layout.");
     Assert(schematic.Width == 1800 && schematic.Height == 1100, "In-game schematic profile dimensions changed unexpectedly.");
+    Assert(!schematic.AdaptCanvasHeightToNetwork, "In-game schematic profile re-enabled per-network canvas dimensions.");
     Assert(schematic.MergeServiceFamilies, "In-game schematic profile stopped merging service families.");
     Assert(!schematic.ShowGenericStationNames && schematic.HideCrowdedLabels, "In-game schematic profile label defaults changed unexpectedly.");
 
     PortableRenderOptions geographic = PortableRenderProfiles.CreateInGameGeographic(true, false);
     Assert(geographic.LayoutMode == PortableLayoutMode.Geographic, "In-game geographic profile selected the wrong layout.");
     Assert(geographic.Width == schematic.Width && geographic.Height == schematic.Height, "In-game layouts no longer share one viewport size.");
+    Assert(!geographic.AdaptCanvasHeightToNetwork, "In-game geographic profile re-enabled per-network canvas dimensions.");
     Assert(geographic.ShowGenericStationNames && !geographic.HideCrowdedLabels, "In-game geographic profile did not preserve requested label options.");
 }
 
@@ -3254,6 +3259,158 @@ static void PortableRendererKeepsStationsAndLabelsInsideMapFrame()
                 $"Portable {layoutMode} station label escaped the vertical safe frame.");
         }
     }
+}
+
+static void PortableSchematicKeepsSingleFamilyNetworksOnStablePreviewCanvas()
+{
+    List<MetroSnapshotStation> stations = new();
+    List<string> stops = new();
+    for (int i = 0; i < 7; i++)
+    {
+        string id = $"station_{i + 1}";
+        stops.Add(id);
+        stations.Add(new MetroSnapshotStation(
+            id,
+            $"Named stop {i + 1}",
+            100 + (i * 0.02),
+            i * 900,
+            ["line_1"],
+            false));
+    }
+
+    MetroNetworkSnapshot snapshot = new(
+        "Single Line City",
+        "2026-07-16T00:00:00Z",
+        stations,
+        [new MetroSnapshotLine("line_1", "Line 1", "#45c52d", "metro", stops, [])]);
+    PortableRenderOptions options = PortableRenderProfiles.CreateInGameSchematic(true, false);
+    XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+    XElement root = xml.Root ?? throw new InvalidOperationException("Single-family portable SVG has no root element.");
+
+    Assert(ReadDouble(root.Attribute("width")) == options.Width, "Single-family schematic changed the stable preview width.");
+    Assert(ReadDouble(root.Attribute("height")) == options.Height,
+        $"Single-family schematic inherited an extreme geographic aspect ratio: {root.Attribute("height")?.Value}.");
+    Assert((string?)root.Attribute("viewBox") == $"0 0 {options.Width} {options.Height}", "Single-family schematic viewBox no longer matches the stable preview canvas.");
+    Assert((string?)root.Attribute("overflow") == "hidden", "Portable SVG no longer contains the overflow safety boundary.");
+
+    XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    Assert(routePoints.Count == stops.Count, "Single-family schematic lost route stations.");
+    Assert(routePoints.All(point => point.X >= 0 && point.X <= options.Width && point.Y >= 0 && point.Y <= options.Height),
+        "Single-family schematic route escaped the SVG canvas.");
+    AssertValidSvg(xml, "portable single-family stable-canvas SVG");
+}
+
+static void InGamePreviewProfilesContainExtremeAspectNetworks()
+{
+    MetroNetworkSnapshot[] cases =
+    [
+        BuildPortableStressSnapshot("Horizontal", [(0d, 100d), (1000d, 100.02d), (2500d, 100.04d), (6000d, 100.06d)]),
+        BuildPortableStressSnapshot("Vertical", [(100d, 0d), (100.02d, 1000d), (100.04d, 2500d), (100.06d, 6000d)]),
+        BuildPortableStressSnapshot("Diagonal", [(0d, 0d), (1000d, 1000d), (2500d, 2500d), (6000d, 6000d)]),
+        BuildPortableParallelVerticalStressSnapshot(),
+        BuildPortableCrossingStressSnapshot(),
+        BuildPortableStressSnapshot("Large Coordinates", [(-900000d, -700000d), (-300000d, -200000d), (400000d, 300000d), (950000d, 850000d)])
+    ];
+
+    foreach (MetroNetworkSnapshot snapshot in cases)
+    {
+        foreach (PortableRenderOptions options in new[]
+        {
+            PortableRenderProfiles.CreateInGameSchematic(true, false),
+            PortableRenderProfiles.CreateInGameGeographic(true, false)
+        })
+        {
+            XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+            XElement root = xml.Root ?? throw new InvalidOperationException($"{snapshot.CityName} portable SVG has no root element.");
+            Assert(ReadDouble(root.Attribute("width")) == options.Width && ReadDouble(root.Attribute("height")) == options.Height,
+                $"{snapshot.CityName} {options.LayoutMode} changed the fixed in-game canvas.");
+            Assert((string?)root.Attribute("viewBox") == $"0 0 {options.Width} {options.Height}",
+                $"{snapshot.CityName} {options.LayoutMode} emitted a mismatched viewBox.");
+
+            foreach (XElement route in xml.Descendants().Where(element => (string?)element.Attribute("class") == "route"))
+            {
+                Assert(SplitPoints((string?)route.Attribute("points")).All(point =>
+                        point.X >= -0.001 && point.X <= options.Width + 0.001
+                        && point.Y >= -0.001 && point.Y <= options.Height + 0.001),
+                    $"{snapshot.CityName} {options.LayoutMode} route escaped the in-game canvas.");
+            }
+
+            foreach (XElement station in xml.Descendants().Where(element => (string?)element.Attribute("class") == "station"))
+            {
+                double cx = ReadDouble(station.Attribute("cx"));
+                double cy = ReadDouble(station.Attribute("cy"));
+                double radius = ReadDouble(station.Attribute("r"));
+                Assert(cx - radius >= -0.001 && cx + radius <= options.Width + 0.001
+                    && cy - radius >= -0.001 && cy + radius <= options.Height + 0.001,
+                    $"{snapshot.CityName} {options.LayoutMode} station marker escaped the in-game canvas.");
+            }
+
+            foreach (XElement label in xml.Descendants().Where(element => (string?)element.Attribute("class") == "station-label"))
+            {
+                double x = ReadDouble(label.Attribute("x"));
+                double y = ReadDouble(label.Attribute("y"));
+                Assert(x >= -0.001 && x <= options.Width + 0.001 && y >= -0.001 && y <= options.Height + 0.001,
+                    $"{snapshot.CityName} {options.LayoutMode} station label anchor escaped the in-game canvas.");
+            }
+
+            AssertValidSvg(xml, $"{snapshot.CityName} {options.LayoutMode} stress SVG");
+        }
+    }
+}
+
+static MetroNetworkSnapshot BuildPortableStressSnapshot(string name, IReadOnlyList<(double X, double Z)> coordinates)
+{
+    List<MetroSnapshotStation> stations = new();
+    List<string> stops = new();
+    for (int i = 0; i < coordinates.Count; i++)
+    {
+        string id = $"{name}_{i}";
+        stops.Add(id);
+        stations.Add(new MetroSnapshotStation(id, $"{name} Station {i + 1}", coordinates[i].X, coordinates[i].Z, ["line_1"], false));
+    }
+
+    return new MetroNetworkSnapshot(name + " City", "2026-07-16T00:00:00Z", stations,
+        [new MetroSnapshotLine("line_1", "Line 1", "#45c52d", "metro", stops, [])]);
+}
+
+static MetroNetworkSnapshot BuildPortableParallelVerticalStressSnapshot()
+{
+    List<MetroSnapshotStation> stations = new();
+    List<string> line1 = new();
+    List<string> line2 = new();
+    for (int i = 0; i < 5; i++)
+    {
+        string first = $"parallel_a_{i}";
+        string second = $"parallel_b_{i}";
+        line1.Add(first);
+        line2.Add(second);
+        stations.Add(new MetroSnapshotStation(first, $"West {i + 1}", 100, i * 1500, ["line_1"], false));
+        stations.Add(new MetroSnapshotStation(second, $"East {i + 1}", 112, i * 1500, ["line_2"], false));
+    }
+
+    return new MetroNetworkSnapshot("Parallel Vertical City", "2026-07-16T00:00:00Z", stations,
+    [
+        new MetroSnapshotLine("line_1", "Line 1", "#45c52d", "metro", line1, []),
+        new MetroSnapshotLine("line_2", "Line 2", "#315fbd", "metro", line2, [])
+    ]);
+}
+
+static MetroNetworkSnapshot BuildPortableCrossingStressSnapshot()
+{
+    List<MetroSnapshotStation> stations =
+    [
+        new MetroSnapshotStation("west", "West", -4000, 0, ["line_1"], false),
+        new MetroSnapshotStation("center", "Central Interchange", 0, 0, ["line_1", "line_2"], true),
+        new MetroSnapshotStation("east", "East", 4000, 0, ["line_1"], false),
+        new MetroSnapshotStation("north", "North", 0, 7000, ["line_2"], false),
+        new MetroSnapshotStation("south", "South", 0, -7000, ["line_2"], false)
+    ];
+    return new MetroNetworkSnapshot("Crossing City", "2026-07-16T00:00:00Z", stations,
+    [
+        new MetroSnapshotLine("line_1", "Line 1", "#45c52d", "metro", ["west", "center", "east"], []),
+        new MetroSnapshotLine("line_2", "Line 2", "#315fbd", "metro", ["north", "center", "south"], [])
+    ]);
 }
 
 static void SvgSnapshotWriterKeepsLatestStableAndSnapshotsUnique()
@@ -3342,6 +3499,18 @@ static void InGamePreviewUsesCoherentCompatibleMouseDragging()
     Assert(script.Contains("window.addEventListener(\"mousemove\"", StringComparison.Ordinal), "Preview map no longer tracks drag movement outside the viewport.");
     Assert(script.Contains("window.addEventListener(\"mouseup\"", StringComparison.Ordinal), "Preview map no longer ends a drag through the global mouse release event.");
     Assert(!script.Contains("setPointerCapture", StringComparison.Ordinal), "Preview map still depends on pointer capture, which is unreliable in CS2 Coherent UI.");
+}
+
+static void InGamePreviewZoomsThroughSvgViewBox()
+{
+    string script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs"));
+
+    Assert(script.Contains("function parseSvgViewBox", StringComparison.Ordinal), "Preview UI no longer reads the renderer-owned SVG viewBox.");
+    Assert(script.Contains("svgElement.setAttribute(\"viewBox\"", StringComparison.Ordinal), "Preview zoom no longer updates the SVG viewBox for vector rerendering.");
+    Assert(script.Contains("pixelsPerUnit", StringComparison.Ordinal), "Preview drag no longer converts screen movement into SVG coordinates.");
+    Assert(!script.Contains("transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`", StringComparison.Ordinal),
+        "Preview zoom reintroduced CSS texture scaling, which blurs enlarged SVG text in CS2.");
+    Assert(script.Contains("text-rendering=\"geometricPrecision\"", StringComparison.Ordinal), "Inline preview SVG no longer requests precise text rendering.");
 }
 
 static void InGamePreviewGivesSubtleSchematicViewerGuidance()

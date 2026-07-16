@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.1.0-beta.6 - 2026-07-16
+
+Hardens the in-game preview for compact and extreme-aspect networks.
+
+### Fixed
+
+- In-game previews now keep a stable `1800x1100` viewport, so vertical,
+  horizontal, single-line, parallel, and large-coordinate networks no longer
+  extend beyond the white map sheet.
+- Fit-to-window consistently contains routes, station markers, labels, title,
+  and legend in the panel.
+- Zoom and pan now change the inline SVG `viewBox` instead of scaling a cached
+  HTML layer. Enlarged station labels and route strokes remain vector-rendered
+  rather than becoming blurry.
+
+### Validation
+
+- Added a seven-station vertical single-line regression fixture.
+- Added synthetic horizontal, vertical, diagonal, dual-parallel, crossing, and
+  very-large-coordinate coverage for both in-game layouts.
+- Revalidated the real 59-station/10-line city and the 24-station/5-line large
+  sample without canvas clipping.
+
 ## v0.1.0-beta.5 - 2026-07-16
 
 The in-game schematic reaches desktop layout quality. Owner-validated in game.

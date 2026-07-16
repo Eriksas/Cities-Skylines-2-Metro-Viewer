@@ -229,7 +229,7 @@ function Write-FilledFeedbackTemplate {
     $warningText = Format-MarkdownList -Items $ValidationWarnings
 
     @"
-# Feedback Template - v0.1.0-beta.5
+# Feedback Template - v0.1.0-beta.6
 
 ## Environment
 

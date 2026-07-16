@@ -9,7 +9,7 @@
 	<LongDescription>
 Turn the metro/subway network of your Cities: Skylines II city into a clean, readable metro map.
 
-Beta.4 adds a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
+Beta.6 includes a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
 
 For the most complete official-style schematic map, export your city's metro network to JSON and open it in the free companion Windows Viewer. The Viewer can save SVG, PNG, or PDF for wallpapers, posters, printing, and sharing.
 
@@ -33,7 +33,7 @@ Does your city's map not look quite right? Share your metro-export.json in a Git
 Beta notes:
 - Metro/subway only.
 - Preview/export only; it never edits your city.
-- The in-game schematic is intentionally lightweight; use the Viewer for the most complete result.
+- The desktop Viewer remains recommended for manual layout editing and PNG/PDF export.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
@@ -47,7 +47,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.5" />
+	<ModVersion Value="0.1.0-beta.6" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -56,12 +56,11 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.5 - the in-game schematic grew up:
-- The in-game schematic now uses the same layout math as the desktop Viewer: clean horizontal/vertical/45-degree lines, no more random diagonals.
-- Lines that share a track are drawn as parallel lines in-game, and out-and-back routes no longer show false terminals.
-- The map fills the panel, and the layout no longer changes every time you refresh.
-- Station labels avoid lines, stations, and each other.
-- Still fast: about 0.3s to lay out a 59-station city.
+Beta.6 - reliable framing and crisp zoom:
+- All in-game previews now use a stable viewport, preventing tall, wide, single-line, and other extreme network shapes from escaping the map sheet.
+- Fit-to-window keeps routes, stations, and labels inside the visible canvas.
+- Zoom and pan now update the SVG viewBox instead of scaling a cached UI texture, keeping text and route strokes sharp when enlarged.
+- Added regression coverage for horizontal, vertical, diagonal, parallel, crossing, large-coordinate, and real multi-line cities.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

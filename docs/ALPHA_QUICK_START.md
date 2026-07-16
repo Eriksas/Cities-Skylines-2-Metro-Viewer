@@ -1,4 +1,4 @@
-# CS2 Metro Diagram v0.1.0-beta.5 Quick Start
+# CS2 Metro Diagram v0.1.0-beta.6 Quick Start
 
 This is a beta build for testing. It is not a stable release.
 

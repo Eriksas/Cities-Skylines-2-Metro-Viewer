@@ -757,3 +757,35 @@ a bounded in-game budget (~320 ms schematic, ~30 ms geographic). Output is not
 byte-identical to the desktop renderer but optimizes the same objective.
 Remaining desktop-only refinements: label side-scoring parity, route badges,
 express stripes, marker hierarchy.
+
+## Use A Stable Sheet For Every In-game Preview
+
+Decision: every in-game preview profile uses the stable `1800x1100` panel sheet
+and disables per-network canvas-height adaptation. The portable renderer keeps
+height adaptation as an explicit option for consumers that own a variable-size
+surface.
+
+Reason: a single route can be almost perfectly vertical or horizontal in source
+coordinates, but that degenerate geographic aspect is not a meaningful map-page
+aspect. Using it produced extreme SVG dimensions, tiny fit-to-window output, and
+visible geometry outside the intended sheet.
+
+Consequence: compact one-line cities, degenerate parallel networks, and complex
+multi-line cities share one predictable viewport contract without special-
+casing a city, station, or line name. Layout coordinates still fit uniformly
+inside the map frame; export/schema contracts and desktop behavior are
+unchanged.
+
+## Zoom The In-game Map Through SVG Coordinates
+
+Decision: pan and zoom the inline preview by updating its SVG `viewBox`, not by
+applying a CSS transform to the containing HTML element.
+
+Reason: Coherent may raster-cache transformed HTML layers. Scaling that cached
+layer made labels visibly blurry at high zoom even though the source was SVG.
+Changing the `viewBox` asks the SVG renderer to rasterize glyphs and strokes at
+the current scale.
+
+Consequence: zoom remains bounded and drag remains mouse-compatible, but text
+and routes retain vector clarity. At fit scale the view cannot be panned beyond
+the source page; after zooming, panning is clamped to the page bounds.

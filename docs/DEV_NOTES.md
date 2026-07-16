@@ -774,3 +774,52 @@ dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPa
 The source and staged `MetroDiagram.Engine.dll` hashes match. Owner in-game
 validation is still required before any GitHub/PDX follow-up release.
 
+## 2026-07-16: Single-line in-game framing and vector zoom
+
+Root cause of the one-line preview escaping its white sheet:
+
+- `PortableMetroSvgRenderer.CloneWithAdaptedHeight` derived schematic canvas
+  height from the geographic station bounding box;
+- a nearly vertical single family has almost no source width, so this produced
+  an extreme page ratio even though a single route has no useful 2D network
+  aspect.
+
+Fix: all in-game profiles explicitly disable per-network canvas-height
+adaptation and use the stable `1800x1100` panel sheet. The existing schematic
+fit/geographic projector centers and scales the network inside the map frame.
+The SVG root also declares `overflow="hidden"` as a final Coherent safety
+boundary. The portable option remains available outside the game profile.
+
+Root cause of blurry text after zoom: `CS2 Metro.mjs` scaled the complete SVG
+host with CSS `transform`. Coherent could cache that host as a texture, so 219%
+zoom enlarged rasterized glyphs. Zoom/pan now updates the inline SVG `viewBox`;
+mouse deltas are converted from screen pixels to SVG user units. The SVG remains
+vector-rendered at every zoom level.
+
+Regression fixture and visual evidence:
+
+```text
+samples\sample-metro-single-line-vertical.json
+artifacts\ingame-schematic-audit\single-line-framing-fix
+artifacts\ingame-schematic-audit\universal-framing-real-city
+artifacts\ingame-schematic-audit\universal-framing-large-sample
+```
+
+The test matrix covers horizontal/vertical/diagonal one-line networks, two
+nearly coincident vertical families, a crossing interchange, very large source
+coordinates, the real 59-station city, and the 24-station large sample. It
+checks both in-game layouts and asserts fixed root dimensions plus contained
+route, station, and label coordinates.
+
+Verification passed sequentially:
+
+```text
+node --check "CS2 Metro\CS2 Metro.mjs"
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+```
+
+Owner game validation remains required for fit-to-window, zoom sharpness, and
+drag behavior under the real CS2 Coherent runtime.
+

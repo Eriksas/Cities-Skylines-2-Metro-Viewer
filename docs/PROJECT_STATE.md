@@ -2,16 +2,56 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.5`
+Repository and companion Viewer: `v0.1.0-beta.6`
 
-Current Paradox Mods code-mod release: `v0.1.0-beta.5` (ModId `146643`, Public).
+Release target: `v0.1.0-beta.6` on the existing public ModId `146643`.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. GitHub and the
-existing public PDX listing are aligned on Beta.4.
+existing public PDX listing are currently on Beta.5; Beta.6 publication was
+authorized on 2026-07-16 after universal offline framing validation.
 
 This is beta software. It is not a stable release.
 
 ## Current Status
+
+### Beta.6 single-line preview framing fix
+
+Code-side complete on 2026-07-16. The owner authorized Beta.6 publication based
+on the universal framing matrix and real-city visual checks; focused in-game
+Coherent zoom/crispness feedback remains requested after subscription update.
+
+A one-line, seven-station city exposed two independent in-game preview defects:
+
+- schematic canvas adaptation treated an almost vertical single family as a
+  meaningful network aspect ratio, producing an extremely tall SVG and visible
+  route content outside the white sheet;
+- zoom used a CSS transform on the whole inline SVG host, so Coherent enlarged
+  a cached low-resolution layer and station text became blurry.
+
+All in-game render profiles now keep the stable `1800x1100` preview sheet,
+explicitly clip SVG overflow, and let the layout/projector fit every network
+inside that sheet. Per-network height adaptation remains available as an
+explicit portable-engine option for non-panel consumers, but it is no longer
+used by the fixed-shape CS2 panel. The panel now zooms and pans by changing the
+SVG `viewBox`, so text and strokes are rerendered as vectors rather than scaling
+an HTML texture. Exporter ECS reads, JSON schema, desktop Viewer behavior, and
+geographic route semantics are unchanged.
+
+Regression evidence:
+
+```text
+samples\sample-metro-single-line-vertical.json
+artifacts\ingame-schematic-audit\single-line-framing-fix\in-game-portable-schematic.svg
+artifacts\ingame-schematic-audit\single-line-framing-fix\in-game-portable-schematic.full.png
+```
+
+The generated one-line route, seven stations, labels, and legend are all inside
+the fixed canvas. A synthetic matrix also covers horizontal, vertical,
+diagonal, dual-parallel, crossing/interchange, and very-large-coordinate
+networks in both in-game layouts. Real 59-station/10-line and synthetic
+24-station/5-line visual audits remain fully contained. Solution build/tests and
+the CS2 Release post-process pass; the remaining gate is checking fit, 219% text
+clarity, and drag/zoom in CS2.
 
 The project is entering Phase 7 long-line development: a polished, read-only
 in-game metro preview with refresh, layout/label controls, JSON export, and SVG
@@ -82,12 +122,12 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-Beta.4 is now the public PDX baseline. Phase 7 publication is complete.
+Beta.5 is the public PDX baseline until the authorized Beta.6 update completes.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.5`
-- Paradox Mods published version: `0.1.0-beta.5`
+- Repository/Viewer release line: `v0.1.0-beta.6`
+- Paradox Mods release target: `0.1.0-beta.6`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 

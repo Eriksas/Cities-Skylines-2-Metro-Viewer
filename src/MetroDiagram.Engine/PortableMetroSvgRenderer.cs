@@ -25,7 +25,8 @@ namespace MetroDiagram.Engine
 
             options = options ?? new PortableRenderOptions();
             ValidateOptions(options);
-            if (options.LayoutMode == PortableLayoutMode.SchematicAnneal)
+            if (options.LayoutMode == PortableLayoutMode.SchematicAnneal
+                && options.AdaptCanvasHeightToNetwork)
             {
                 // Adapt the canvas height to the network's shape (desktop
                 // AdaptCanvasHeightToNetwork behavior) so wide networks are not
@@ -110,7 +111,8 @@ namespace MetroDiagram.Engine
                 ShowGenericStationNames = options.ShowGenericStationNames,
                 HideCrowdedLabels = options.HideCrowdedLabels,
                 MergeServiceFamilies = options.MergeServiceFamilies,
-                AnnealAttemptLimit = options.AnnealAttemptLimit
+                AnnealAttemptLimit = options.AnnealAttemptLimit,
+                AdaptCanvasHeightToNetwork = options.AdaptCanvasHeightToNetwork
             };
         }
 
@@ -982,7 +984,7 @@ namespace MetroDiagram.Engine
                 .Append(options.Width).Append(' ').Append(options.Height).Append("\" data-renderer=\"portable-engine\" data-snapshot-revision=\"")
                 .Append(Xml(snapshot.Revision)).Append("\" data-layout=\"")
                 .Append(options.LayoutMode == PortableLayoutMode.Geographic ? "geographic" : "schematic-anneal")
-                .Append("\">");
+                .Append("\" overflow=\"hidden\" text-rendering=\"geometricPrecision\">");
             svg.Append("<title>").Append(Xml(GetTitle(snapshot.CityName))).Append("</title>");
             svg.Append("<rect width=\"100%\" height=\"100%\" fill=\"#fbfcfd\"/>");
             svg.Append("<text x=\"").Append(options.Padding).Append("\" y=\"46\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"24\" font-weight=\"700\" fill=\"#18222d\">")

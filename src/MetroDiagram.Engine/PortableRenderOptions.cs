@@ -33,6 +33,8 @@ namespace MetroDiagram.Engine
         public bool MergeServiceFamilies { get; set; } = true;
 
         public int AnnealAttemptLimit { get; set; } = 24000;
+
+        public bool AdaptCanvasHeightToNetwork { get; set; } = true;
     }
 
     public sealed class PortableRenderResult
@@ -75,7 +77,8 @@ namespace MetroDiagram.Engine
                 ShowGenericStationNames = showGenericStationNames,
                 HideCrowdedLabels = hideCrowdedLabels,
                 MergeServiceFamilies = true,
-                AnnealAttemptLimit = 24000
+                AnnealAttemptLimit = 24000,
+                AdaptCanvasHeightToNetwork = false
             };
         }
 

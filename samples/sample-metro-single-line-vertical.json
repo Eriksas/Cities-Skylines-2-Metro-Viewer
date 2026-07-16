@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generator": {
+    "name": "CS2 Metro Diagram",
+    "version": "v0.1.0-beta.6"
+  },
+  "game": {
+    "name": "Cities: Skylines II",
+    "version": "unknown"
+  },
+  "city": {
+    "name": "Single Line City",
+    "exportedAtUtc": "2026-07-16T00:00:00Z"
+  },
+  "network": {
+    "type": "metro",
+    "stations": [
+      { "id": "station_1", "name": "North Harbor", "position": { "x": 100.00, "z": 5400 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_2", "name": "Pine Street", "position": { "x": 100.02, "z": 4500 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_3", "name": "Civic Center", "position": { "x": 100.04, "z": 3600 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_4", "name": "Museum Park", "position": { "x": 100.06, "z": 2700 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_5", "name": "River Market", "position": { "x": 100.08, "z": 1800 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_6", "name": "South Gate", "position": { "x": 100.10, "z": 900 }, "lines": ["line_1"], "isInterchange": false },
+      { "id": "station_7", "name": "Airport Terminal", "position": { "x": 100.12, "z": 0 }, "lines": ["line_1"], "isInterchange": false }
+    ],
+    "lines": [
+      {
+        "id": "line_1",
+        "name": "Line 1",
+        "color": "#45C52D",
+        "mode": "metro",
+        "stops": [
+          "station_1",
+          "station_2",
+          "station_3",
+          "station_4",
+          "station_5",
+          "station_6",
+          "station_7"
+        ]
+      }
+    ]
+  }
+}
