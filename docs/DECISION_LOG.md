@@ -712,3 +712,48 @@ Geographic remains the reliable in-game default; schematic preview stays
 secondary and recommends the desktop Viewer. GitHub and PDX publication must
 use binaries rebuilt after the Beta.4 commit so product versions and build
 hashes remain traceable.
+
+## Harden The Portable Schematic Instead Of Porting The Desktop Renderer
+
+Decision: keep the in-game schematic on the small `MetroDiagram.Engine`
+renderer and fix its route-chain normalization, deterministic polish, and
+collision-aware labels. Do not copy the desktop cartographic renderer into the
+CS2 mod.
+
+Reason: the game renderer must remain dependency-light, bounded, and compatible
+with `netstandard2.0`. The reported poor result came from mirrored service stop
+chains and simplistic label placement, not from missing exporter data. Porting
+the full desktop renderer would increase runtime and packaging risk before
+addressing those concrete causes.
+
+Consequence: geographic remains the reliable in-game default and the portable
+schematic remains secondary. A dedicated audit script renders the exact game
+profiles offline. Exporter ECS logic, JSON schema, and snapshot semantics remain
+unchanged, and post-Beta.4 publication requires owner game validation.
+
+## Port The Desktop Layout Math Into The Portable Engine
+
+Decision: keep the dependency-light `MetroDiagram.Engine` assembly (no reference
+to the net8 desktop renderer), but port the desktop schematic-anneal MATH into
+it: the exact cost terms and weights (octilinear 4.5, short-edge 2.0, long-edge
+0.5, bend 1.5, crossing 8.0, clearance 4.0 with same-line mask exemption,
+geographic anchor 0.05), the adaptive temperature schedule with best-state
+tracking, a range-2 greedy polish, the minimum-spacing hard gate, post-anneal
+fit-to-frame scaling with canvas height adaptation, and parallel shared
+corridors with same-color lane collapsing and miter-joined corners.
+
+Reason: "cannot reference the assembly" never meant "cannot own the same
+algorithms" - every missing piece is dependency-free geometry that fits
+netstandard2.0. The audited quality gap between the game panel and the desktop
+Viewer (free-angle diagonals, stacked shared corridors, under-filled canvas,
+refresh-dependent layouts) came precisely from the simplified cost model, not
+from the panel or the snapshot.
+
+Consequence: the solver runs on int-indexed arrays (string-dictionary lookups
+dominated the runtime; 1.15s -> 0.32s for the 59-station reference city in
+Release), uses the fixed xorshift seed from the desktop renderer so layouts are
+identical across refreshes AND across runtimes (mono vs .NET), and stays within
+a bounded in-game budget (~320 ms schematic, ~30 ms geographic). Output is not
+byte-identical to the desktop renderer but optimizes the same objective.
+Remaining desktop-only refinements: label side-scoring parity, route badges,
+express stripes, marker hierarchy.

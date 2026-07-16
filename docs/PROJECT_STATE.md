@@ -66,6 +66,16 @@ adds a subdued schematic-only note recommending the desktop Viewer, exposes
 capture/render telemetry, categorizes logs, coalesces stale work, and bounds the
 render cache to four LRU entries. No exporter/schema contract changed.
 
+Post-Beta.4 in-game schematic hardening is code-side complete and awaiting
+owner game validation. The investigation confirmed that the game panel uses the
+dependency-light `MetroDiagram.Engine` renderer rather than the desktop
+Viewer's full cartographic renderer. The portable schematic now collapses
+mirrored out-and-back stop chains, applies a deterministic final layout polish,
+and places labels with station/route collision scoring. Geographic output is
+visually unchanged in the current regression fixture. This is a renderer-only
+follow-up: exporter ECS reads, JSON schema, and captured network data are
+unchanged.
+
 Current Phase 7B-E development output:
 
 ```text
@@ -427,3 +437,27 @@ this exact candidate on 2026-07-13. Version sources have now moved together to
 Beta.4. The existing public PDX ModId `146643` reported `New mod version
 published`, and GitHub Release `v0.1.0-beta.4` contains the self-contained
 Viewer ZIP plus its SHA-256 file. **Phase 7H: Passed.**
+
+## Post-Beta.4 In-game Schematic Hardening
+
+The first real-city audit reproduced the poor game-panel schematic with the
+same `MetroDiagram.Engine` profile used by CS2. Raw exported stop sequences can
+contain mirrored return legs; drawing those as one route created false
+terminals and unnecessary geometry. Fixed right/left labels then compounded the
+problem in the dense center.
+
+The portable renderer now normalizes only its schematic render chain, keeps the
+raw snapshot immutable, and uses an eight-position collision-aware label pass.
+The Sheffield audit improved from 161 to 104 rendered route segments and from
+54 to 21 route warnings. Geographic before/after PNG hashes are identical.
+The Release engine DLL and the E-drive staged mod DLL share SHA-256
+`4873EB738C60E5C9416C77F223068FDD56C892A397A82553B83592230A908047`.
+
+Evidence is generated with:
+
+```text
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-in-game-preview-audit.ps1 -InputJson D:\CS2MetroDiagram\metro-export.json -OutputDir artifacts\ingame-schematic-audit\verification -NoBuild
+```
+
+Do not publish this post-Beta.4 follow-up until the owner verifies the new
+schematic in CS2. Geographic remains the reliable in-game default.

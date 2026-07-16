@@ -17,7 +17,9 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Local CS2 Mod Workflow
 
-- `deploy-local-mod.ps1` - copies the latest generated local mod output into the Cities: Skylines II local ModsData folder. Restart CS2 after running it.
+- Build the CS2 project with `-p:LocalModsPath=<E-drive cs2-local-mods path>` to
+  stage a development build. The old copy-based `deploy-local-mod.ps1` workflow
+  has been removed; subscribed public releases update through Paradox Mods.
 
 ## Alpha Validation
 
@@ -32,6 +34,11 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Route Geometry And Schematic Diagnostics
 
+- `generate-in-game-preview-audit.ps1` - renders the exact portable
+  geographic/schematic profiles used by the CS2 panel, captures PNG evidence,
+  audits schematic geometry, and summarizes route-chain normalization and label
+  placement. Use this before diagnosing game-panel schematic feedback from
+  desktop Viewer output.
 - `generate-schematic-v2-diagnostics.ps1` - generates topology, shared corridor, route-guide, and schematic-v2 comparison diagnostics.
 - `analyze-schematic-map-svg.ps1` - audits schematic-map SVGs, writes score/route/crossing CSVs, and creates `schematic-map-debug.svg` with visual overlays for non-octilinear segments and interior crossings.
 - `analyze-visual-continuity.ps1` - reports route fragment and visual continuity risks.

@@ -68,13 +68,11 @@ Phase 7F is owner-reviewed and closed for continued development. Inline SVG remo
 overrides and inherits CS2's locale-aware `--fontFamily`, while standalone SVG
 keeps a Noto CJK fallback stack. The panel also receives the mod's explicit
 English/Simplified Chinese override and has a regrouped layout/command toolbar.
-Phase 7G hardening is now active. Its first tranche adds a muted note only in
-schematic mode that recommends the desktop Viewer for the most reliable result,
-and coalesces redundant render work after refresh/export/clear. Continue with
-large-city timing, repeated open/close/refresh soak, and categorized failure
-logging; do not add new map styles or publish to PDX yet.
-
-No Phase 7 build may be published to PDX before owner acceptance.
+Phase 7G and the Beta.4 release are closed. A post-Beta.4 in-game schematic
+readability fix is now code-side complete and awaiting owner game validation.
+It normalizes mirrored out-and-back route chains and replaces fixed labels with
+collision-aware placement in the portable renderer. Do not add new map styles
+or publish a follow-up until this exact staged build is reviewed in CS2.
 
 Phase 7A development output is staged by the CS2 toolchain at:
 
@@ -83,8 +81,8 @@ E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\Mods
 ```
 
 Expected files include `CS2 Metro.dll`, `CS2 Metro.mjs`, and
-`MetroDiagram.Engine.dll`. This is a local development build only; it has not
-been published to PDX.
+`MetroDiagram.Engine.dll`. Beta.4 is public; the current staged files include an
+unpublished post-Beta.4 schematic fix.
 
 Recommended beta tester output:
 
@@ -274,11 +272,16 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regress
 
 ## In-game Preview Follow-up
 
-Phase 7F now replaces pointer capture with Coherent-compatible mouse dragging
-and adds a marker-aware map frame for both portable layouts. Build, tests,
-post-process, and E-drive staging pass. The owner accepted these pan and
-safe-frame fixes after in-game review. Do not publish to PDX before final Phase
-7 owner acceptance.
+The post-Beta.4 portable schematic audit is at:
+
+```text
+artifacts\ingame-schematic-audit\verification
+```
+
+Before publication, open the staged mod in CS2 and check schematic route
+continuity, the 7/7-branch area, dense central labels, generic/crowded label
+toggles, and the unchanged geographic default. The source and staged Engine DLL
+hashes already match; only owner-visible game validation remains.
 
 ## Phase 7G Handoff
 
@@ -330,3 +333,6 @@ PDX: ModId 146643, version 0.1.0-beta.4, Public
 Tag `v0.1.0-beta.4` points to release source commit `99a4259`. The uploaded
 Viewer ZIP SHA-256 is
 `BA526BCD203733DEE7E8E0F611DF6251BF0EEA8FFE4B587F5A2F9EC010A51EC1`.
+
+No post-Beta.4 follow-up may be published until the current portable schematic
+fix passes owner game review.

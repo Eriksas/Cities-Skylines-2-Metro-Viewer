@@ -85,6 +85,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
     ("portable schematic anneal is deterministic valid XML", PortableSchematicAnnealIsDeterministicValidXml),
+    ("portable schematic collapses mirrored out-and-back route chains", PortableSchematicCollapsesMirroredOutAndBackRouteChains),
+    ("portable labels use collision-aware candidate positions", PortableLabelsUseCollisionAwareCandidatePositions),
     ("portable schematic anneal handles 200 stations within budget", PortableSchematicAnnealHandlesTwoHundredStationsWithinBudget),
     ("portable empty snapshot exports and renders safely", PortableEmptySnapshotExportsAndRendersSafely),
     ("in-game preview render profiles keep stable defaults", InGamePreviewRenderProfilesKeepStableDefaults),
@@ -3055,6 +3057,77 @@ static void PortableSchematicAnnealIsDeterministicValidXml()
     Assert((string?)xml.Root!.Attribute("data-layout") == "schematic-anneal", "Portable renderer did not record schematic-anneal layout.");
     Assert((string?)xml.Root.Attribute("data-snapshot-revision") == snapshot.Revision, "Portable renderer did not record snapshot revision.");
     AssertValidSvg(xml, "portable schematic-anneal SVG");
+}
+
+static void PortableSchematicCollapsesMirroredOutAndBackRouteChains()
+{
+    string[] rawStops = ["a", "b", "c", "d", "e", "d", "c", "b"];
+    MetroNetworkSnapshot snapshot = new(
+        "Mirror City",
+        "2026-07-15T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "Alpha", 0, 0, ["line_1"], false),
+            new MetroSnapshotStation("b", "Bravo", 100, 10, ["line_1"], false),
+            new MetroSnapshotStation("c", "Central", 200, 20, ["line_1"], false),
+            new MetroSnapshotStation("d", "Delta", 300, 30, ["line_1"], false),
+            new MetroSnapshotStation("e", "Echo", 400, 40, ["line_1"], false)
+        ],
+        [new MetroSnapshotLine("line_1", "Line 1", "#1565C0", "metro", rawStops, [])]);
+
+    XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal }).Svg);
+    XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
+    string[] renderedPoints = ((string?)route.Attribute("points") ?? string.Empty)
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    Assert((string?)route.Attribute("data-route-chain-normalized") == "true", "Portable renderer did not report out-and-back normalization.");
+    Assert((string?)route.Attribute("data-raw-stop-count") == "8", "Portable renderer changed the recorded raw stop count.");
+    Assert((string?)route.Attribute("data-render-stop-count") == "5", "Portable renderer did not collapse the mirrored return leg.");
+    Assert(renderedPoints.Length == 5, $"Portable route still rendered {renderedPoints.Length} mirrored points instead of 5.");
+    Assert(rawStops.Length == 8, "Portable route normalization mutated the source stop sequence.");
+    AssertValidSvg(xml, "portable mirrored out-and-back SVG");
+}
+
+static void PortableLabelsUseCollisionAwareCandidatePositions()
+{
+    MetroNetworkSnapshot snapshot = new(
+        "Label City",
+        "2026-07-15T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "第一中央换乘车站", 0, 0, ["line_1", "line_2"], true),
+            new MetroSnapshotStation("b", "第二中央换乘车站", 100, 0, ["line_1", "line_2"], true),
+            new MetroSnapshotStation("c", "第三中央换乘车站", 200, 0, ["line_1", "line_2"], true),
+            new MetroSnapshotStation("d", "第四中央换乘车站", 300, 0, ["line_1", "line_2"], true)
+        ],
+        [
+            new MetroSnapshotLine("line_1", "Line 1", "#1565C0", "metro", ["a", "b", "c", "d"], []),
+            new MetroSnapshotLine("line_2", "Line 2", "#D32F2F", "metro", ["a", "b", "c", "d"], [])
+        ]);
+    PortableRenderOptions options = new PortableRenderOptions
+    {
+        LayoutMode = PortableLayoutMode.SchematicAnneal,
+        Width = 900,
+        Height = 500,
+        LegendWidth = 150,
+        LabelFontSize = 14,
+        HideCrowdedLabels = true
+    };
+
+    XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+    List<XElement> labels = xml.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "station-label")
+        .ToList();
+    Assert(labels.Count == 4, "Protected interchange labels were unexpectedly hidden.");
+    string[] positions = labels
+        .Select(element => (string?)element.Attribute("data-label-position") ?? string.Empty)
+        .ToArray();
+    string[] candidates = ["right", "left", "top", "bottom", "top-right", "bottom-right", "top-left", "bottom-left"];
+    Assert(positions.All(position => candidates.Contains(position, StringComparer.Ordinal)), "Portable labels emitted an unknown candidate position.");
+    Assert(positions.Any(position => !string.Equals(position, "right", StringComparison.Ordinal)),
+        $"Portable labels still used the legacy fixed right-side placement: {string.Join(", ", positions)}.");
+    Assert(labels.All(label => label.Attribute("data-label-overlap-area") is not null), "Portable labels did not expose overlap diagnostics.");
+    AssertValidSvg(xml, "portable collision-aware label SVG");
 }
 
 static void PortableSchematicAnnealHandlesTwoHundredStationsWithinBudget()

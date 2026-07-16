@@ -5,6 +5,32 @@ Living operational notes only. History:
 - Journal 2026-06-19 .. 2026-07-07: `docs/archive/2026-07-10-dev-notes-journal/DEV_NOTES-journal-2026-06-19-to-2026-07-07.md`
 - Everything before the 2026-06-18 cleanup: `docs/archive/2026-06-18-doc-consolidation/DEV_NOTES.full.md`
 
+## In-game Schematic Product Parity - 2026-07-16
+
+- `PortableMetroSvgRenderer` now runs the desktop schematic-anneal math:
+  product cost weights (octilinear/short/long/bend/crossing/clearance/anchor),
+  same-line clearance exemption via station/edge line masks, minimum-spacing
+  hard gate, adaptive temperature with best-state tracking, range-2 polish
+  (12 sweeps), fixed xorshift seed (layouts stable across refreshes and
+  runtimes), post-anneal fit-to-frame scaling, canvas height adaptation, and
+  parallel shared corridors (same-color lane collapsing, symmetric lane
+  offsets, miter-joined corners).
+- The solver works on int-indexed arrays; string-dictionary lookups dominated
+  cost evaluation before (Release timings for 谢菲尔德 59 stations:
+  1151 ms -> 321 ms; 肇庆 51 stations: 813 ms -> 309 ms; geographic ~30 ms).
+- Offline verification: `scripts\generate-in-game-preview-audit.ps1` on both
+  real-city exports; free-angle diagonals eliminated (octilinear core), shared
+  trunks render as parallel lanes (e.g. 5号线/7号线 corridor, 1号线/10号线
+  肇庆 corridor), Codex's route-chain normalization and collision-aware labels
+  retained on top. 153 offline tests pass, including the portable mirror-chain
+  and label-candidate tests.
+- IMPORTANT: audits must measure Release assemblies; Debug is ~3x slower and
+  does not represent the in-game build.
+- Remaining desktop-only refinements (candidates for a later pass): label
+  route-penalty parity and softer crowded-hide threshold, middle/end text
+  anchors, route badges, express stripes, marker hierarchy.
+- Owner in-game validation still required before publication.
+
 ## Beta.2/Beta.3 Mod Loading Incident - 2026-07-10
 
 - CS2 `1.6.0f1` logs showed `OnLoad` immediately followed by `OnDispose`, raw
@@ -700,4 +726,51 @@ ModId `146643`; `ModPublisher.exe` ended with `New mod version published`. The
 known cross-volume `IOERR_101` warning appeared before upload preparation but
 did not prevent publication. GitHub Release `v0.1.0-beta.4` is public with the
 self-contained Viewer ZIP and checksum asset; its tag points to `99a4259`.
+
+## In-game Schematic Readability Audit - 2026-07-15
+
+The desktop Viewer and the CS2 panel do not share the same renderer. The game
+uses `MetroDiagram.Engine.PortableMetroSvgRenderer` with a bounded 1800x1100
+profile so it can run safely under the mod's `netstandard2.0` runtime. Desktop
+`schematic-anneal` screenshots therefore cannot prove game-panel quality.
+
+The real Sheffield export exposed two portable-renderer problems:
+
+- mirrored out-and-back stop sequences were drawn as route geometry, producing
+  false terminals and duplicate return legs;
+- fixed right/left labels ignored route and station obstacles, creating a dense
+  central text pile.
+
+The fix is schematic-only and render-only. It collapses mirrored route chains
+without mutating the snapshot, performs a deterministic final grid polish, and
+places labels using eight candidate positions with label/station/route overlap
+scoring. Important interchange and terminal labels are preserved; low-priority
+crowded labels may hide according to the existing option.
+
+Generate evidence with the actual in-game renderer profile:
+
+```text
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-in-game-preview-audit.ps1 -InputJson D:\CS2MetroDiagram\metro-export.json -OutputDir artifacts\ingame-schematic-audit\verification -NoBuild
+```
+
+Current real-city evidence:
+
+```text
+Before: 161 route segments, 54 warnings, 10 non-octilinear, 49 direction divergence
+After:  104 route segments, 21 warnings, 8 non-octilinear, 16 direction divergence
+Portable schematic render time: approximately 352 ms
+Geographic before/after PNG SHA-256: identical
+```
+
+Sequential verification passed:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+node --check "CS2 Metro\CS2 Metro.mjs"
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods"
+```
+
+The source and staged `MetroDiagram.Engine.dll` hashes match. Owner in-game
+validation is still required before any GitHub/PDX follow-up release.
 

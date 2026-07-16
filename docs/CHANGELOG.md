@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### In-game preview
+
+- **The in-game schematic now runs the desktop layout math.** The portable
+  engine ports the product cost model (octilinearity, bends, crossings,
+  clearance with same-line exemptions, spacing gate), tracks the best state
+  with a fixed seed - layouts no longer change between refreshes - and scales
+  the result to fill the panel.
+- **Shared tracks render as parallel lines in-game**, with same-color branches
+  collapsing onto one lane and miter-joined corners, matching the desktop look.
+- **Mirrored out-and-back routes no longer draw false terminals**, and station
+  labels avoid routes, stations, and each other (collision-aware placement).
+- Schematic render stays fast: ~320 ms for a 59-station city (int-indexed
+  solver), geographic ~30 ms.
+
 ## v0.1.0-beta.4 - 2026-07-13
 
 Adds the first owner-validated, read-only in-game metro preview while preserving
