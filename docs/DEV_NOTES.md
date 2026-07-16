@@ -1,5 +1,17 @@
 # Development Notes
 
+## 2026-07-16 Beta.6 publication
+
+- Release source commit: `81794d7` (`release: prepare v0.1.0-beta.6`).
+- GitHub tag and Release: `v0.1.0-beta.6`.
+- Uploaded Viewer ZIP SHA-256:
+  `BC5AB5042EC930942183D8C1A7709496F65A6C4CFADB39F867C8C7858E2F4109`.
+- Paradox Mods existing public ModId `146643` was updated in
+  `PublishNewVersion` mode; the publisher reported `New mod version published`.
+- The publisher still prints a cross-volume `IOERR_101` move warning before
+  upload. Treat it as non-blocking only when the final publication success line
+  is present.
+
 Living operational notes only. History:
 
 - Journal 2026-06-19 .. 2026-07-07: `docs/archive/2026-07-10-dev-notes-journal/DEV_NOTES-journal-2026-06-19-to-2026-07-07.md`

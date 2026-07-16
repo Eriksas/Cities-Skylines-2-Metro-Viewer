@@ -4,11 +4,11 @@
 
 Repository and companion Viewer: `v0.1.0-beta.6`
 
-Release target: `v0.1.0-beta.6` on the existing public ModId `146643`.
+Current public release: `v0.1.0-beta.6` on the existing public ModId `146643`.
 
-The owner accepted the exact Phase 7 candidate on 2026-07-13. GitHub and the
-existing public PDX listing are currently on Beta.5; Beta.6 publication was
-authorized on 2026-07-16 after universal offline framing validation.
+The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
+authorized and published to GitHub and the existing public PDX listing on
+2026-07-16 after universal offline framing validation.
 
 This is beta software. It is not a stable release.
 
@@ -106,8 +106,8 @@ adds a subdued schematic-only note recommending the desktop Viewer, exposes
 capture/render telemetry, categorizes logs, coalesces stale work, and bounds the
 render cache to four LRU entries. No exporter/schema contract changed.
 
-Post-Beta.4 in-game schematic hardening is code-side complete and awaiting
-owner game validation. The investigation confirmed that the game panel uses the
+Portable in-game schematic hardening is published in Beta.6, with focused
+Coherent-runtime feedback still requested. The investigation confirmed that the game panel uses the
 dependency-light `MetroDiagram.Engine` renderer rather than the desktop
 Viewer's full cartographic renderer. The portable schematic now collapses
 mirrored out-and-back stop chains, applies a deterministic final layout polish,
@@ -122,12 +122,14 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-Beta.5 is the public PDX baseline until the authorized Beta.6 update completes.
+Beta.6 is the current public GitHub and PDX baseline. `ModPublisher.exe`
+reported `New mod version published` for ModId `146643`; GitHub Release
+`v0.1.0-beta.6` contains the self-contained Viewer ZIP and SHA-256 file.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.6`
-- Paradox Mods release target: `0.1.0-beta.6`
+- Repository/Viewer release line: `v0.1.0-beta.6` (published)
+- Paradox Mods release: `0.1.0-beta.6` (published)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 

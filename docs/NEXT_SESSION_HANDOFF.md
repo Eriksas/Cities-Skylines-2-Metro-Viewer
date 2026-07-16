@@ -22,7 +22,7 @@ docs\archive\historical
 
 Repository and Viewer: `v0.1.0-beta.6`
 
-Paradox Mods release target: `v0.1.0-beta.6` (Public, existing ModId `146643`)
+Paradox Mods current release: `v0.1.0-beta.6` (Public, existing ModId `146643`)
 
 ## Beta.6 Publication Note
 
@@ -56,8 +56,9 @@ is not yet fixed and must remain non-blocking.
 
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
-preserving the exporter, Viewer, CLI, and JSON schema. Beta.4 packages the
-accepted Phase 7 in-game preview.
+preserving the exporter, Viewer, CLI, and JSON schema. Beta.6 is the current
+published Phase 7 package and adds universal preview framing plus vector
+`viewBox` navigation.
 
 Phase 7A passed owner in-game validation on 2026-07-13 and is closed. Phase 7B
 through 7E are code-side complete on branch `feature/ingame-preview`:
@@ -86,11 +87,10 @@ Phase 7F is owner-reviewed and closed for continued development. Inline SVG remo
 overrides and inherits CS2's locale-aware `--fontFamily`, while standalone SVG
 keeps a Noto CJK fallback stack. The panel also receives the mod's explicit
 English/Simplified Chinese override and has a regrouped layout/command toolbar.
-Phase 7G and the Beta.4 release are closed. A post-Beta.4 in-game schematic
-readability fix is now code-side complete and awaiting owner game validation.
-It normalizes mirrored out-and-back route chains and replaces fixed labels with
-collision-aware placement in the portable renderer. Do not add new map styles
-or publish a follow-up until this exact staged build is reviewed in CS2.
+Phase 7G and the earlier Beta.4 release are closed. The later portable-renderer
+hardening, mirrored-route normalization, collision-aware labels, stable preview
+sheet, and vector zoom are published in Beta.6. Keep geographic as the in-game
+default and collect focused Coherent-runtime feedback before broadening scope.
 
 Phase 7A development output is staged by the CS2 toolchain at:
 
@@ -99,8 +99,8 @@ E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\Mods
 ```
 
 Expected files include `CS2 Metro.dll`, `CS2 Metro.mjs`, and
-`MetroDiagram.Engine.dll`. Beta.4 is public; the current staged files include an
-unpublished post-Beta.4 schematic fix.
+`MetroDiagram.Engine.dll`. The current staged files match the published Beta.6
+source and package.
 
 Recommended beta tester output:
 
@@ -334,20 +334,18 @@ artifacts\release-candidates\CS2MetroDiagram-phase7-rc1
 artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
 ```
 
-Automated verification passed for build/tests, Viewer publish and launch, CS2
-post-process, MJS source/staging identity, package manifest, and ZIP contents.
-Owner in-game and Viewer acceptance, the coordinated Beta.4 version bump,
-final rebuild, GitHub release, and PDX update are complete. The public Viewer
-asset is the formal Beta.4 package, not the private `phase7-rc1` ZIP that
-intentionally embedded the Beta.3 baseline version.
+Automated verification passed for build/tests, Viewer publish, CS2 post-process,
+MJS source/staging identity, package manifest, and ZIP contents. The public
+Viewer asset is now the formal Beta.6 package; the private `phase7-rc1` ZIP is
+retained only as historical acceptance evidence.
 
-Published endpoints:
+Published endpoints (completed 2026-07-16):
 
 ```text
-GitHub target: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.6
-PDX target: ModId 146643, version 0.1.0-beta.6, Public
+GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.6
+PDX: ModId 146643, version 0.1.0-beta.6, Public
 ```
 
-Tag `v0.1.0-beta.6` will point to the release source commit. The generated
+Tag `v0.1.0-beta.6` points to release source commit `81794d7`. The uploaded
 Viewer ZIP SHA-256 is
 `BC5AB5042EC930942183D8C1A7709496F65A6C4CFADB39F867C8C7858E2F4109`.
