@@ -1,5 +1,25 @@
 # Development Notes
 
+## 2026-07-16 In-game Label Declutter (post-beta.6, unreleased)
+
+- Owner reported dense-center discomfort on the Sheffield in-game preview
+  (label fusion `环境保护中心站`+`生活中心站`, stacked `金融中心站`/`绿地广场站`).
+- Root cause: on the fixed 1800x1100 panel a 12px five-CJK-char label (~60px)
+  is wider than the 40.5px minimum station spacing — dense centers cannot host
+  adjacent near-ring side labels. Label footprint problem, not layout.
+- Fix (label layer only, anneal untouched): two-ring candidates (8 -> 16,
+  far ring at 2.2x offset, near ring wins ties), clipped-length
+  route-under-label penalty (desktop parity, replaces boolean hit count),
+  `middle`/`end` text anchors on top/bottom/left slots, in-game base font
+  12 -> 11 (vector zoom keeps readability).
+- Verified with a git-worktree beta.6 baseline vs working tree, same metric
+  tool on both: Sheffield overlap pairs 1 -> 0, route-under-labels 66 -> 33px;
+  Zhaoqing 0 -> 0 pairs, 59 -> 14px; visible labels unchanged (49/27);
+  frame-bounds violations 0; 156 tests pass; render time unchanged.
+- The frame-containment test now reconstructs label boxes from `text-anchor`
+  (the renderer clamps the box; `x` is the anchor point, not the left edge).
+- Not published: awaiting owner in-game validation before any release.
+
 ## 2026-07-16 Beta.6 publication
 
 - Release source commit: `81794d7` (`release: prepare v0.1.0-beta.6`).

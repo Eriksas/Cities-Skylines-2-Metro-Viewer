@@ -6,6 +6,27 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Declutter Dense Centers In The Label Layer, Not The Layout
+
+Decision: fix dense-center crowding in the in-game schematic by improving the
+label placer only — a second, farther candidate ring (8 -> 16 slots), the
+desktop clipped-length route-under-label penalty, `middle`/`end` text anchors,
+and an 11px base font — while leaving the anneal layout math byte-untouched.
+
+Reason: on a fixed 1800x1100 panel, labels are proportionally ~2.5x larger
+than on the desktop poster, so dense centers physically cannot host adjacent
+side labels; the crowding is a text-footprint problem, not a station-spacing
+problem. Layout changes carry regression risk the label layer does not: a
+label move can only relocate text, never break the map. Vector zoom (beta.6)
+makes the smaller base font a cheap trade.
+
+Consequence: label fixes are validated with before/after audits on both real
+cities (overlap pairs, route-length-under-labels, visible-label counts,
+frame-bounds checks) instead of layout metrics. Station spacing itself stays
+governed by the anneal profile; if a future city still feels cramped after
+label fixes, spacing experiments happen as a separate, separately-validated
+change.
+
 ## Promote The Validated Toolchain To Beta.1
 
 Decision: use `v0.1.0-beta.1` for the next package while preserving the

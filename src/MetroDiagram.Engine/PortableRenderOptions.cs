@@ -72,7 +72,11 @@ namespace MetroDiagram.Engine
                 LegendWidth = 250,
                 RouteWidth = 9,
                 StationRadius = 5,
-                LabelFontSize = 12,
+                // 11 instead of 12: labels are proportionally ~2.5x larger on the
+                // in-game panel than on the desktop poster, and since beta.6 the
+                // panel zoom is vector-crisp, so a smaller base size trades cheap
+                // readability for a lot of breathing room in dense centers.
+                LabelFontSize = 11,
                 GridSize = 30,
                 ShowGenericStationNames = showGenericStationNames,
                 HideCrowdedLabels = hideCrowdedLabels,

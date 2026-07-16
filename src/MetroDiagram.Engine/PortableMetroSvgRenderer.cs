@@ -1098,8 +1098,13 @@ namespace MetroDiagram.Engine
                 labelBoxes.Add(placement.Box);
                 svg.Append("<text class=\"station-label\" x=\"").Append(F(placement.X))
                     .Append("\" y=\"").Append(F(placement.BaselineY)).Append("\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"")
-                    .Append(F(options.LabelFontSize)).Append("\" font-weight=\"").Append(request.Important ? "700" : "500")
-                    .Append("\" data-station-id=\"").Append(Xml(request.Station.Id))
+                    .Append(F(options.LabelFontSize)).Append("\" font-weight=\"").Append(request.Important ? "700" : "500");
+                if (placement.Anchor != "start")
+                {
+                    svg.Append("\" text-anchor=\"").Append(placement.Anchor);
+                }
+
+                svg.Append("\" data-station-id=\"").Append(Xml(request.Station.Id))
                     .Append("\" data-label-position=\"").Append(placement.PositionName)
                     .Append("\" data-label-priority=\"").Append(request.Priority)
                     .Append("\" data-label-overlap-area=\"").Append(F(placement.LabelOverlapArea))
@@ -1484,18 +1489,16 @@ namespace MetroDiagram.Engine
             double fontSize = options.LabelFontSize;
             double width = Math.Min(EstimateTextWidth(request.Text, fontSize), Math.Max(frame.Right - frame.Left, 1));
             double height = fontSize * 1.25;
-            double offset = request.StationRadius + 6;
-            List<LabelPlacement> candidates = new List<LabelPlacement>
-            {
-                CreateLabelPlacement("right", request.Point.X + offset, request.Point.Y - (height / 2), width, height, fontSize, frame),
-                CreateLabelPlacement("left", request.Point.X - offset - width, request.Point.Y - (height / 2), width, height, fontSize, frame),
-                CreateLabelPlacement("top", request.Point.X - (width / 2), request.Point.Y - offset - height, width, height, fontSize, frame),
-                CreateLabelPlacement("bottom", request.Point.X - (width / 2), request.Point.Y + offset, width, height, fontSize, frame),
-                CreateLabelPlacement("top-right", request.Point.X + (offset * 0.8), request.Point.Y - offset - height, width, height, fontSize, frame),
-                CreateLabelPlacement("bottom-right", request.Point.X + (offset * 0.8), request.Point.Y + (offset * 0.75), width, height, fontSize, frame),
-                CreateLabelPlacement("top-left", request.Point.X - (offset * 0.8) - width, request.Point.Y - offset - height, width, height, fontSize, frame),
-                CreateLabelPlacement("bottom-left", request.Point.X - (offset * 0.8) - width, request.Point.Y + (offset * 0.75), width, height, fontSize, frame)
-            };
+            double routeStroke = Math.Max(1, options.RouteWidth);
+
+            // Two rings of candidates: the near ring hugs the station like the
+            // desktop renderer; the far ring (same slots, ~2.2x offset) lets a
+            // label step outward in dense clusters instead of fusing with a
+            // neighbour. Near slots win ties via the index tiebreak, so the far
+            // ring is only used when it actually avoids a collision.
+            List<LabelPlacement> candidates = new List<LabelPlacement>(16);
+            AddCandidateRing(candidates, request, width, height, fontSize, frame, request.StationRadius + 6, "");
+            AddCandidateRing(candidates, request, width, height, fontSize, frame, (request.StationRadius + 6) * 2.2, "-far");
 
             LabelPlacement best = candidates[0];
             double bestScore = double.MaxValue;
@@ -1504,8 +1507,8 @@ namespace MetroDiagram.Engine
                 LabelPlacement candidate = candidates[i];
                 double labelOverlapArea = placedLabels.Sum(box => candidate.Box.OverlapArea(box));
                 double stationOverlapArea = stationObstacles.Sum(box => candidate.Box.OverlapArea(box));
-                int routeHits = routeObstacles.Count(segment => SegmentIntersectsRect(segment.A, segment.B, candidate.Box));
-                double score = (labelOverlapArea * 16) + (stationOverlapArea * 8) + (routeHits * fontSize * options.RouteWidth * 2) + (i * 0.01);
+                double routeCoveredLength = routeObstacles.Sum(segment => SegmentLengthInsideRect(segment.A, segment.B, candidate.Box));
+                double score = (labelOverlapArea * 16) + (stationOverlapArea * 8) + (routeCoveredLength * routeStroke * 6) + (i * 0.01);
                 if (score < bestScore)
                 {
                     best = new LabelPlacement(
@@ -1514,12 +1517,88 @@ namespace MetroDiagram.Engine
                         candidate.Box,
                         candidate.PositionName,
                         labelOverlapArea,
-                        score);
+                        score,
+                        candidate.Anchor);
                     bestScore = score;
                 }
             }
 
             return best;
+        }
+
+        private static void AddCandidateRing(
+            List<LabelPlacement> candidates,
+            LabelRequest request,
+            double width,
+            double height,
+            double fontSize,
+            MapFrame frame,
+            double offset,
+            string nameSuffix)
+        {
+            candidates.Add(CreateLabelPlacement("right" + nameSuffix, request.Point.X + offset, request.Point.Y - (height / 2), width, height, fontSize, frame, "start"));
+            candidates.Add(CreateLabelPlacement("left" + nameSuffix, request.Point.X - offset - width, request.Point.Y - (height / 2), width, height, fontSize, frame, "end"));
+            candidates.Add(CreateLabelPlacement("top" + nameSuffix, request.Point.X - (width / 2), request.Point.Y - offset - height, width, height, fontSize, frame, "middle"));
+            candidates.Add(CreateLabelPlacement("bottom" + nameSuffix, request.Point.X - (width / 2), request.Point.Y + offset, width, height, fontSize, frame, "middle"));
+            candidates.Add(CreateLabelPlacement("top-right" + nameSuffix, request.Point.X + (offset * 0.8), request.Point.Y - offset - height, width, height, fontSize, frame, "start"));
+            candidates.Add(CreateLabelPlacement("bottom-right" + nameSuffix, request.Point.X + (offset * 0.8), request.Point.Y + (offset * 0.75), width, height, fontSize, frame, "start"));
+            candidates.Add(CreateLabelPlacement("top-left" + nameSuffix, request.Point.X - (offset * 0.8) - width, request.Point.Y - offset - height, width, height, fontSize, frame, "end"));
+            candidates.Add(CreateLabelPlacement("bottom-left" + nameSuffix, request.Point.X - (offset * 0.8) - width, request.Point.Y + (offset * 0.75), width, height, fontSize, frame, "end"));
+        }
+
+        // Length of the segment portion inside the rectangle (Liang-Barsky clip),
+        // matching the desktop renderer's route-under-label penalty.
+        private static double SegmentLengthInsideRect(Point2 a, Point2 b, Rect2 rect)
+        {
+            double dx = b.X - a.X;
+            double dy = b.Y - a.Y;
+            double t0 = 0;
+            double t1 = 1;
+            if (!ClipParameter(-dx, a.X - rect.X, ref t0, ref t1)
+                || !ClipParameter(dx, rect.Right - a.X, ref t0, ref t1)
+                || !ClipParameter(-dy, a.Y - rect.Y, ref t0, ref t1)
+                || !ClipParameter(dy, rect.Bottom - a.Y, ref t0, ref t1))
+            {
+                return 0;
+            }
+
+            return t1 > t0 ? Math.Sqrt((dx * dx) + (dy * dy)) * (t1 - t0) : 0;
+        }
+
+        private static bool ClipParameter(double p, double q, ref double t0, ref double t1)
+        {
+            if (Math.Abs(p) < 0.000001)
+            {
+                return q >= 0;
+            }
+
+            double r = q / p;
+            if (p < 0)
+            {
+                if (r > t1)
+                {
+                    return false;
+                }
+
+                if (r > t0)
+                {
+                    t0 = r;
+                }
+            }
+            else
+            {
+                if (r < t0)
+                {
+                    return false;
+                }
+
+                if (r < t1)
+                {
+                    t1 = r;
+                }
+            }
+
+            return true;
         }
 
         private static LabelPlacement PlaceLegacyLabel(Point2 station, double estimatedWidth, double fontSize, MapFrame frame)
@@ -1549,11 +1628,17 @@ namespace MetroDiagram.Engine
             double width,
             double height,
             double fontSize,
-            MapFrame frame)
+            MapFrame frame,
+            string anchor = "start")
         {
             x = Clamp(x, frame.Left, Math.Max(frame.Left, frame.Right - width));
             top = Clamp(top, frame.Top, Math.Max(frame.Top, frame.Bottom - height));
-            return new LabelPlacement(x, top + fontSize, new Rect2(x, top, width, height), positionName, 0, 0);
+
+            // The collision box is always the full text extent; the text x is the
+            // anchor point so the rendered glyphs stay inside the estimated box
+            // even when the runtime font metrics differ from the estimate.
+            double textX = anchor == "middle" ? x + (width / 2) : anchor == "end" ? x + width : x;
+            return new LabelPlacement(textX, top + fontSize, new Rect2(x, top, width, height), positionName, 0, 0, anchor);
         }
 
         private static double EstimateTextWidth(string text, double fontSize)
@@ -1832,7 +1917,8 @@ namespace MetroDiagram.Engine
                 Rect2 box,
                 string positionName,
                 double labelOverlapArea,
-                double score)
+                double score,
+                string anchor = "start")
             {
                 X = x;
                 BaselineY = baselineY;
@@ -1840,6 +1926,7 @@ namespace MetroDiagram.Engine
                 PositionName = positionName;
                 LabelOverlapArea = labelOverlapArea;
                 Score = score;
+                Anchor = anchor;
             }
 
             public double X { get; }
@@ -1848,6 +1935,7 @@ namespace MetroDiagram.Engine
             public string PositionName { get; }
             public double LabelOverlapArea { get; }
             public double Score { get; }
+            public string Anchor { get; }
         }
 
         private struct Point2

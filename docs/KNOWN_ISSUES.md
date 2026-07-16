@@ -33,9 +33,10 @@ This is a beta build. It is intended for testing and feedback, not production us
 - The game mod does not launch the Viewer.
 - The in-game schematic uses a portable renderer that now runs the same layout
   math as desktop `schematic-anneal` (cost weights, clearance exemptions,
-  parallel shared corridors, fit-to-frame). It still lacks some desktop
-  cartographic furniture: label side-scoring parity, route badges, express
-  stripes, and marker hierarchy.
+  parallel shared corridors, fit-to-frame) and a two-ring collision-aware label
+  placer with the desktop clipped-length route penalty. It still lacks some
+  desktop cartographic furniture: route badges, express stripes, and marker
+  hierarchy.
 - The Viewer is a local Windows app and remains the preferred surface for the
   most polished schematic output and manual editing.
 - No Hong Kong, Guangzhou, or other style presets are included yet.

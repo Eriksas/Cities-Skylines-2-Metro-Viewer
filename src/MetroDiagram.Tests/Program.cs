@@ -3125,7 +3125,11 @@ static void PortableLabelsUseCollisionAwareCandidatePositions()
     string[] positions = labels
         .Select(element => (string?)element.Attribute("data-label-position") ?? string.Empty)
         .ToArray();
-    string[] candidates = ["right", "left", "top", "bottom", "top-right", "bottom-right", "top-left", "bottom-left"];
+    string[] candidates =
+    [
+        "right", "left", "top", "bottom", "top-right", "bottom-right", "top-left", "bottom-left",
+        "right-far", "left-far", "top-far", "bottom-far", "top-right-far", "bottom-right-far", "top-left-far", "bottom-left-far"
+    ];
     Assert(positions.All(position => candidates.Contains(position, StringComparer.Ordinal)), "Portable labels emitted an unknown candidate position.");
     Assert(positions.Any(position => !string.Equals(position, "right", StringComparison.Ordinal)),
         $"Portable labels still used the legacy fixed right-side placement: {string.Join(", ", positions)}.");
@@ -3253,7 +3257,9 @@ static void PortableRendererKeepsStationsAndLabelsInsideMapFrame()
             double x = ReadDouble(label.Attribute("x"));
             double y = ReadDouble(label.Attribute("y"));
             double estimatedWidth = Math.Max(label.Value.Length, 2) * options.LabelFontSize * 0.72;
-            Assert(x >= left - 0.001 && x + estimatedWidth <= right + 0.001,
+            string anchor = (string?)label.Attribute("text-anchor") ?? "start";
+            double boxLeft = anchor == "middle" ? x - (estimatedWidth / 2) : anchor == "end" ? x - estimatedWidth : x;
+            Assert(boxLeft >= left - 0.001 && boxLeft + estimatedWidth <= right + 0.001,
                 $"Portable {layoutMode} station label escaped the horizontal safe frame.");
             Assert(y - options.LabelFontSize >= top - 0.001 && y + 4 <= bottom + 0.001,
                 $"Portable {layoutMode} station label escaped the vertical safe frame.");

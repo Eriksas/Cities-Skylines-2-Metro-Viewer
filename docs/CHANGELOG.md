@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Dense-center label decluttering for the in-game schematic.
+
+### In-game preview
+
+- Station labels gained a second, farther candidate ring (8 -> 16 slots). In
+  dense centers a label now steps outward instead of fusing with a neighbour
+  (the Sheffield `环境保护中心站` / `生活中心站` fusion resolves to zero overlap).
+- The route-under-label penalty now measures the clipped segment length inside
+  the label box (desktop parity) instead of counting boolean hits, so labels
+  choose sides that clear nearby lines (route length under labels: Sheffield
+  66px -> 33px, Zhaoqing 59px -> 14px).
+- Top/bottom label slots use `middle`/`end` text anchors so rendered glyphs
+  stay inside the estimated collision box even when game font metrics differ.
+- In-game base label font is now 11px (was 12). Labels were proportionally
+  ~2.5x larger on the 1800x1100 panel than on the desktop poster; with beta.6
+  vector zoom, readability is preserved while the dense center gains breathing
+  room. Visible label counts are unchanged on both validation cities.
+
+### Validation
+
+- 156 tests pass; layout math untouched (label-render layer only).
+- Before/after audits on both real cities: label-overlap pairs 1 -> 0
+  (Sheffield) and 0 -> 0 (Zhaoqing); zero frame-bounds violations.
+
 ## v0.1.0-beta.6 - 2026-07-16
 
 Hardens the in-game preview for compact and extreme-aspect networks.
