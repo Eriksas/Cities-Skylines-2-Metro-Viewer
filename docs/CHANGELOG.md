@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-beta.5 - 2026-07-16
+
+The in-game schematic reaches desktop layout quality. Owner-validated in game.
 
 ### In-game preview
 

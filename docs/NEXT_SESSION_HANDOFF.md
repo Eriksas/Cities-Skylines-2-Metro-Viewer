@@ -20,9 +20,9 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.4`
+Repository and Viewer: `v0.1.0-beta.5`
 
-Paradox Mods code mod: `v0.1.0-beta.4` (published, Public, ModId `146643`)
+Paradox Mods code mod: `v0.1.0-beta.5` (published, Public, ModId `146643`)
 
 The owner accepted `phase7-rc1` on 2026-07-13 and authorized the coordinated
 Beta.4 GitHub/PDX release. Both publication endpoints completed successfully.
@@ -326,11 +326,11 @@ intentionally embedded the Beta.3 baseline version.
 Published endpoints:
 
 ```text
-GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.4
-PDX: ModId 146643, version 0.1.0-beta.4, Public
+GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.5
+PDX: ModId 146643, version 0.1.0-beta.5, Public
 ```
 
-Tag `v0.1.0-beta.4` points to release source commit `99a4259`. The uploaded
+Tag `v0.1.0-beta.5` points to release source commit `99a4259`. The uploaded
 Viewer ZIP SHA-256 is
 `BA526BCD203733DEE7E8E0F611DF6251BF0EEA8FFE4B587F5A2F9EC010A51EC1`.
 

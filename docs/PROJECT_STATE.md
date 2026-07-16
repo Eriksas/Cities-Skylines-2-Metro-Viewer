@@ -2,9 +2,9 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.4`
+Repository and companion Viewer: `v0.1.0-beta.5`
 
-Current Paradox Mods code-mod release: `v0.1.0-beta.4` (ModId `146643`, Public).
+Current Paradox Mods code-mod release: `v0.1.0-beta.5` (ModId `146643`, Public).
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. GitHub and the
 existing public PDX listing are aligned on Beta.4.
@@ -86,8 +86,8 @@ Beta.4 is now the public PDX baseline. Phase 7 publication is complete.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.4`
-- Paradox Mods published version: `0.1.0-beta.4`
+- Repository/Viewer release line: `v0.1.0-beta.5`
+- Paradox Mods published version: `0.1.0-beta.5`
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
@@ -435,7 +435,7 @@ while packaging the staged E-drive mod, self-contained Viewer, hashes, build
 identity, known issues, and manual acceptance checklist. The owner approved
 this exact candidate on 2026-07-13. Version sources have now moved together to
 Beta.4. The existing public PDX ModId `146643` reported `New mod version
-published`, and GitHub Release `v0.1.0-beta.4` contains the self-contained
+published`, and GitHub Release `v0.1.0-beta.5` contains the self-contained
 Viewer ZIP plus its SHA-256 file. **Phase 7H: Passed.**
 
 ## Post-Beta.4 In-game Schematic Hardening

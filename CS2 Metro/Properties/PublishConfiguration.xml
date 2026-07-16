@@ -47,7 +47,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.4" />
+	<ModVersion Value="0.1.0-beta.5" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -56,12 +56,12 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.4:
-- Added a read-only in-game metro preview opened from the top-right toolbar.
-- Added geographic/schematic switching, refresh, label controls, zoom/pan, JSON export, and SVG save inside the preview.
-- Added Chinese/English UI support, explicit no-city/no-metro/error states, safe edge framing, and categorized runtime diagnostics.
-- Hardened repeated open/close and rapid setting changes with request coalescing and a bounded LRU render cache.
-- Preserved the existing exporter schema and desktop Viewer workflow.
+Beta.5 - the in-game schematic grew up:
+- The in-game schematic now uses the same layout math as the desktop Viewer: clean horizontal/vertical/45-degree lines, no more random diagonals.
+- Lines that share a track are drawn as parallel lines in-game, and out-and-back routes no longer show false terminals.
+- The map fills the panel, and the layout no longer changes every time you refresh.
+- Station labels avoid lines, stations, and each other.
+- Still fast: about 0.3s to lay out a 59-station city.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

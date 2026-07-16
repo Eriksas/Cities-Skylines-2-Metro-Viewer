@@ -4,7 +4,7 @@ Turn your **Cities: Skylines II** metro network into a clean, readable metro map
 
 **English** · [中文](#cs2-地铁线路图)
 
-Current version: `v0.1.0-beta.4` · Beta software — read-only preview and export; it does not change your city. Back up saves before testing any mod.
+Current version: `v0.1.0-beta.5` · Beta software — read-only preview and export; it does not change your city. Back up saves before testing any mod.
 
 The project has three parts:
 
@@ -50,7 +50,6 @@ Restores the offline solution, builds it, and runs the tests (also run by CI). T
 ## Known limitations
 
 - Metro/subway only; export from a loaded city (no offline save parsing).
-- No in-game preview yet.
 - Multi-city validation of `schematic-anneal` is ongoing.
 
 ## Feedback — share your city!
@@ -67,7 +66,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 [English](#cs2-metro-diagram) · **中文**
 
-当前版本：`v0.1.0-beta.4` · Beta 阶段软件 —— 只读预览和导出，不会改动你的城市。测试任何 mod 前请先备份存档。
+当前版本：`v0.1.0-beta.5` · Beta 阶段软件 —— 只读预览和导出，不会改动你的城市。测试任何 mod 前请先备份存档。
 
 项目分三部分：
 
@@ -113,7 +112,6 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight.ps1
 ## 已知限制
 
 - 仅支持地铁/subway；需在已载入的城市中导出（不解析离线存档）。
-- 暂无游戏内预览。
 - `schematic-anneal` 的多城市验证仍在进行中。
 
 ## 反馈——投稿你的城市！
