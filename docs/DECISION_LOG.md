@@ -6,6 +6,27 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Spend Leftover Anneal Budget On Restarts, Never On Per-map Tuning
+
+Decision: when one anneal pass (stationCount x 300 attempts) uses less than
+half of `AnnealAttemptLimit`, the portable schematic runs up to three
+independent starts with distinct fixed seeds and keeps the cheapest polished
+layout. Cost weights, moves, and the spacing gate are unchanged.
+
+Reason: a real 22-station city rendered a geographically straight line as a
+large Λ detour. Diagnosis showed the flat solution exists and is cheaper —
+the single walk simply froze in a local minimum, and small networks are
+exactly where one walk gets the least exploration. Restarts attack the search
+problem directly; tuning weights to fix one city would violate the standing
+"universal solution, no single-map optimization" rule.
+
+Consequence: networks that fill the budget in one pass (roughly 40+ stations,
+including both real validation cities) compute one start and stay
+byte-identical, so corpus regression stays free. Small networks pay up to 3x
+render time inside the existing attempt budget. The desktop anneal does not
+have multi-start yet; porting it there requires a small-sample baseline
+refresh and is a recorded follow-up.
+
 ## Declutter Dense Centers In The Label Layer, Not The Layout
 
 Decision: fix dense-center crowding in the in-game schematic by improving the

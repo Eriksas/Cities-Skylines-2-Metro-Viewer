@@ -15,8 +15,10 @@ public static class StationLabelClassifier
         "现代地铁站",
         "地下地铁站",
         "地铁站",
+        "高架地铁站",
         "Subway Station",
-        "Metro Station"
+        "Metro Station",
+        "Elevated Metro Station"
     ];
 
     public static StationNameKind Classify(string? name, string? stationId = null)
@@ -56,7 +58,35 @@ public static class StationLabelClassifier
         }
 
         string trimmed = name.Trim();
-        return GenericStationNames.Any(generic => string.Equals(trimmed, generic, StringComparison.OrdinalIgnoreCase));
+        string baseName = StripParentheticalSuffix(trimmed);
+        return GenericStationNames.Any(generic => string.Equals(baseName, generic, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Default CS2 assets ship bracketed variants ("高架地铁站（小型）",
+    // "地铁站（高架旁路）"): strip one trailing parenthesized suffix and compare
+    // the base name. Player names keep their own base, so a renamed
+    // "中央站（东）" is unaffected.
+    private static string StripParentheticalSuffix(string value)
+    {
+        if (value.Length == 0)
+        {
+            return value;
+        }
+
+        char last = value[^1];
+        char open = last switch
+        {
+            '）' => '（',
+            ')' => '(',
+            _ => '\0'
+        };
+        if (open == '\0')
+        {
+            return value;
+        }
+
+        int openIndex = value.LastIndexOf(open);
+        return openIndex > 0 ? value[..openIndex].TrimEnd() : value;
     }
 
     private static bool IsStationNumberFallback(string value)

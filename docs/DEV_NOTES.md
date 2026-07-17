@@ -1,5 +1,38 @@
 # Development Notes
 
+## 2026-07-17 Small-network Anneal Restarts + Bracketed Default Names
+
+- Owner's 22-station city (奥斯特, export `metro-export-奥斯特-20260717-213912`)
+  rendered its geographically straight east-west 3号线 as a large Λ detour in
+  the in-game schematic.
+- Diagnosis from the export data: 1号线's default-named elevated station sits
+  ~45 game units (about one 30px grid cell) from a 3号线 station, right at the
+  crossing point. `minimumSpacing` (40.5px) exceeds the grid (30px), so two
+  stations can never occupy orthogonally adjacent cells — the geographically
+  faithful flat arrangement starts in violation, and the anneal walked uphill
+  into a locked-in mountain. A cheap flat solution exists (one-row offset,
+  crossing between stations); a single 6600-attempt walk just never found it —
+  search failure, not a cost-model failure.
+- Fix (general, no per-map tuning): multi-start. One pass costs N*300
+  attempts; when that is under half of `AnnealAttemptLimit` (24000), run up to
+  `min(3, budget/attempts)` starts with splitmix64-derived fixed seeds and
+  keep the lowest `TotalCost` after polish. Start 0 uses the original seed, so
+  single-start networks are byte-identical by construction.
+- Validation: Oster renders flat (mountain gone); Sheffield/Zhaoqing geometry
+  compared node-for-node (all polyline points + all circles) — identical;
+  their only diff is the intended label change below. 161 tests pass,
+  including the start-count formula (22->3, 40->2, 51/59/200->1, capped
+  budget->1) via new `InternalsVisibleTo`.
+- Bracketed default asset names (owner-approved): strip one trailing
+  `（…）`/`(…)` suffix before the known-default-name comparison, and add
+  高架地铁站 / Elevated Metro Station to the base list. Implemented in both
+  `PortableMetroSvgRenderer.IsGenericName` and the desktop
+  `StationLabelClassifier` (shared product semantic). `地铁站（高架旁路）` is a
+  terminal in Oster and now renders unnamed by default — accepted; the
+  "Show default station names" toggle restores it.
+- Mod Release build currently blocked by MSB3231 (game running locks the
+  staged DLL). Rebuild + staging refresh after the game closes.
+
 ## 2026-07-17 Player-view Polish: Cursor Zoom, Localized Sheet, Compact Buttons
 
 - From the 2026-07-17 player-perspective review (see NEXT_SESSION_HANDOFF):

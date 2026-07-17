@@ -7,4 +7,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MetroDiagram.Tests" />
+  </ItemGroup>
+
 </Project>

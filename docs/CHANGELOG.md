@@ -18,6 +18,19 @@ preview.
   (the render cache keys include the language).
 - The `−`/`+`/fit zoom buttons are compact instead of inheriting the
   toolbar-width button style.
+- Small networks no longer freeze geographically straight lines into zigzags:
+  the schematic anneal spends its leftover attempt budget on up to three
+  independent restarts (distinct fixed seeds, cheapest polished result wins)
+  when a single pass would use less than half the budget. A real 22-station
+  city whose straight east-west line rendered as a large Λ detour now renders
+  flat. Networks of roughly 40+ stations fill the budget in one pass and stay
+  byte-identical (verified point-for-point on both validation cities).
+- Bracketed CS2 default asset names (`高架地铁站（小型）`, `地铁站（高架旁路）`,
+  `Metro Station (…)`) are now recognized as default names: hidden while
+  "Show default station names" is off, and no longer rendered as confusing
+  duplicate labels. Player names that merely end in brackets (e.g.
+  `中央站（东）`) are unaffected. Applies to both the in-game preview and the
+  desktop toolchain.
 
 - Station labels gained a second, farther candidate ring (8 -> 16 slots). In
   dense centers a label now steps outward instead of fusing with a neighbour

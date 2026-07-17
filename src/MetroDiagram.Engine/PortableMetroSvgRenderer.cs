@@ -268,13 +268,72 @@ namespace MetroDiagram.Engine
             // starting positions, matching the desktop solver.
             ArrayLayout layout = ArrayLayout.Create(points, routes, edges, options);
 
-            RunAnnealSchedule(layout, options);
-            RunGreedyPolish(layout, options);
+            RunAnnealSearch(layout, options);
             FitPointsToFrame(layout, options);
             layout.WriteBack(points);
         }
 
-        private static void RunAnnealSchedule(ArrayLayout layout, PortableRenderOptions options)
+        // Multi-start wrapper: one anneal pass uses stationCount*300 of the
+        // attempt budget, so small networks leave most of AnnealAttemptLimit
+        // unused - and small networks are exactly where a single walk can
+        // freeze a geographically straight line into a locked-in zigzag.
+        // Spend the leftover budget on extra independent starts (distinct
+        // fixed seeds) and keep the cheapest polished result. Networks whose
+        // single pass already fills the budget run one start and stay
+        // byte-identical to the previous behavior.
+        private static void RunAnnealSearch(ArrayLayout layout, PortableRenderOptions options)
+        {
+            int starts = ComputeAnnealStartCount(layout.Positions.Length, options.AnnealAttemptLimit);
+            Point2[] initialPositions = (Point2[])layout.Positions.Clone();
+            Point2[] bestPositions = null;
+            double bestCost = double.MaxValue;
+
+            for (int start = 0; start < starts; start++)
+            {
+                if (start > 0)
+                {
+                    Array.Copy(initialPositions, layout.Positions, initialPositions.Length);
+                }
+
+                RunAnnealSchedule(layout, options, AnnealStartSeed(start));
+                RunGreedyPolish(layout, options);
+                double cost = TotalCost(layout);
+                if (bestPositions == null || cost < bestCost - 0.000001)
+                {
+                    bestCost = cost;
+                    bestPositions = (Point2[])layout.Positions.Clone();
+                }
+            }
+
+            if (bestPositions != null)
+            {
+                Array.Copy(bestPositions, layout.Positions, bestPositions.Length);
+            }
+        }
+
+        internal static int ComputeAnnealStartCount(int stationCount, int annealAttemptLimit)
+        {
+            int totalBudget = Math.Max(annealAttemptLimit, 6000);
+            int attemptsPerStart = Math.Min(Math.Max(stationCount * 300, 6000), totalBudget);
+            return Math.Min(3, Math.Max(1, totalBudget / attemptsPerStart));
+        }
+
+        private static ulong AnnealStartSeed(int start)
+        {
+            if (start == 0)
+            {
+                return AnnealSeed;
+            }
+
+            // splitmix64 of the base seed and the start index: deterministic,
+            // runtime-independent, and decorrelated from the first walk.
+            ulong z = AnnealSeed + ((ulong)start * 0x9E3779B97F4A7C15UL);
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            return z ^ (z >> 31);
+        }
+
+        private static void RunAnnealSchedule(ArrayLayout layout, PortableRenderOptions options, ulong seed)
         {
             int stationCount = layout.Positions.Length;
             int attempts = Math.Min(Math.Max(stationCount * 300, 6000), Math.Max(options.AnnealAttemptLimit, 6000));
@@ -283,7 +342,7 @@ namespace MetroDiagram.Engine
             double endTemperature = startTemperature / 200;
             double cooling = Math.Pow(endTemperature / startTemperature, 1.0 / attempts);
 
-            ulong rng = AnnealSeed;
+            ulong rng = seed;
             double temperature = startTemperature;
             double currentCost = initialCost;
             double bestCost = initialCost;
@@ -1724,10 +1783,34 @@ namespace MetroDiagram.Engine
         private static bool IsGenericName(string name)
         {
             string value = (name ?? string.Empty).Trim();
-            return value == "小型地铁广场" || value == "现代地铁站" || value == "地下地铁站" || value == "地铁站"
-                || value.Equals("Subway Station", StringComparison.OrdinalIgnoreCase)
-                || value.Equals("Metro Station", StringComparison.OrdinalIgnoreCase)
+            string baseName = StripParentheticalSuffix(value);
+            return baseName == "小型地铁广场" || baseName == "现代地铁站" || baseName == "地下地铁站"
+                || baseName == "地铁站" || baseName == "高架地铁站"
+                || baseName.Equals("Subway Station", StringComparison.OrdinalIgnoreCase)
+                || baseName.Equals("Metro Station", StringComparison.OrdinalIgnoreCase)
+                || baseName.Equals("Elevated Metro Station", StringComparison.OrdinalIgnoreCase)
                 || (value.StartsWith("Station ", StringComparison.OrdinalIgnoreCase) && value.Substring(8).All(char.IsDigit));
+        }
+
+        // Default CS2 assets ship bracketed variants ("高架地铁站（小型）",
+        // "地铁站（高架旁路）"): strip one trailing parenthesized suffix and
+        // compare the base name. Player names keep their own base, so a
+        // renamed "中央站（东）" is unaffected.
+        private static string StripParentheticalSuffix(string value)
+        {
+            if (value.Length == 0)
+            {
+                return value;
+            }
+
+            char last = value[value.Length - 1];
+            char open;
+            if (last == '）') { open = '（'; }
+            else if (last == ')') { open = '('; }
+            else { return value; }
+
+            int openIndex = value.LastIndexOf(open);
+            return openIndex > 0 ? value.Substring(0, openIndex).TrimEnd() : value;
         }
 
         private static double Snap(double value, double grid) { return Math.Round(value / grid) * grid; }

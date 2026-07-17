@@ -103,6 +103,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("in-game preview zooms through the SVG viewBox", InGamePreviewZoomsThroughSvgViewBox),
     ("in-game preview wheel zoom anchors to the cursor", InGamePreviewWheelZoomAnchorsToCursor),
     ("portable renderer localizes sheet title and legend header", PortableRendererLocalizesSheetTitleAndLegendHeader),
+    ("portable anneal spends leftover budget on restarts for small networks", PortableAnnealSpendsLeftoverBudgetOnRestarts),
+    ("portable renderer hides bracketed default asset names", PortableRendererHidesBracketedDefaultAssetNames),
     ("in-game preview passes the sheet language to the renderer", InGamePreviewPassesSheetLanguageToRenderer),
     ("in-game preview gives subtle schematic Viewer guidance", InGamePreviewGivesSubtleSchematicViewerGuidance),
     ("in-game preview coalesces redundant render work", InGamePreviewCoalescesRedundantRenderWork),
@@ -2547,8 +2549,13 @@ static void GenericStationNameDetectionCoversDefaultNames()
         "现代地铁站",
         "地下地铁站",
         "地铁站",
+        "高架地铁站",
+        "高架地铁站（小型）",
+        "地铁站（高架旁路）",
         "Subway Station",
         "Metro Station",
+        "Elevated Metro Station",
+        "Metro Station (Elevated Bypass)",
         "Station 1",
         "Station 25"
     ];
@@ -2561,6 +2568,8 @@ static void GenericStationNameDetectionCoversDefaultNames()
     Assert(StationLabelClassifier.IsGenericOrFallbackName("station_a", "station_a"), "Station id fallback was not detected.");
     Assert(!StationLabelClassifier.IsGenericOrFallbackName("Central Park"), "User station name was incorrectly treated as generic.");
     Assert(!StationLabelClassifier.IsGenericOrFallbackName("城东站"), "Named Chinese station was incorrectly treated as generic.");
+    Assert(!StationLabelClassifier.IsGenericOrFallbackName("中央站（东）"), "A player name with a bracketed suffix was incorrectly treated as generic.");
+    Assert(!StationLabelClassifier.IsGenericOrFallbackName("（小型）"), "A bare bracketed suffix without a base name was incorrectly treated as generic.");
 }
 
 static void StationLabelClassifierSeparatesAssetDefaultsFromUserNames()
@@ -3560,6 +3569,54 @@ static void PortableRendererLocalizesSheetTitleAndLegendHeader()
     Assert(localized.Contains(">线路</text>", StringComparison.Ordinal), "Chinese legend header was not applied.");
     Assert(!localized.Contains("Metro Diagram", StringComparison.Ordinal), "Localized sheet still contains the English title.");
     AssertValidSvg(XDocument.Parse(localized), "localized portable sheet SVG");
+}
+
+static void PortableAnnealSpendsLeftoverBudgetOnRestarts()
+{
+    // Small networks leave most of the attempt budget unused; extra starts
+    // spend it. Both real validation cities compute one start, so their
+    // outputs stay byte-identical to the single-start behavior.
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(22, 24000) == 3, "A 22-station network should run three anneal starts.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(4, 24000) == 3, "A tiny network should clamp to three anneal starts.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(40, 24000) == 2, "A 40-station network should run two anneal starts.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(59, 24000) == 1, "The 59-station validation city must keep a single start.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(51, 24000) == 1, "The 51-station validation city must keep a single start.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(200, 24000) == 1, "Budget-saturated networks must keep a single start.");
+    Assert(PortableMetroSvgRenderer.ComputeAnnealStartCount(22, 6000) == 1, "Callers with a capped attempt budget must keep a single start.");
+}
+
+static void PortableRendererHidesBracketedDefaultAssetNames()
+{
+    MetroNetworkSnapshot snapshot = new(
+        "Bracket City",
+        "2026-07-17T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "高架地铁站（小型）", 0, 0, ["line_1"], false),
+            new MetroSnapshotStation("b", "中央站（东）", 100, 0, ["line_1"], false),
+            new MetroSnapshotStation("c", "地铁站（高架旁路）", 200, 0, ["line_1"], false)
+        ],
+        [new MetroSnapshotLine("line_1", "Line 1", "#1565C0", "metro", ["a", "b", "c"], [])]);
+
+    PortableMetroSvgRenderer renderer = new();
+    XDocument hidden = XDocument.Parse(renderer.Render(snapshot, new PortableRenderOptions
+    {
+        LayoutMode = PortableLayoutMode.Geographic,
+        ShowGenericStationNames = false
+    }).Svg);
+    string[] hiddenLabels = hidden.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "station-label")
+        .Select(element => element.Value)
+        .ToArray();
+    Assert(hiddenLabels.SequenceEqual(["中央站（东）"]),
+        $"Bracketed default asset names were not hidden: {string.Join(", ", hiddenLabels)}.");
+
+    XDocument shown = XDocument.Parse(renderer.Render(snapshot, new PortableRenderOptions
+    {
+        LayoutMode = PortableLayoutMode.Geographic,
+        ShowGenericStationNames = true
+    }).Svg);
+    int shownCount = shown.Descendants().Count(element => (string?)element.Attribute("class") == "station-label");
+    Assert(shownCount == 3, "Show-generic mode no longer restores the default asset names.");
 }
 
 static void InGamePreviewPassesSheetLanguageToRenderer()
