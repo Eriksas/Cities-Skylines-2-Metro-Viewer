@@ -2,7 +2,7 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.6`
+Repository and companion Viewer: `v0.1.0-beta.7`
 
 Current public release: `v0.1.0-beta.6` on the existing public ModId `146643`.
 
@@ -128,7 +128,7 @@ reported `New mod version published` for ModId `146643`; GitHub Release
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.6` (published)
+- Repository/Viewer release line: `v0.1.0-beta.7` (published)
 - Paradox Mods release: `0.1.0-beta.6` (published)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`

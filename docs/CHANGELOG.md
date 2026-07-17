@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-beta.7 - 2026-07-17
 
 Dense-center label decluttering and player-facing polish for the in-game
 preview.

@@ -47,7 +47,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.6" />
+	<ModVersion Value="0.1.0-beta.7" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -56,11 +56,12 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.6 - reliable framing and crisp zoom:
-- All in-game previews now use a stable viewport, preventing tall, wide, single-line, and other extreme network shapes from escaping the map sheet.
-- Fit-to-window keeps routes, stations, and labels inside the visible canvas.
-- Zoom and pan now update the SVG viewBox instead of scaling a cached UI texture, keeping text and route strokes sharp when enlarged.
-- Added regression coverage for horizontal, vertical, diagonal, parallel, crossing, large-coordinate, and real multi-line cities.
+Beta.7 - cleaner schematics and quality-of-life polish:
+- Dense city centers read better: station labels can step further out instead of fusing together, and they avoid crossing route lines more precisely.
+- Small networks no longer bend straight lines into zigzags: the layout solver now tries several independent layouts and keeps the best one.
+- Mouse-wheel zoom follows the cursor - the spot you point at stays put while zooming.
+- The map title and legend follow the mod language (e.g. "XX地铁线路图" / "线路" in Chinese).
+- Bracketed default station names such as "高架地铁站（小型）" are treated as default names and hidden unless "Show default station names" is on.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->
