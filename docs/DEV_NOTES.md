@@ -1,5 +1,19 @@
 # Development Notes
 
+## 2026-07-17 Beta.7 publication (GitHub)
+
+- Release source commit: `69ef6f1` (`release: prepare v0.1.0-beta.7`).
+- GitHub tag and Release: `v0.1.0-beta.7` (Latest). Uploaded Viewer ZIP
+  SHA-256:
+  `FA48990FF923698F0AAEE9F08B06FAC808C743547BB1A69DB21B2869EA4ADB2E`.
+- Owner validated in game before release: Oster schematic straight line
+  (mountain fix), hidden bracketed default names, cursor zoom, localized
+  sheet title/legend.
+- Paradox Mods republish is the owner's step (`scripts\publish-mod.ps1
+  -Mode NewVersion -SkipRestore`, game + login required). The E-drive
+  staging DLL was game-locked at release time; the publish build refreshes
+  it.
+
 ## 2026-07-17 Small-network Anneal Restarts + Bracketed Default Names
 
 - Owner's 22-station city (奥斯特, export `metro-export-奥斯特-20260717-213912`)
