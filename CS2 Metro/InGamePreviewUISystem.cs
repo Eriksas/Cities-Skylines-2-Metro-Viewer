@@ -176,6 +176,13 @@ namespace CS2_Metro
 
             m_LastInterfaceLanguage = interfaceLanguage;
             PublishState();
+
+            // The sheet title/legend follow the interface language, so an open
+            // preview re-renders (render cache keys include the language).
+            if (m_Capture != null && !string.IsNullOrWhiteSpace(m_CurrentSvg))
+            {
+                QueueRequest(ref m_RenderRequested);
+            }
         }
 
         private void SetPanelOpen(bool open)
@@ -437,7 +444,8 @@ namespace CS2_Metro
                 m_Capture.Snapshot,
                 m_LayoutMode,
                 m_ShowGenericStationNames,
-                m_HideCrowdedLabels);
+                m_HideCrowdedLabels,
+                ShouldUseChineseMapText());
             PortableRenderResult result = response.Result;
             m_CurrentSvg = result.Svg;
             m_LastRenderMilliseconds = response.RequestElapsedMilliseconds;
@@ -472,6 +480,17 @@ namespace CS2_Metro
             m_LastRenderWasCacheHit = false;
             m_SvgBinding.Update(string.Empty);
             SetState(status, notice, error);
+        }
+
+        private bool ShouldUseChineseMapText()
+        {
+            if (Mod.Settings == null)
+            {
+                return false;
+            }
+
+            string activeLocaleId = GameManager.instance?.localizationManager?.activeLocaleId;
+            return Mod.Settings.ShouldUseChinese(activeLocaleId);
         }
 
         private bool IsPlayableCityAvailable()

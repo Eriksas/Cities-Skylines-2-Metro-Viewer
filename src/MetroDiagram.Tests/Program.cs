@@ -101,6 +101,9 @@ public static readonly List<(string Name, Action Test)> tests =
     ("in-game preview uses game-style buttons and toggles", InGamePreviewUsesGameStyleButtonsAndToggles),
     ("in-game preview uses Coherent-compatible mouse dragging", InGamePreviewUsesCoherentCompatibleMouseDragging),
     ("in-game preview zooms through the SVG viewBox", InGamePreviewZoomsThroughSvgViewBox),
+    ("in-game preview wheel zoom anchors to the cursor", InGamePreviewWheelZoomAnchorsToCursor),
+    ("portable renderer localizes sheet title and legend header", PortableRendererLocalizesSheetTitleAndLegendHeader),
+    ("in-game preview passes the sheet language to the renderer", InGamePreviewPassesSheetLanguageToRenderer),
     ("in-game preview gives subtle schematic Viewer guidance", InGamePreviewGivesSubtleSchematicViewerGuidance),
     ("in-game preview coalesces redundant render work", InGamePreviewCoalescesRedundantRenderWork),
     ("in-game preview publishes categorized runtime telemetry", InGamePreviewPublishesCategorizedRuntimeTelemetry),
@@ -3517,6 +3520,66 @@ static void InGamePreviewZoomsThroughSvgViewBox()
     Assert(!script.Contains("transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`", StringComparison.Ordinal),
         "Preview zoom reintroduced CSS texture scaling, which blurs enlarged SVG text in CS2.");
     Assert(script.Contains("text-rendering=\"geometricPrecision\"", StringComparison.Ordinal), "Inline preview SVG no longer requests precise text rendering.");
+}
+
+static void InGamePreviewWheelZoomAnchorsToCursor()
+{
+    string script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "CS2 Metro.mjs"));
+
+    Assert(script.Contains("export function computeCursorAnchoredPan", StringComparison.Ordinal),
+        "Cursor-anchored zoom math is no longer an exported, testable pure function.");
+    Assert(script.Contains("zoomAt(event.deltaY < 0 ? 1.12 : 0.89, event.clientX, event.clientY)", StringComparison.Ordinal),
+        "Wheel zoom no longer anchors to the cursor position.");
+    Assert(script.Contains("getBoundingClientRect()", StringComparison.Ordinal),
+        "Cursor-anchored zoom no longer measures the host box for screen-to-SVG conversion.");
+}
+
+static void PortableRendererLocalizesSheetTitleAndLegendHeader()
+{
+    MetroNetworkSnapshot snapshot = new(
+        "测试城",
+        "2026-07-17T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "一号站", 0, 0, ["line_1"], false),
+            new MetroSnapshotStation("b", "二号站", 100, 0, ["line_1"], false)
+        ],
+        [new MetroSnapshotLine("line_1", "1号线", "#1565C0", "metro", ["a", "b"], [])]);
+
+    PortableMetroSvgRenderer renderer = new();
+    string defaults = renderer.Render(snapshot, new PortableRenderOptions { LayoutMode = PortableLayoutMode.Geographic }).Svg;
+    Assert(defaults.Contains("测试城 Metro Diagram", StringComparison.Ordinal), "Default sheet title format changed.");
+    Assert(defaults.Contains(">Lines</text>", StringComparison.Ordinal), "Default legend header changed.");
+
+    string localized = renderer.Render(snapshot, new PortableRenderOptions
+    {
+        LayoutMode = PortableLayoutMode.Geographic,
+        TitleSuffix = "地铁线路图",
+        LegendHeader = "线路"
+    }).Svg;
+    Assert(localized.Contains("测试城地铁线路图", StringComparison.Ordinal), "Chinese sheet title was not applied.");
+    Assert(localized.Contains(">线路</text>", StringComparison.Ordinal), "Chinese legend header was not applied.");
+    Assert(!localized.Contains("Metro Diagram", StringComparison.Ordinal), "Localized sheet still contains the English title.");
+    AssertValidSvg(XDocument.Parse(localized), "localized portable sheet SVG");
+}
+
+static void InGamePreviewPassesSheetLanguageToRenderer()
+{
+    string repositoryRoot = FindRepositoryRoot();
+    string service = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "InGamePreviewRenderService.cs"));
+    string controller = File.ReadAllText(Path.Combine(repositoryRoot, "CS2 Metro", "InGamePreviewUISystem.cs"));
+
+    Assert(service.Contains("bool useChineseMapText", StringComparison.Ordinal),
+        "Preview render service no longer accepts the sheet-language flag.");
+    Assert(service.Contains("options.TitleSuffix = \"地铁线路图\"", StringComparison.Ordinal),
+        "Preview render service no longer localizes the sheet title for Chinese.");
+    Assert(service.Contains("options.LegendHeader = \"线路\"", StringComparison.Ordinal),
+        "Preview render service no longer localizes the legend header for Chinese.");
+    Assert(service.Contains("{0}|{1}|{2}|{3}|{4}", StringComparison.Ordinal),
+        "Preview render cache key no longer includes the sheet language.");
+    Assert(controller.Contains("ShouldUseChineseMapText()", StringComparison.Ordinal),
+        "Preview controller no longer resolves the sheet language from the interface language.");
+    Assert(controller.Contains("QueueRequest(ref m_RenderRequested);", StringComparison.Ordinal),
+        "Interface-language changes no longer queue a preview re-render.");
 }
 
 static void InGamePreviewGivesSubtleSchematicViewerGuidance()

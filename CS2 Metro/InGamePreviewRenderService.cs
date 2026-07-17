@@ -39,7 +39,8 @@ namespace CS2_Metro
             MetroNetworkSnapshot snapshot,
             PortableLayoutMode layoutMode,
             bool showGenericStationNames,
-            bool hideCrowdedLabels)
+            bool hideCrowdedLabels,
+            bool useChineseMapText)
         {
             if (snapshot == null)
             {
@@ -48,11 +49,12 @@ namespace CS2_Metro
 
             Stopwatch requestTimer = Stopwatch.StartNew();
             string cacheKey = string.Format(
-                "{0}|{1}|{2}|{3}",
+                "{0}|{1}|{2}|{3}|{4}",
                 snapshot.Revision,
                 layoutMode,
                 showGenericStationNames,
-                hideCrowdedLabels);
+                hideCrowdedLabels,
+                useChineseMapText);
 
             lock (Sync)
             {
@@ -72,6 +74,12 @@ namespace CS2_Metro
             PortableRenderOptions options = layoutMode == PortableLayoutMode.Geographic
                 ? PortableRenderProfiles.CreateInGameGeographic(showGenericStationNames, hideCrowdedLabels)
                 : PortableRenderProfiles.CreateInGameSchematic(showGenericStationNames, hideCrowdedLabels);
+            if (useChineseMapText)
+            {
+                options.TitleSuffix = "地铁线路图";
+                options.LegendHeader = "线路";
+            }
+
             PortableRenderResult rendered = new PortableMetroSvgRenderer().Render(snapshot, options);
 
             lock (Sync)

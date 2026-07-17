@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-07-17 Player-view Polish: Cursor Zoom, Localized Sheet, Compact Buttons
+
+- From the 2026-07-17 player-perspective review (see NEXT_SESSION_HANDOFF):
+  items 2/3/5 implemented; item 1 (schematic default + hint copy) deferred by
+  the owner until the preview is further polished.
+- Wheel zoom anchors to the cursor. The math is an exported pure function
+  `computeCursorAnchoredPan` in `CS2 Metro.mjs`; because the sheet is meet-fit
+  in the host, its on-screen box is constant across zoom levels, so only the
+  visible viewBox window moves. Verified in Node with stubbed `window` globals
+  (`scratchpad\mjs-harness`): zero anchor drift across zoom in/out chains,
+  corner-case pan stays finite, guards return the current pan. The `−`/`+`/fit
+  buttons keep center-zoom behavior.
+- Sheet title/legend localization: `PortableRenderOptions.TitleSuffix` /
+  `LegendHeader` (null/empty falls back to " Metro Diagram" / "Lines" so all
+  existing outputs stay byte-identical — verified by SHA256 against the
+  pre-change Sheffield render). The mod passes Chinese
+  (`地铁线路图` / `线路`) when `Setting.ShouldUseChinese(activeLocaleId)` is
+  true; the render-cache key gained the language flag and an interface-language
+  change queues a re-render of an open preview.
+- Zoom buttons use compact style overrides via a new optional `extraStyle`
+  parameter on `controlButton` (visual check is part of the next owner in-game
+  pass).
+- 159 tests pass (3 new: cursor-anchor contract, renderer localization,
+  mod language plumbing contract). Node harness: `node run-harness.mjs` in
+  `scratchpad\mjs-harness` (stubs `window.React`, `cs2/api`, `cs2/ui` — the
+  module reads `React.createElement` and `api.bindValue` at load time).
+
 ## 2026-07-16 In-game Label Declutter (post-beta.6, unreleased)
 
 - Owner reported dense-center discomfort on the Sheffield in-game preview

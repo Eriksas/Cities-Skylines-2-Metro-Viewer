@@ -2,9 +2,22 @@
 
 ## Unreleased
 
-Dense-center label decluttering for the in-game schematic.
+Dense-center label decluttering and player-facing polish for the in-game
+preview.
 
 ### In-game preview
+
+- Wheel zoom now anchors to the cursor: the map point under the pointer stays
+  put while zooming, instead of the view always scaling around the sheet
+  center. The math lives in an exported pure function
+  (`computeCursorAnchoredPan`) verified numerically outside the game.
+- The sheet title and legend header now follow the mod interface language:
+  Chinese players see `谢菲尔德地铁线路图` and `线路` instead of
+  "`谢菲尔德 Metro Diagram`" and "Lines". Desktop and CLI outputs are
+  byte-identical to before; switching the language re-renders an open preview
+  (the render cache keys include the language).
+- The `−`/`+`/fit zoom buttons are compact instead of inheriting the
+  toolbar-width button style.
 
 - Station labels gained a second, farther candidate ring (8 -> 16 slots). In
   dense centers a label now steps outward instead of fusing with a neighbour

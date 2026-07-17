@@ -99,7 +99,7 @@ function parseState(value) {
   }
 }
 
-function controlButton(label, onClick, disabled, selected, title) {
+function controlButton(label, onClick, disabled, selected, title, extraStyle) {
   return h(
     ui.Button,
     {
@@ -109,16 +109,19 @@ function controlButton(label, onClick, disabled, selected, title) {
       selected: selected === true,
       title: title || label,
       "aria-pressed": selected === true,
-      style: {
-        minWidth: "76rem",
-        minHeight: "32rem",
-        marginLeft: "8rem",
-        paddingLeft: "12rem",
-        paddingRight: "12rem",
-        borderRadius: "4rem",
-        color: disabled ? "#7d929f" : "#eef7fb",
-        opacity: disabled ? 0.55 : 1,
-      },
+      style: Object.assign(
+        {
+          minWidth: "76rem",
+          minHeight: "32rem",
+          marginLeft: "8rem",
+          paddingLeft: "12rem",
+          paddingRight: "12rem",
+          borderRadius: "4rem",
+          color: disabled ? "#7d929f" : "#eef7fb",
+          opacity: disabled ? 0.55 : 1,
+        },
+        extraStyle || {},
+      ),
     },
     label,
   );
@@ -208,6 +211,32 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+// Keeps the SVG point under the cursor fixed while the scale changes.
+// The sheet is meet-fit inside the host, so its on-screen box is constant
+// across zoom levels; only the visible viewBox window moves. Exported as a
+// pure function so the math is testable outside the game runtime.
+export function computeCursorAnchoredPan(baseViewBox, currentScale, nextScale, currentPan, hostBounds, clientX, clientY) {
+  if (!baseViewBox || !hostBounds || !(currentScale > 0) || !(nextScale > 0)) return currentPan;
+  const k = Math.min(hostBounds.width / baseViewBox.width, hostBounds.height / baseViewBox.height);
+  if (!(k > 0)) return currentPan;
+  const contentLeft = hostBounds.left + ((hostBounds.width - (baseViewBox.width * k)) / 2);
+  const contentTop = hostBounds.top + ((hostBounds.height - (baseViewBox.height * k)) / 2);
+  const currentWidth = baseViewBox.width / currentScale;
+  const currentHeight = baseViewBox.height / currentScale;
+  const maxPanX = Math.max(0, (baseViewBox.width - currentWidth) / 2);
+  const maxPanY = Math.max(0, (baseViewBox.height - currentHeight) / 2);
+  const viewX = baseViewBox.x + ((baseViewBox.width - currentWidth) / 2) + clamp(currentPan.x, -maxPanX, maxPanX);
+  const viewY = baseViewBox.y + ((baseViewBox.height - currentHeight) / 2) + clamp(currentPan.y, -maxPanY, maxPanY);
+  const unitX = viewX + ((clientX - contentLeft) / (k * currentScale));
+  const unitY = viewY + ((clientY - contentTop) / (k * currentScale));
+  const nextWidth = baseViewBox.width / nextScale;
+  const nextHeight = baseViewBox.height / nextScale;
+  return {
+    x: unitX - ((clientX - contentLeft) / (k * nextScale)) - baseViewBox.x - ((baseViewBox.width - nextWidth) / 2),
+    y: unitY - ((clientY - contentTop) / (k * nextScale)) - baseViewBox.y - ((baseViewBox.height - nextHeight) / 2),
+  };
+}
+
 function MapViewport({ svg, state, text }) {
   const [scale, setScale] = React.useState(1);
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
@@ -235,6 +264,15 @@ function MapViewport({ svg, state, text }) {
     setScale((value) => Math.max(0.65, Math.min(4, value * factor)));
   }, []);
 
+  const zoomAt = React.useCallback((factor, clientX, clientY) => {
+    const next = Math.max(0.65, Math.min(4, scale * factor));
+    if (next === scale) return;
+    if (baseViewBox && svgHost.current && typeof clientX === "number" && typeof clientY === "number") {
+      setPan(computeCursorAnchoredPan(baseViewBox, scale, next, pan, svgHost.current.getBoundingClientRect(), clientX, clientY));
+    }
+    setScale(next);
+  }, [scale, pan, baseViewBox]);
+
   const visibleViewBox = React.useMemo(() => {
     if (!baseViewBox) return null;
     const width = baseViewBox.width / scale;
@@ -258,7 +296,7 @@ function MapViewport({ svg, state, text }) {
 
   const onWheel = (event) => {
     event.preventDefault();
-    zoom(event.deltaY < 0 ? 1.12 : 0.89);
+    zoomAt(event.deltaY < 0 ? 1.12 : 0.89, event.clientX, event.clientY);
   };
 
   const moveDrag = React.useCallback((clientX, clientY) => {
@@ -359,9 +397,9 @@ function MapViewport({ svg, state, text }) {
         },
       },
       h("span", { style: { marginRight: "6rem" } }, `${Math.round(scale * 100)}%`),
-      controlButton("−", () => zoom(0.85), !svg, false, text.zoomOut),
-      controlButton("+", () => zoom(1.18), !svg, false, text.zoomIn),
-      controlButton(text.fit, fit, !svg, false, text.fit),
+      controlButton("−", () => zoom(0.85), !svg, false, text.zoomOut, { minWidth: "32rem", marginLeft: "6rem", paddingLeft: "8rem", paddingRight: "8rem" }),
+      controlButton("+", () => zoom(1.18), !svg, false, text.zoomIn, { minWidth: "32rem", marginLeft: "6rem", paddingLeft: "8rem", paddingRight: "8rem" }),
+      controlButton(text.fit, fit, !svg, false, text.fit, { minWidth: "48rem", marginLeft: "6rem" }),
     ),
     svg ? h(
       "div",

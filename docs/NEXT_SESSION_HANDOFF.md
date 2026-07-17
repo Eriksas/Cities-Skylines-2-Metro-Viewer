@@ -344,8 +344,13 @@ Findings, ordered by player pain, with proposed ownership:
    read as oversized for single glyphs; geographic mode will always fuse some
    protected labels in dense centers (physical density, accepted limitation).
 
-Suggested sequencing: owner validates 57b987c in game first; then items 1-3
-can ship together as one player-facing polish release.
+Status 2026-07-17: items 2, 3, and 5 are implemented and committed (cursor-
+anchored wheel zoom with a Node-verified pure function, localized sheet
+title/legend following the mod interface language with byte-identical
+defaults, compact zoom buttons). Item 1 (schematic default + hint copy) is
+deferred by the owner until the preview is further polished — do not flip the
+default yet. Item 4 remains a joint design decision. The next owner in-game
+pass validates the 57b987c label declutter plus these three changes together.
 
 ## In-game Preview Follow-up
 

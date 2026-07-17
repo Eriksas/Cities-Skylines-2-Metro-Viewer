@@ -985,10 +985,11 @@ namespace MetroDiagram.Engine
                 .Append(Xml(snapshot.Revision)).Append("\" data-layout=\"")
                 .Append(options.LayoutMode == PortableLayoutMode.Geographic ? "geographic" : "schematic-anneal")
                 .Append("\" overflow=\"hidden\" text-rendering=\"geometricPrecision\">");
-            svg.Append("<title>").Append(Xml(GetTitle(snapshot.CityName))).Append("</title>");
+            string title = GetTitle(snapshot.CityName, options.TitleSuffix);
+            svg.Append("<title>").Append(Xml(title)).Append("</title>");
             svg.Append("<rect width=\"100%\" height=\"100%\" fill=\"#fbfcfd\"/>");
             svg.Append("<text x=\"").Append(options.Padding).Append("\" y=\"46\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"24\" font-weight=\"700\" fill=\"#18222d\">")
-                .Append(Xml(GetTitle(snapshot.CityName))).Append("</text>");
+                .Append(Xml(title)).Append("</text>");
 
             List<RenderedRoute> renderedRoutes = BuildRenderedRoutes(options, routes, stationPoints, projector);
             foreach (RenderedRoute route in renderedRoutes)
@@ -1037,7 +1038,8 @@ namespace MetroDiagram.Engine
             }
 
             double legendX = options.Width - options.LegendWidth + 24;
-            svg.Append("<g class=\"legend\"><text x=\"").Append(F(legendX)).Append("\" y=\"72\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"16\" font-weight=\"700\" fill=\"#263442\">Lines</text>");
+            string legendHeader = string.IsNullOrEmpty(options.LegendHeader) ? "Lines" : options.LegendHeader;
+            svg.Append("<g class=\"legend\"><text x=\"").Append(F(legendX)).Append("\" y=\"72\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"16\" font-weight=\"700\" fill=\"#263442\">").Append(Xml(legendHeader)).Append("</text>");
             for (int i = 0; i < routes.Count; i++)
             {
                 double y = 102 + (i * 28);
@@ -1762,7 +1764,11 @@ namespace MetroDiagram.Engine
             return "#4b67c8";
         }
 
-        private static string GetTitle(string cityName) { return string.IsNullOrWhiteSpace(cityName) ? "CS2 Metro Diagram" : cityName + " Metro Diagram"; }
+        private static string GetTitle(string cityName, string titleSuffix)
+        {
+            string suffix = string.IsNullOrEmpty(titleSuffix) ? " Metro Diagram" : titleSuffix;
+            return string.IsNullOrWhiteSpace(cityName) ? "CS2" + suffix : cityName + suffix;
+        }
 
         private static string Points(IEnumerable<Point2> points) { return string.Join(" ", points.Select(point => F(point.X) + "," + F(point.Y)).ToArray()); }
 
