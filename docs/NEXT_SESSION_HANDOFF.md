@@ -79,9 +79,10 @@ through 7E are code-side complete on branch `feature/ingame-preview`:
 
 The owner confirmed after the 2026-07-13 sizing hotfix that the real current-city
 map is visible. The blank-canvas blocker is closed. Geographic is now the
-in-game default because it is currently clearer than the portable schematic;
-the desktop Viewer default remains `schematic-anneal` and schematic remains
-selectable in game.
+in-game default because it was clearer than the portable schematic at the time
+(superseded — see the 2026-07-17 player-perspective review below); the desktop
+Viewer default remains `schematic-anneal` and schematic remains selectable in
+game.
 
 Phase 7F is owner-reviewed and closed for continued development. Inline SVG removes renderer-level font
 overrides and inherits CS2's locale-aware `--fontFamily`, while standalone SVG
@@ -89,8 +90,10 @@ keeps a Noto CJK fallback stack. The panel also receives the mod's explicit
 English/Simplified Chinese override and has a regrouped layout/command toolbar.
 Phase 7G and the earlier Beta.4 release are closed. The later portable-renderer
 hardening, mirrored-route normalization, collision-aware labels, stable preview
-sheet, and vector zoom are published in Beta.6. Keep geographic as the in-game
-default and collect focused Coherent-runtime feedback before broadening scope.
+sheet, and vector zoom are published in Beta.6. The earlier "keep geographic as
+the in-game default" guidance is superseded by the 2026-07-17 player-perspective
+review below: after the owner validates commit `57b987c` in game, flipping the
+default to schematic is the recommended (owner-approved-first) next step.
 
 Phase 7A development output is staged by the CS2 toolchain at:
 
@@ -287,6 +290,62 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-product-candidate
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\compare-product-candidates.ps1 -LatestCount 4
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-schematic-regression-gate.ps1 -LatestExports 2
 ```
+
+## 2026-07-17 Player-perspective Preview Review (for Codex / next session)
+
+A full player-view audit of the in-game preview was done offline (simulated
+1080p panel: viewport ~1768x730, fit renders the 1800x1100 sheet at ~66%,
+zoomed reading views verified). Evidence renders live in
+artifacts\ingame-schematic-audit\20260717-player-view-review; the label-declutter engine change it builds on is commit
+`57b987c` (unreleased, pending owner in-game validation).
+
+What already works well from a player's seat: the schematic at ~2x zoom is
+crisp, well-separated, and genuinely poster-like; vector zoom (beta.6) holds
+up; the panel chrome (city stats, refresh/export/save, bilingual UI) is
+complete and predictable.
+
+Findings, ordered by player pain, with proposed ownership:
+
+1. **The default first impression is the weakest view we ship.** The panel
+   defaults to geographic, whose dense center fuses labels into unreadable
+   strings on real cities (Sheffield: `生活中心`+`伊丽莎白消防局站`,
+   `帝国大厦站`+`双子塔广场站`+`绿地广场站`). The far better schematic sits
+   behind a second click, and the on-screen hint actively tells players the
+   schematic "is still being refined; use the desktop Viewer" — that copy
+   predates beta.5/beta.6 and the 57b987c label pass, and now undersells the
+   product. The handoff line "Geographic is now the in-game default because
+   it is currently clearer than the portable schematic" no longer holds.
+   Proposal (frontend/mod-UI, Codex domain): after the owner validates
+   57b987c in game, flip the in-game default to schematic (one-time settings
+   migration, same pattern as `InGamePreviewGeographicDefaultApplied`) and
+   soften/remove the stale `schematicViewerHint` copy. Owner decides; do not
+   flip silently.
+2. **Wheel zoom is not cursor-anchored** (`CS2 Metro.mjs` `zoom()` scales
+   around the sheet center). Players zoom toward a district and land
+   somewhere else, then pan back. With the viewBox math already in place this
+   is a small change: adjust `pan` so the point under the cursor stays fixed
+   while scaling. (Frontend, Codex domain.)
+3. **Hardcoded English strings inside the SVG sheet**: the title is always
+   "`{city} Metro Diagram`" and the legend header is always "Lines"
+   (`PortableMetroSvgRenderer.GetTitle` / legend emitter), regardless of the
+   mod interface language. A fully Chinese network renders with an English
+   title. Proposal (engine + small mod plumbing, Claude domain): optional
+   `PortableRenderOptions` strings for the title suffix and legend header,
+   passed from the mod's effective interface language; defaults unchanged so
+   desktop/CLI output stays byte-identical.
+4. **Fit view readability/utilization** (informational, no action proposed
+   yet): at 1080p the fit view shows station labels at ~7px — players must
+   zoom before reading anything, and the 1.64:1 sheet in a ~2.4:1 viewport
+   leaves large empty side bands. Fixing this properly means either a wider
+   canvas profile or an initial fit-to-width, both of which touch the
+   1800x1100 frontend contract (the exact contract that broke beta.5). Treat
+   as a deliberate joint design decision later, not a quick fix.
+5. Minor cosmetics: the `−`/`+` zoom buttons inherit `minWidth: 76rem` and
+   read as oversized for single glyphs; geographic mode will always fuse some
+   protected labels in dense centers (physical density, accepted limitation).
+
+Suggested sequencing: owner validates 57b987c in game first; then items 1-3
+can ship together as one player-facing polish release.
 
 ## In-game Preview Follow-up
 
