@@ -4,7 +4,8 @@
 
 Repository and companion Viewer: `v0.1.0-beta.7`
 
-Current public release: `v0.1.0-beta.6` on the existing public ModId `146643`.
+Current public release: `v0.1.0-beta.7` on GitHub and `0.1.0-beta.7` on the
+existing public Paradox Mods ModId `146643`.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on
@@ -122,14 +123,14 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-Beta.6 is the current public GitHub and PDX baseline. `ModPublisher.exe`
+Beta.7 is the current public GitHub and PDX baseline. `ModPublisher.exe`
 reported `New mod version published` for ModId `146643`; GitHub Release
-`v0.1.0-beta.6` contains the self-contained Viewer ZIP and SHA-256 file.
+`v0.1.0-beta.7` contains the self-contained Viewer ZIP.
 
 Current publication state:
 
 - Repository/Viewer release line: `v0.1.0-beta.7` (published)
-- Paradox Mods release: `0.1.0-beta.6` (published)
+- Paradox Mods release: `0.1.0-beta.7` (published)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 

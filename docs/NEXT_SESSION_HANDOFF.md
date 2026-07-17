@@ -22,7 +22,7 @@ docs\archive\historical
 
 Repository and Viewer: `v0.1.0-beta.7`
 
-Paradox Mods current release: `v0.1.0-beta.6` (Public, existing ModId `146643`)
+Paradox Mods current release: `v0.1.0-beta.7` (Public, existing ModId `146643`)
 
 ## Beta.6 Publication Note
 
@@ -56,9 +56,11 @@ is not yet fixed and must remain non-blocking.
 
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
-preserving the exporter, Viewer, CLI, and JSON schema. Beta.6 is the current
-published Phase 7 package and adds universal preview framing plus vector
-`viewBox` navigation.
+preserving the exporter, Viewer, CLI, and JSON schema. Beta.7 is the current
+published Phase 7 package. It retains Beta.6 universal preview framing and
+vector `viewBox` navigation, then adds in-game label decluttering, localized
+sheet text, cursor-anchored zoom, compact zoom controls, deterministic
+small-network schematic restarts, and bracketed default-station-name handling.
 
 Phase 7A passed owner in-game validation on 2026-07-13 and is closed. Phase 7B
 through 7E are code-side complete on branch `feature/ingame-preview`:
@@ -102,8 +104,11 @@ E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\Mods
 ```
 
 Expected files include `CS2 Metro.dll`, `CS2 Metro.mjs`, and
-`MetroDiagram.Engine.dll`. The current staged files match the published Beta.6
-source and package.
+`MetroDiagram.Engine.dll`. The published Beta.7 package was built through
+independent E-drive staging at
+`artifacts\pdx-staging\beta7-20260717-224610` because the running game locked
+the normal local Mods staging DLL. The source and published-staging MJS hashes
+match.
 
 Recommended beta tester output:
 
@@ -180,12 +185,12 @@ schematic-lite
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
 - Repository/Viewer release line:
-  - `v0.1.0-alpha.7`
+  - `v0.1.0-beta.7`
 - Paradox Mods:
   - ModId `146643`
-  - Version `0.1.0-alpha.7`
+  - Version `0.1.0-beta.7`
   - Access level `Public`
-  - Publish status: `PublishNewVersion` succeeded on 2026-07-07.
+  - Publish status: `PublishNewVersion` succeeded on 2026-07-17.
 
 ## Schematic-map Comparison Notes
 
@@ -400,16 +405,16 @@ artifacts\release-candidates\CS2MetroDiagram-phase7-rc1-win-x64.zip
 
 Automated verification passed for build/tests, Viewer publish, CS2 post-process,
 MJS source/staging identity, package manifest, and ZIP contents. The public
-Viewer asset is now the formal Beta.6 package; the private `phase7-rc1` ZIP is
-retained only as historical acceptance evidence.
+Viewer asset has since advanced to the formal Beta.7 package; the private
+`phase7-rc1` ZIP is retained only as historical acceptance evidence.
 
-Published endpoints (completed 2026-07-16):
+Published endpoints (Beta.7 completed 2026-07-17):
 
 ```text
-GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.6
-PDX: ModId 146643, version 0.1.0-beta.6, Public
+GitHub: https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer/releases/tag/v0.1.0-beta.7
+PDX: ModId 146643, version 0.1.0-beta.7, Public
 ```
 
-Tag `v0.1.0-beta.6` points to release source commit `81794d7`. The uploaded
+Tag `v0.1.0-beta.7` points to release source commit `69ef6f1`. The uploaded
 Viewer ZIP SHA-256 is
-`BC5AB5042EC930942183D8C1A7709496F65A6C4CFADB39F867C8C7858E2F4109`.
+`FA48990FF923698F0AAEE9F08B06FAC808C743547BB1A69DB21B2869EA4ADB2E`.

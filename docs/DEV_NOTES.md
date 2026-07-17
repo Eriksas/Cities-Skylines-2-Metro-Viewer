@@ -1,6 +1,6 @@
 # Development Notes
 
-## 2026-07-17 Beta.7 publication (GitHub)
+## 2026-07-17 Beta.7 publication (GitHub + Paradox Mods)
 
 - Release source commit: `69ef6f1` (`release: prepare v0.1.0-beta.7`).
 - GitHub tag and Release: `v0.1.0-beta.7` (Latest). Uploaded Viewer ZIP
@@ -9,10 +9,20 @@
 - Owner validated in game before release: Oster schematic straight line
   (mountain fix), hidden bracketed default names, cursor zoom, localized
   sheet title/legend.
-- Paradox Mods republish is the owner's step (`scripts\publish-mod.ps1
-  -Mode NewVersion -SkipRestore`, game + login required). The E-drive
-  staging DLL was game-locked at release time; the publish build refreshes
-  it.
+- Paradox Mods ModId `146643` was updated publicly to `0.1.0-beta.7`.
+  `ModPublisher.exe` reported `New mod version published` and completed the
+  new-version update successfully.
+- The running game locked the normal local Mods staging DLL, so publication
+  used independent E-drive staging at
+  `artifacts\pdx-staging\beta7-20260717-224610`. No local game Mod directory
+  copy was performed.
+- Source and staged `CS2 Metro.mjs` SHA-256 matched:
+  `503BB721A25F31E718F57E5DFBF9DFE60033FC4AB7EE028A3ACD425F3A1993A5`.
+- The publisher emitted the known cross-volume `IOERR_101` warning, but it was
+  non-blocking and the final upload succeeded.
+- `scripts\preflight.ps1` passed. Three nullable warnings in
+  `MetroDiagram.Engine` remain a non-blocking cleanup item; no post-tag code
+  change was made, keeping the GitHub and PDX Beta.7 payloads aligned.
 
 ## 2026-07-17 Small-network Anneal Restarts + Bracketed Default Names
 
