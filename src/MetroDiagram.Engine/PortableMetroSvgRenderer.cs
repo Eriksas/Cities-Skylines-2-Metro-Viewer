@@ -123,14 +123,17 @@ namespace MetroDiagram.Engine
                 return lines.Select(line => new DisplayRoute(GetFamilyKey(line), line)).ToList();
             }
 
+            // Same family name with different colors means distinct services (for
+            // example several auto-named "地铁路线工具" lines in one export), so the
+            // color participates in the merge key. Legitimate service variants that
+            // should merge share one color, keeping existing outputs unchanged.
             return lines
-                .GroupBy(GetFamilyKey, StringComparer.CurrentCulture)
-                .Select(group => new DisplayRoute(
-                    group.Key,
-                    group.OrderByDescending(line => line.Stops.Count)
-                        .ThenByDescending(line => line.PathPoints.Count)
-                        .ThenBy(line => line.Name, StringComparer.CurrentCulture)
-                        .First()))
+                .GroupBy(line => GetFamilyKey(line) + "\u0001" + GetFamilyColorKey(line), StringComparer.CurrentCulture)
+                .Select(group => group.OrderByDescending(line => line.Stops.Count)
+                    .ThenByDescending(line => line.PathPoints.Count)
+                    .ThenBy(line => line.Name, StringComparer.CurrentCulture)
+                    .First())
+                .Select(representative => new DisplayRoute(GetFamilyKey(representative), representative))
                 .OrderBy(route => ExtractLineNumber(route.DisplayName))
                 .ThenBy(route => route.DisplayName, StringComparer.CurrentCulture)
                 .ToList();
@@ -143,6 +146,21 @@ namespace MetroDiagram.Engine
             int englishOpen = name.IndexOf('(');
             int open = chineseOpen >= 0 && englishOpen >= 0 ? Math.Min(chineseOpen, englishOpen) : Math.Max(chineseOpen, englishOpen);
             return open > 0 ? name.Substring(0, open).Trim() : name;
+        }
+
+        private static string GetFamilyColorKey(MetroSnapshotLine line)
+        {
+            // A numbered name ("10号线", "Metro Line 3") is itself the service
+            // identity, so numbered families merge by name alone even when the
+            // player's colors drift apart (the Zhaoqing shared-corridor case).
+            // Number-less duplicate names (auto-named "地铁路线工具" exports) are
+            // indistinguishable placeholders, so the color keeps them separate.
+            if (ExtractLineNumber(GetFamilyKey(line)) != int.MaxValue)
+            {
+                return string.Empty;
+            }
+
+            return string.IsNullOrWhiteSpace(line.Color) ? string.Empty : line.Color.Trim().ToUpperInvariant();
         }
 
         private static List<string> NormalizeRouteStops(IReadOnlyList<string> source)

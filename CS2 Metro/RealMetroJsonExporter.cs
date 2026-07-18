@@ -345,20 +345,14 @@ namespace CS2_Metro
             int routeNumber = ReadRouteNumber(context.EntityManager, lineEntity);
             int waypointCount = GetWaypointCount(context.EntityManager, lineEntity);
             string color = ReadLineColor(context.EntityManager, lineEntity, export.Lines.Count, context.Diagnostics, lineEntityId);
-            string lineName = ReadDisplayName(context, lineEntity);
-            bool usedFallbackLineName = false;
-
-            if (string.IsNullOrWhiteSpace(lineName))
-            {
-                lineName = routeNumber > 0 ? $"Metro Line {routeNumber}" : $"Metro Line {lineIndex + 1}";
-                usedFallbackLineName = true;
-            }
+            string lineNameSource;
+            string lineName = ReadLineName(context, lineEntity, routeNumber, lineIndex, out lineNameSource);
 
             context.Diagnostics.AppendLine($"Line candidate {lineEntityId}");
             context.Diagnostics.AppendLine($"- RouteNumber: {(routeNumber > 0 ? routeNumber.ToString(CultureInfo.InvariantCulture) : "unavailable")}");
             context.Diagnostics.AppendLine($"- Color: {color}");
             context.Diagnostics.AppendLine($"- Waypoint count: {waypointCount}");
-            context.Diagnostics.AppendLine($"- Name: {lineName}" + (usedFallbackLineName ? " (fallback)" : string.Empty));
+            context.Diagnostics.AppendLine($"- Name: {lineName} (source: {lineNameSource})");
 
             if (!IsSubwayLine(context, lineEntity, out string subwayReason))
             {
@@ -857,6 +851,61 @@ namespace CS2_Metro
 
             usedFallback = string.IsNullOrWhiteSpace(name);
             return usedFallback ? $"Station {stationNumber}" : name;
+        }
+
+        private static string ReadLineName(ExportContext context, Entity lineEntity, int routeNumber, int lineIndex, out string source)
+        {
+            // A player-typed custom name is authoritative.
+            try
+            {
+                if (context.NameSystem != null
+                    && context.NameSystem.TryGetCustomName(lineEntity, out string customName)
+                    && !string.IsNullOrWhiteSpace(customName))
+                {
+                    source = "custom";
+                    return customName.Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Diagnostics.AppendLine($"- Custom name lookup failed: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            // Auto-named routes: GetRenderedLabelName returns the route tool prefab
+            // name (e.g. 地铁路线工具) instead of the numbered name the game UI
+            // shows, so the numbered name is rebuilt in the mod interface language.
+            if (routeNumber > 0)
+            {
+                source = "generated";
+                return BuildGeneratedLineName(routeNumber);
+            }
+
+            string rendered = ReadDisplayName(context, lineEntity);
+            if (!string.IsNullOrWhiteSpace(rendered))
+            {
+                source = "rendered";
+                return rendered;
+            }
+
+            source = "fallback";
+            return BuildGeneratedLineName(lineIndex + 1);
+        }
+
+        private static string BuildGeneratedLineName(int number)
+        {
+            bool useChinese = false;
+            try
+            {
+                string localeId = GameManager.instance?.localizationManager?.activeLocaleId;
+                useChinese = Mod.Settings != null && Mod.Settings.ShouldUseChinese(localeId);
+            }
+            catch
+            {
+            }
+
+            return useChinese
+                ? string.Format(CultureInfo.InvariantCulture, "地铁 {0} 号线", number)
+                : string.Format(CultureInfo.InvariantCulture, "Metro Line {0}", number);
         }
 
         private static string ReadDisplayName(ExportContext context, Entity entity)

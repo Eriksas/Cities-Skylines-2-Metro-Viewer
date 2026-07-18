@@ -1,6 +1,29 @@
 # Changelog
 
-## v0.1.0-beta.7 - 2026-07-17
+## Unreleased
+
+First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
+
+### Fixed
+
+- **Auto-named routes export with their real numbered names.** Routes the
+  player never renamed exported as the route tool's prefab name (e.g. six
+  lines all called `地铁路线工具`), because `GetRenderedLabelName` does not
+  resolve generated route names. The exporter now prefers the player's custom
+  name and otherwise rebuilds the numbered name (`地铁 3 号线` / `Metro
+  Line 3`) from the route number, in the mod interface language. Diagnostics
+  record the name source (`custom` / `generated` / `rendered` / `fallback`).
+- **Same-name lines with different colors are no longer merged into one
+  display family.** Number-less duplicate names (the placeholder case above)
+  now merge by name + color, so all 8 lines of the reported city render.
+  Numbered families (`10号线`) still merge by name alone, keeping the
+  legitimate shared-corridor/service-variant merges and existing outputs
+  byte-identical (verified on both validation cities, in-game and desktop).
+
+### Validation
+
+- 163 tests (new: family split/merge matrix, exporter name-source contract).
+- Reported city renders 8/8 route families in-game and in the Viewer.
 
 Dense-center label decluttering and player-facing polish for the in-game
 preview.

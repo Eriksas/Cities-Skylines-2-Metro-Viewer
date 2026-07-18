@@ -16,11 +16,53 @@ internal static class DisplayLineFamilyResolver
                 .ToList();
         }
 
-        return lines
+        // A numbered family name ("10号线", "Metro Line 3") is itself the service
+        // identity, so numbered families merge by name alone even when player
+        // colors drift apart (the Zhaoqing shared-corridor case). Number-less
+        // duplicate names (auto-named "地铁路线工具" exports) are indistinguishable
+        // placeholders, so the color keeps them separate. The family key only
+        // gains a color suffix when a name is actually shared by several colors,
+        // keeping existing outputs byte-identical.
+        List<IGrouping<(string FamilyKey, string ColorKey), LineWithIndex>> groups = lines
             .Select((line, index) => new LineWithIndex(line, index, ExtractFamilyParts(line)))
-            .GroupBy(item => item.Parts.FamilyKey, StringComparer.Ordinal)
-            .Select(group => CreateFamily(group.ToList(), stationsById))
+            .GroupBy(item => (
+                item.Parts.FamilyKey,
+                ColorKey: HasLineNumber(item.Parts.FamilyKey) ? string.Empty : NormalizeColorKey(item.Line.Color)))
             .ToList();
+        Dictionary<string, int> colorsPerName = groups
+            .GroupBy(group => group.Key.FamilyKey, StringComparer.Ordinal)
+            .ToDictionary(byName => byName.Key, byName => byName.Count(), StringComparer.Ordinal);
+
+        return groups
+            .Select(group => CreateFamily(
+                group.ToList(),
+                stationsById,
+                colorsPerName[group.Key.FamilyKey] > 1 ? group.Key.ColorKey : null))
+            .ToList();
+    }
+
+    private static string NormalizeColorKey(string? color)
+    {
+        return string.IsNullOrWhiteSpace(color) ? string.Empty : color!.Trim().ToUpperInvariant();
+    }
+
+    private static bool HasLineNumber(string name)
+    {
+        foreach (char character in name)
+        {
+            if (char.IsDigit(character))
+            {
+                return true;
+            }
+
+            double numericValue = char.GetNumericValue(character);
+            if (numericValue >= 0 && numericValue <= 9 && Math.Floor(numericValue) == numericValue)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static DisplayLineFamily CreateSingleLineFamily(MetroLine line, int index, Dictionary<string, MetroStation> stationsById)
@@ -40,7 +82,10 @@ internal static class DisplayLineFamilyResolver
             HasColorMismatch([line]));
     }
 
-    private static DisplayLineFamily CreateFamily(List<LineWithIndex> lines, Dictionary<string, MetroStation> stationsById)
+    private static DisplayLineFamily CreateFamily(
+        List<LineWithIndex> lines,
+        Dictionary<string, MetroStation> stationsById,
+        string? disambiguatingColorKey)
     {
         LineWithIndex primary = lines
             .OrderByDescending(item => item.Line.PathPoints?.Count ?? 0)
@@ -54,8 +99,15 @@ internal static class DisplayLineFamilyResolver
             .Select(item => CreateVariant(item.Line, item.Parts, stationsById))
             .ToList();
 
+        // The family key must stay unique per family: downstream corridor and
+        // draw-order logic groups by it. Only suffix the color when several
+        // same-name families exist.
+        string familyKey = disambiguatingColorKey is null
+            ? primary.Parts.FamilyKey
+            : $"{primary.Parts.FamilyKey}|{disambiguatingColorKey}";
+
         return new DisplayLineFamily(
-            primary.Parts.FamilyKey,
+            familyKey,
             primary.Parts.DisplayName,
             primary.Line.Color,
             primary.Line,

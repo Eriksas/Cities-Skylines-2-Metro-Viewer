@@ -1,5 +1,34 @@
 # Development Notes
 
+## 2026-07-18 First Player Bug Report (issues #4/#5): 8 Lines Rendered As 3
+
+- Reporter Zero-Second-00 attached the 安岭市 export (8 lines / 32 stations,
+  beta.4 exporter). Reproduced offline immediately: rendered route families
+  = 3.
+- Root causes, two independent bugs:
+  1. Exporter: `NameSystem.GetRenderedLabelName` returns the route *tool*
+     prefab name (`地铁路线工具` / `公交路线工具` / …) for routes the player
+     never renamed — the diagnostics show every auto-named route across all
+     transport types with a tool name, while custom-named routes are correct.
+     Fix: prefer `NameSystem.TryGetCustomName`, else rebuild the numbered name
+     from the route number in the mod interface language.
+  2. Renderer (engine + desktop resolver): display families merged by name
+     only, so six distinct-color `地铁路线工具` lines collapsed into one family
+     and five were dropped.
+- Merge rule now: numbered family names (`10号线`, `Metro Line 3`) merge by
+  name alone — the Zhaoqing shared corridor has two `10号线` services with
+  *slightly different player colors* (#0FBA7C vs #28D4A4) that must keep
+  merging. Number-less duplicate names merge by name + exact color. The first
+  color-key attempt without the number exemption split Zhaoqing's 10号线 —
+  caught by the byte-identity gate before commit.
+- Verification: Anling 3 -> 8 families; Sheffield + Zhaoqing byte-identical
+  before/after on all four in-game SVGs and both desktop CLI anneal renders
+  (worktree HEAD vs working tree); 163 tests.
+- The reported city still shows only 3 station labels by default: nearly all
+  its stations keep default asset names, which the hide-default-names toggle
+  hides. Enabling "Show default station names" restores them — mention this
+  when replying to the issue.
+
 ## 2026-07-17 Beta.7 publication (GitHub + Paradox Mods)
 
 - Release source commit: `69ef6f1` (`release: prepare v0.1.0-beta.7`).

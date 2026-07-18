@@ -103,6 +103,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("in-game preview zooms through the SVG viewBox", InGamePreviewZoomsThroughSvgViewBox),
     ("in-game preview wheel zoom anchors to the cursor", InGamePreviewWheelZoomAnchorsToCursor),
     ("portable renderer localizes sheet title and legend header", PortableRendererLocalizesSheetTitleAndLegendHeader),
+    ("same-name different-color lines stay separate routes", SameNameDifferentColorLinesStaySeparateRoutes),
+    ("exporter resolves auto-named route names from route numbers", ExporterResolvesAutoNamedRouteNames),
     ("portable anneal spends leftover budget on restarts for small networks", PortableAnnealSpendsLeftoverBudgetOnRestarts),
     ("portable renderer hides bracketed default asset names", PortableRendererHidesBracketedDefaultAssetNames),
     ("in-game preview passes the sheet language to the renderer", InGamePreviewPassesSheetLanguageToRenderer),
@@ -3617,6 +3619,101 @@ static void PortableRendererHidesBracketedDefaultAssetNames()
     }).Svg);
     int shownCount = shown.Descendants().Count(element => (string?)element.Attribute("class") == "station-label");
     Assert(shownCount == 3, "Show-generic mode no longer restores the default asset names.");
+}
+
+static void SameNameDifferentColorLinesStaySeparateRoutes()
+{
+    // Regression for issue #4: six auto-named "地铁路线工具" lines with distinct
+    // colors were merged into one display family, so 8 exported lines rendered
+    // as 3. Same name + same color must still merge (service variants).
+    MetroNetworkSnapshot snapshot = new(
+        "Family City",
+        "2026-07-18T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "甲站", 0, 0, ["tool_1", "tool_2", "tool_3", "named_1", "named_1x"], true),
+            new MetroSnapshotStation("b", "乙站", 100, 0, ["tool_1", "named_1", "named_1x"], false),
+            new MetroSnapshotStation("c", "丙站", 100, 100, ["tool_2"], false),
+            new MetroSnapshotStation("d", "丁站", 0, 100, ["tool_3", "named_1x"], false)
+        ],
+        [
+            new MetroSnapshotLine("tool_1", "地铁路线工具", "#29DB8E", "metro", ["a", "b"], []),
+            new MetroSnapshotLine("tool_2", "地铁路线工具", "#B6C023", "metro", ["a", "c"], []),
+            new MetroSnapshotLine("tool_3", "地铁路线工具", "#236AC0", "metro", ["a", "d"], []),
+            new MetroSnapshotLine("named_1", "1号线", "#C02323", "metro", ["a", "b"], []),
+            new MetroSnapshotLine("named_1x", "1号线（快线）", "#C02323", "metro", ["a", "b", "d"], []),
+            new MetroSnapshotLine("ten_a", "10号线", "#0FBA7C", "metro", ["b", "c"], []),
+            new MetroSnapshotLine("ten_b", "10号线", "#28D4A4", "metro", ["b", "c", "d"], [])
+        ]);
+
+    PortableRenderOptions options = new PortableRenderOptions
+    {
+        LayoutMode = PortableLayoutMode.Geographic,
+        MergeServiceFamilies = true
+    };
+    XDocument portable = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+    List<XElement> portableRoutes = portable.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "route")
+        .ToList();
+    Assert(portableRoutes.Count == 5,
+        $"Portable renderer family count was unexpected: expected 5 routes, got {portableRoutes.Count}.");
+    Assert(portableRoutes.Count(route => (string?)route.Attribute("data-display-family") == "地铁路线工具") == 3,
+        "Portable renderer did not keep the three distinct-color tool-named lines separate.");
+    Assert(portableRoutes.Count(route => (string?)route.Attribute("data-display-family") == "1号线") == 1,
+        "Portable renderer no longer merges same-name same-color service variants.");
+    Assert(portableRoutes.Count(route => (string?)route.Attribute("data-display-family") == "10号线") == 1,
+        "Portable renderer split a numbered family whose player colors drift apart (Zhaoqing shared-corridor case).");
+
+    MetroExportDocument document = new()
+    {
+        SchemaVersion = 1,
+        City = new CityInfo { Name = "Family City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation { Id = "a", Name = "甲站", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["tool_1", "tool_2", "tool_3", "named_1", "named_1x"] },
+                new MetroStation { Id = "b", Name = "乙站", Position = new MetroPosition { X = 100, Z = 0 }, Lines = ["tool_1", "named_1", "named_1x"] },
+                new MetroStation { Id = "c", Name = "丙站", Position = new MetroPosition { X = 100, Z = 100 }, Lines = ["tool_2"] },
+                new MetroStation { Id = "d", Name = "丁站", Position = new MetroPosition { X = 0, Z = 100 }, Lines = ["tool_3", "named_1x"] }
+            ],
+            Lines =
+            [
+                new MetroLine { Id = "tool_1", Name = "地铁路线工具", Color = "#29DB8E", Stops = ["a", "b"] },
+                new MetroLine { Id = "tool_2", Name = "地铁路线工具", Color = "#B6C023", Stops = ["a", "c"] },
+                new MetroLine { Id = "tool_3", Name = "地铁路线工具", Color = "#236AC0", Stops = ["a", "d"] },
+                new MetroLine { Id = "named_1", Name = "1号线", Color = "#C02323", Stops = ["a", "b"] },
+                new MetroLine { Id = "named_1x", Name = "1号线（快线）", Color = "#C02323", Stops = ["a", "b", "d"] },
+                new MetroLine { Id = "ten_a", Name = "10号线", Color = "#0FBA7C", Stops = ["b", "c"] },
+                new MetroLine { Id = "ten_b", Name = "10号线", Color = "#28D4A4", Stops = ["b", "c", "d"] }
+            ]
+        }
+    };
+
+    XDocument desktop = XDocument.Parse(new MetroSvgRenderer().Render(document).Svg);
+    List<string> legendLabels = desktop.Descendants()
+        .Where(element => element.Name.LocalName == "text" && (string?)element.Attribute("class") == "legend-label")
+        .Select(element => element.Value)
+        .ToList();
+    Assert(legendLabels.Count(label => label == "地铁路线工具") == 3,
+        $"Desktop renderer merged distinct-color families: legend shows {legendLabels.Count(label => label == "地铁路线工具")} tool-named entries instead of 3.");
+    Assert(legendLabels.Count(label => label == "1号线") == 1,
+        "Desktop renderer no longer merges same-name same-color service variants into one legend entry.");
+    Assert(legendLabels.Count(label => label == "10号线") == 1,
+        "Desktop renderer split a numbered family whose player colors drift apart (Zhaoqing shared-corridor case).");
+}
+
+static void ExporterResolvesAutoNamedRouteNames()
+{
+    string exporter = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "RealMetroJsonExporter.cs"));
+
+    Assert(exporter.Contains("TryGetCustomName", StringComparison.Ordinal),
+        "Exporter no longer prefers the player-typed custom route name.");
+    Assert(exporter.Contains("BuildGeneratedLineName(routeNumber)", StringComparison.Ordinal),
+        "Exporter no longer rebuilds numbered names for auto-named routes (GetRenderedLabelName returns the route tool prefab name for them).");
+    Assert(exporter.Contains("地铁 {0} 号线", StringComparison.Ordinal) && exporter.Contains("Metro Line {0}", StringComparison.Ordinal),
+        "Exporter generated-name templates are missing.");
+    Assert(exporter.Contains("(source: {lineNameSource})", StringComparison.Ordinal),
+        "Exporter diagnostics no longer record the line-name source.");
 }
 
 static void InGamePreviewPassesSheetLanguageToRenderer()

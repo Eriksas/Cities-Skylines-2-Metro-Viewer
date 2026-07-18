@@ -27,6 +27,26 @@ render time inside the existing attempt budget. The desktop anneal does not
 have multi-start yet; porting it there requires a small-sample baseline
 refresh and is a recorded follow-up.
 
+## Merge Display Families By Name, With Color As The Tiebreaker For Number-less Names
+
+Decision: two lines belong to one display family when they share the
+bracket-stripped family name AND either the name contains a line number or
+their colors match exactly. The desktop resolver and the portable engine
+apply the same rule.
+
+Reason: a numbered name ("10号线", "Metro Line 3") is itself the service
+identity — Zhaoqing's shared corridor runs two "10号线" services whose player
+colors drift slightly and they must stay one family. A number-less duplicate
+name is almost always the auto-name bug's tool placeholder ("地铁路线工具"),
+where each line is a genuinely distinct service; merging them dropped five of
+a player's eight lines (issue #4).
+
+Consequence: family keys gain a color suffix only when a name is shared by
+several colors, so all existing outputs stay byte-identical (verified on both
+validation cities, in-game and desktop). Old exports with tool-named lines
+render every line with the duplicate name repeated in the legend; re-exporting
+with the fixed exporter restores real numbered names.
+
 ## Declutter Dense Centers In The Label Layer, Not The Layout
 
 Decision: fix dense-center crowding in the in-game schematic by improving the
