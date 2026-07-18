@@ -47,7 +47,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.7" />
+	<ModVersion Value="0.1.0-beta.8" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -56,12 +56,10 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.7 - cleaner schematics and quality-of-life polish:
-- Dense city centers read better: station labels can step further out instead of fusing together, and they avoid crossing route lines more precisely.
-- Small networks no longer bend straight lines into zigzags: the layout solver now tries several independent layouts and keeps the best one.
-- Mouse-wheel zoom follows the cursor - the spot you point at stays put while zooming.
-- The map title and legend follow the mod language (e.g. "XX地铁线路图" / "线路" in Chinese).
-- Bracketed default station names such as "高架地铁站（小型）" are treated as default names and hidden unless "Show default station names" is on.
+Beta.8 - all lines now display (first player bug report, thank you!):
+- Fixed: metro lines you never renamed exported as "地铁路线工具" and were merged into one line, so a city with 8 lines showed only 3. All lines now render, each with its own color.
+- Fixed: auto-named lines now export with their real numbered names ("地铁 3 号线" / "Metro Line 3"). Re-export your city once after updating to refresh the names.
+- Lines that share a numbered name (e.g. two "10号线" services) still merge into one family as before.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

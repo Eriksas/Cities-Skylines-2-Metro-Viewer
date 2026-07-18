@@ -20,9 +20,9 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.7`
+Repository and Viewer: `v0.1.0-beta.8`
 
-Paradox Mods current release: `v0.1.0-beta.7` (Public, existing ModId `146643`)
+Paradox Mods current release: `v0.1.0-beta.7` (beta.8 pending owner publish) (Public, existing ModId `146643`)
 
 ## Beta.6 Publication Note
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-beta.8 - 2026-07-18
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 
