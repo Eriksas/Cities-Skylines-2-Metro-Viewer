@@ -22,7 +22,7 @@ docs\archive\historical
 
 Repository and Viewer: `v0.1.0-beta.8`
 
-Paradox Mods current release: `v0.1.0-beta.7` (beta.8 pending owner publish) (Public, existing ModId `146643`)
+Paradox Mods current release: `v0.1.0-beta.8` (Public, existing ModId `146643`)
 
 ## Beta.6 Publication Note
 
@@ -56,7 +56,7 @@ is not yet fixed and must remain non-blocking.
 
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
-preserving the exporter, Viewer, CLI, and JSON schema. Beta.7 is the current
+preserving the exporter, Viewer, CLI, and JSON schema. Beta.8 is the current
 published Phase 7 package. It retains Beta.6 universal preview framing and
 vector `viewBox` navigation, then adds in-game label decluttering, localized
 sheet text, cursor-anchored zoom, compact zoom controls, deterministic
@@ -185,12 +185,12 @@ schematic-lite
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
 - Repository/Viewer release line:
-  - `v0.1.0-beta.7`
+  - `v0.1.0-beta.8`
 - Paradox Mods:
   - ModId `146643`
-  - Version `0.1.0-beta.7`
+  - Version `0.1.0-beta.8`
   - Access level `Public`
-  - Publish status: `PublishNewVersion` succeeded on 2026-07-17.
+  - Publish status: `PublishNewVersion` succeeded on 2026-07-18.
 
 ## Schematic-map Comparison Notes
 

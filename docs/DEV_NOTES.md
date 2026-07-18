@@ -1,6 +1,6 @@
 # Development Notes
 
-## 2026-07-18 Beta.8 publication (GitHub)
+## 2026-07-18 Beta.8 publication (GitHub + Paradox Mods)
 
 - Release source commit: `922d139` (`release: prepare v0.1.0-beta.8`); fix
   commit `722d8ac`.
@@ -12,8 +12,15 @@
   manual polish on complex networks).
 - 安岭市 export saved into the local validation corpus:
   `D:\CS2MetroDiagram\exports\metro-export-安岭市-20260716-024332.json`.
-- Paradox Mods republish remains the owner's step
-  (`scripts\publish-mod.ps1 -Mode NewVersion -SkipRestore`).
+- Paradox Mods ModId `146643` was updated publicly to `0.1.0-beta.8`.
+  `ModPublisher.exe` reported `New mod version published` and the update
+  completed successfully. The known cross-volume `IOERR_101` warning appeared
+  during preparation but did not block upload.
+- Review verification before upload: solution build passed (three existing
+  nullable warnings), all 163 tests passed, MJS syntax passed, and the CS2
+  Release post-process/Burst build passed using E-drive staging.
+- `scripts\publish-mod.ps1` now passes `--configuration Release` explicitly so
+  project references cannot fall back to Debug output during future publishes.
 
 ## 2026-07-18 First Player Bug Report (issues #4/#5): 8 Lines Rendered As 3
 

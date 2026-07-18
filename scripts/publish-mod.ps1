@@ -36,6 +36,8 @@ Write-Host ""
 $publishArgs = @(
     'publish',
     $projectPath,
+    '--configuration',
+    'Release',
     "/p:PublishProfile=$profileName"
 )
 

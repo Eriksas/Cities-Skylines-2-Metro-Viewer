@@ -4,7 +4,7 @@
 
 Repository and companion Viewer: `v0.1.0-beta.8`
 
-Current public release: `v0.1.0-beta.7` on GitHub and `0.1.0-beta.7` on the
+Current public release: `v0.1.0-beta.8` on GitHub and `0.1.0-beta.8` on the
 existing public Paradox Mods ModId `146643`.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
@@ -123,14 +123,14 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-Beta.7 is the current public GitHub and PDX baseline. `ModPublisher.exe`
+Beta.8 is the current public GitHub and PDX baseline. `ModPublisher.exe`
 reported `New mod version published` for ModId `146643`; GitHub Release
-`v0.1.0-beta.7` contains the self-contained Viewer ZIP.
+`v0.1.0-beta.8` contains the self-contained Viewer ZIP.
 
 Current publication state:
 
 - Repository/Viewer release line: `v0.1.0-beta.8` (published)
-- Paradox Mods release: `0.1.0-beta.7` (published)
+- Paradox Mods release: `0.1.0-beta.8` (published 2026-07-18)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
@@ -234,7 +234,7 @@ artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
 
 The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
 docs, samples, and regression samples. It is retained as historical release
-evidence; the current Paradox Mods public version is `0.1.0-alpha.7`.
+evidence; the current Paradox Mods public version is `0.1.0-beta.8`.
 
 Latest real-export regression gate:
 
