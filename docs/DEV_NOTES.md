@@ -1,5 +1,20 @@
 # Development Notes
 
+## 2026-07-18 Beta.8 publication (GitHub)
+
+- Release source commit: `922d139` (`release: prepare v0.1.0-beta.8`); fix
+  commit `722d8ac`.
+- GitHub tag and Release: `v0.1.0-beta.8` (Latest). Uploaded Viewer ZIP
+  SHA-256:
+  `F5D6D022A7A3648018E8F818DFE3D7C7D647D1DD894884607E3038F7503796DC`.
+- Replied to issues #4 and #5 (fix explanation, re-export note,
+  show-default-names tip, and a gentle pointer to the desktop Viewer for
+  manual polish on complex networks).
+- 安岭市 export saved into the local validation corpus:
+  `D:\CS2MetroDiagram\exports\metro-export-安岭市-20260716-024332.json`.
+- Paradox Mods republish remains the owner's step
+  (`scripts\publish-mod.ps1 -Mode NewVersion -SkipRestore`).
+
 ## 2026-07-18 First Player Bug Report (issues #4/#5): 8 Lines Rendered As 3
 
 - Reporter Zero-Second-00 attached the 安岭市 export (8 lines / 32 stations,
