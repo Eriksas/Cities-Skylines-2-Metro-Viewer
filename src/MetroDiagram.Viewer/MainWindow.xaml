@@ -65,7 +65,8 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
                         <TextBlock x:Name="PreviewZoomLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Preview" Margin="0,0,8,0" />
                         <ComboBox x:Name="PreviewZoomComboBox" Width="116" SelectionChanged="PreviewZoomComboBox_SelectionChanged">
-                            <ComboBoxItem x:Name="PreviewZoomFitWidthItem" Content="Fit width" Tag="fit-width" IsSelected="True" />
+                            <ComboBoxItem x:Name="PreviewZoomFitPageItem" Content="Fit window" Tag="fit-page" IsSelected="True" />
+                            <ComboBoxItem x:Name="PreviewZoomFitWidthItem" Content="Fit width" Tag="fit-width" />
                             <ComboBoxItem Content="50%" Tag="50" />
                             <ComboBoxItem Content="75%" Tag="75" />
                             <ComboBoxItem Content="100%" Tag="100" />

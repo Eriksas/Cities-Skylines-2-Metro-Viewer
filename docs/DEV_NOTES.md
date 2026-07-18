@@ -1,5 +1,28 @@
 # Development Notes
 
+## 2026-07-18 Sheet Header Redesign + Viewer Fit-window Preview (unreleased)
+
+- Owner feedback on the Oster save-map PNG: the header's slanted color-block
+  band read as clipped fragments (the near-full-width white capsule covered
+  ~90% of it), and the 54px fixed title overflowed the proportional capsule
+  on small sheets; the Viewer preview showed tall maps as a narrow slice.
+- Header (`AppendTransitMapHeader`): gradient band (#176ba8 -> #16a889 ->
+  #80bf1f) + dark accent strip, capsule centered and sized from typography
+  (54/24px + fixed pads, `EstimateHeaderTextWidth`), info icon inside the
+  capsule right edge (`.transit-info-icon` 34px), separator line drawn
+  *before* the capsule so it never crosses it. Tests only assert
+  header-group presence + EN subtitle, so no test churn. Eyeballed on Oster
+  (tall), Anling (short), Sheffield (medium).
+- Viewer: new `fit-page` preview mode ("Fit window"/适应窗口), default for
+  fresh installs and Reset Defaults; scale = min(paneW/w, paneH/h) in
+  `applyPreviewFocus`. Saved settings keep their previous mode
+  (NormalizePreviewZoom passthrough). Verified live: default selected on
+  fresh start, Oster full sheet visible in one glance.
+- **Build gotcha**: `dotnet build` without `-r` outputs the Viewer to
+  `bin\Release\net8.0-windows\`, while the publish script's `-r win-x64`
+  output sits in the `win-x64` subfolder and goes stale — launch the
+  RID-less exe when smoke-testing local builds.
+
 ## 2026-07-18 Beta.8 publication (GitHub + Paradox Mods)
 
 - Release source commit: `922d139` (`release: prepare v0.1.0-beta.8`); fix

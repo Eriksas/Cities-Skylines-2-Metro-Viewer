@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.1.0-beta.8 - 2026-07-18
+## Unreleased
+
+Desktop sheet header redesign and a whole-map preview mode.
+
+### Viewer / desktop renderer
+
+- **The transit-map header is redesigned.** The old slanted color-block band
+  was almost fully covered by a near-full-width title capsule, leaving
+  clipped-looking corner fragments, and the fixed-size title could overflow
+  the capsule on smaller sheets. The band is now a clean blue-teal-green
+  gradient, and the title capsule is centered and sized from its typography
+  (CN 54px + EN 24px), with the info icon anchored inside the capsule edge.
+- **New "Fit window" preview mode (now the default for fresh installs).**
+  Scales the whole sheet to fit both preview dimensions, so tall maps no
+  longer open as a narrow scrolling slice. "Fit width" and the percent zooms
+  are unchanged; saved user settings are respected.
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 

@@ -1816,15 +1816,16 @@ public partial class MainWindow : Window
     private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode, IReadOnlyList<string> selectedStationIds, double restoreScrollX, double restoreScrollY)
     {
         SvgPixelSize svgSize = ReadSvgPixelSize(svg);
+        bool fitPage = string.Equals(previewZoom, "fit-page", StringComparison.Ordinal);
         bool fitWidth = string.Equals(previewZoom, "fit-width", StringComparison.Ordinal);
         int zoomPercent = ParsePreviewZoomPercent(previewZoom);
-        double displayedWidth = fitWidth ? svgSize.Width : svgSize.Width * zoomPercent / 100;
-        double displayedHeight = fitWidth ? svgSize.Height : svgSize.Height * zoomPercent / 100;
+        double displayedWidth = fitWidth || fitPage ? svgSize.Width : svgSize.Width * zoomPercent / 100;
+        double displayedHeight = fitWidth || fitPage ? svgSize.Height : svgSize.Height * zoomPercent / 100;
         string widthText = displayedWidth.ToString("0.###", CultureInfo.InvariantCulture);
         string heightText = displayedHeight.ToString("0.###", CultureInfo.InvariantCulture);
         string svgWidthText = svgSize.Width.ToString("0.###", CultureInfo.InvariantCulture);
         string svgHeightText = svgSize.Height.ToString("0.###", CultureInfo.InvariantCulture);
-        string svgCss = fitWidth
+        string svgCss = fitWidth || fitPage
             ? "svg { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }"
             : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
         bool editStations = enableManualEditing && string.Equals(manualEditMode, "station", StringComparison.Ordinal);
@@ -1838,7 +1839,7 @@ public partial class MainWindow : Window
                 + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
                 + (editBends ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: crosshair; }" : string.Empty)
             : string.Empty;
-        string previewScript = BuildPreviewFocusScript(fitWidth, zoomPercent, svgWidthText, svgHeightText, restoreScrollX, restoreScrollY);
+        string previewScript = BuildPreviewFocusScript(fitPage, fitWidth, zoomPercent, svgWidthText, svgHeightText, restoreScrollX, restoreScrollY);
         string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, editBends, selectedStationIds);
 
         return string.Join(Environment.NewLine,
@@ -1867,8 +1868,9 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildPreviewFocusScript(bool fitWidth, int zoomPercent, string svgWidthText, string svgHeightText, double restoreScrollX, double restoreScrollY)
+    private static string BuildPreviewFocusScript(bool fitPage, bool fitWidth, int zoomPercent, string svgWidthText, string svgHeightText, double restoreScrollX, double restoreScrollY)
     {
+        string fitPageText = fitPage ? "true" : "false";
         string fitWidthText = fitWidth ? "true" : "false";
         string zoomScaleText = (zoomPercent / 100.0).ToString("0.###", CultureInfo.InvariantCulture);
         string scrollXText = restoreScrollX.ToString("0.##", CultureInfo.InvariantCulture);
@@ -1878,6 +1880,7 @@ public partial class MainWindow : Window
         [
             "  <script>",
             "    (function () {",
+            $"      var fitPage = {fitPageText};",
             $"      var fitWidth = {fitWidthText};",
             $"      var zoomScale = {zoomScaleText};",
             $"      var fallbackSvgWidth = {svgWidthText};",
@@ -1949,7 +1952,13 @@ public partial class MainWindow : Window
             "          width = focusBounds.width;",
             "          height = focusBounds.height;",
             "        }",
-            "        if (fitWidth) {",
+            "        if (fitPage) {",
+            "          var pageWidth = Math.max(320, frame.clientWidth - 32);",
+            "          var pageHeight = Math.max(240, (window.innerHeight || document.documentElement.clientHeight || 600) - 48);",
+            "          var pageScale = Math.min(pageWidth / Math.max(1, width), pageHeight / Math.max(1, height));",
+            "          svg.style.width = Math.max(1, width * pageScale) + 'px';",
+            "          svg.style.height = Math.max(1, height * pageScale) + 'px';",
+            "        } else if (fitWidth) {",
             "          var availableWidth = Math.max(320, frame.clientWidth - 32);",
             "          var scale = availableWidth / Math.max(1, width);",
             "          svg.style.width = availableWidth + 'px';",
@@ -2843,6 +2852,7 @@ public partial class MainWindow : Window
         SizePresetUltraItem.Content = T("SizeUltra");
         LanguageLabelTextBlock.Text = T("Language");
         PreviewZoomLabelTextBlock.Text = T("PreviewZoom");
+        PreviewZoomFitPageItem.Content = T("PreviewZoomFitPage");
         PreviewZoomFitWidthItem.Content = T("PreviewZoomFitWidth");
         ManualEditCheckBox.Content = T("ManualEdit");
         ManualEditStationsItem.Content = T("ManualEditStations");
@@ -3002,6 +3012,7 @@ public partial class MainWindow : Window
     {
         return previewZoom switch
         {
+            "fit-page" => "fit-page",
             "fit-width" => "fit-width",
             "50" => "50",
             "75" => "75",

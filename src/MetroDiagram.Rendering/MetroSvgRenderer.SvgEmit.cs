@@ -27,7 +27,7 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine("            .transit-title-cn { font: 700 54px Arial, 'Microsoft YaHei', sans-serif; fill: #143a78; letter-spacing: 1.2px; }");
         svg.AppendLine("            .transit-title-en { font: 600 24px Arial, sans-serif; fill: #143a78; }");
         svg.AppendLine("            .transit-city { font: 600 15px Arial, 'Microsoft YaHei', sans-serif; fill: #4b5563; }");
-        svg.AppendLine("            .transit-info-icon { font: 800 52px Arial, sans-serif; fill: #ffffff; }");
+        svg.AppendLine("            .transit-info-icon { font: 800 34px Arial, sans-serif; fill: #ffffff; }");
         svg.AppendLine($"            .route {{ fill: none; stroke-width: {Format(visualStyle.BaseRouteWidth)}; stroke-linecap: round; stroke-linejoin: round; }}");
         svg.AppendLine("            .express-decoration { fill: none; stroke-linecap: round; stroke-linejoin: round; }");
         svg.AppendLine($"            .station {{ fill: #ffffff; stroke: #1f2933; stroke-width: {Format(visualStyle.StationMarkerStrokeWidth)}; }}");
@@ -62,33 +62,76 @@ public sealed partial class MetroSvgRenderer
     {
         double headerHeight = GetTransitMapHeaderHeight(options);
         double bandHeight = Math.Max(options.CompactTransitMapFrame ? 60 : 52, headerHeight * (options.CompactTransitMapFrame ? 0.66 : 0.64));
-        double capsuleX = Math.Max(44, options.Width * 0.035);
-        double capsuleY = Math.Max(options.CompactTransitMapFrame ? 18 : 20, headerHeight * (options.CompactTransitMapFrame ? 0.16 : 0.18));
-        double capsuleWidth = Math.Max(200, options.Width - capsuleX * 2);
-        double capsuleHeight = Math.Max(options.CompactTransitMapFrame ? 66 : 62, headerHeight * (options.CompactTransitMapFrame ? 0.62 : 0.58));
-        double centerX = options.Width / 2.0;
-        double infoX = Math.Min(options.Width - capsuleX - 78, centerX + capsuleWidth * 0.32);
-        double infoY = capsuleY + capsuleHeight / 2.0;
         string mainTitle = BuildTransitMapMainTitle(rawCityName);
 
+        // The title capsule is sized from its typography (CN 54px + EN 24px)
+        // instead of stretching across the sheet: a near-full-width capsule hid
+        // the band except for clipped-looking corner slivers, and fixed-size
+        // text overflowed the proportional capsule on small sheets.
+        const double titleFontSize = 54;
+        const double subtitleFontSize = 24;
+        const double padTop = 10;
+        const double titleGap = 8;
+        const double padBottom = 12;
+        double infoRadius = 23;
+        double capsuleHeight = padTop + titleFontSize + titleGap + subtitleFontSize + padBottom;
+        double titleWidthEstimate = EstimateHeaderTextWidth(mainTitle, titleFontSize);
+        double subtitleWidthEstimate = EstimateHeaderTextWidth("Transport System Map", subtitleFontSize);
+        double textBlockWidth = Math.Max(titleWidthEstimate, subtitleWidthEstimate);
+        double capsuleWidth = Math.Min(
+            Math.Max(360, textBlockWidth + 120 + (infoRadius * 2) + 26),
+            options.Width - 88);
+        double capsuleX = (options.Width - capsuleWidth) / 2.0;
+        double capsuleY = Math.Max(14, (bandHeight - capsuleHeight) * 0.5 + 6);
+        double centerX = options.Width / 2.0;
+        double titleBaselineY = capsuleY + padTop + (titleFontSize * 0.82);
+        double subtitleBaselineY = capsuleY + padTop + titleFontSize + titleGap + (subtitleFontSize * 0.82);
+        double infoX = capsuleX + capsuleWidth - infoRadius - 18;
+        double infoY = capsuleY + (capsuleHeight / 2.0);
+
         svg.AppendLine($"""<g id="transit-map-header" data-map-style="transit-map">""");
-        svg.AppendLine($"""<rect x="0" y="0" width="{options.Width}" height="{Format(bandHeight)}" fill="#dfe83a" />""");
-        svg.AppendLine($"""<polygon points="0,0 {Format(options.Width * 0.08)},0 {Format(options.Width * 0.03)},{Format(bandHeight)} 0,{Format(bandHeight)}" fill="#176ba8" />""");
-        svg.AppendLine($"""<polygon points="{Format(options.Width * 0.08)},0 {Format(options.Width * 0.38)},0 {Format(options.Width * 0.43)},{Format(bandHeight)} {Format(options.Width * 0.03)},{Format(bandHeight)}" fill="#80bf1f" />""");
-        svg.AppendLine($"""<polygon points="{Format(options.Width * 0.37)},0 {Format(options.Width * 0.68)},0 {Format(options.Width * 0.74)},{Format(bandHeight)} {Format(options.Width * 0.43)},{Format(bandHeight)}" fill="#16a889" />""");
-        svg.AppendLine($"""<polygon points="{Format(options.Width * 0.68)},0 {Format(options.Width * 0.88)},0 {Format(options.Width * 0.91)},{Format(bandHeight)} {Format(options.Width * 0.74)},{Format(bandHeight)}" fill="#1f7db3" />""");
-        svg.AppendLine($"""<polygon points="{Format(options.Width * 0.88)},0 {options.Width},0 {options.Width},{Format(bandHeight)} {Format(options.Width * 0.91)},{Format(bandHeight)}" fill="#18aa88" />""");
-        svg.AppendLine($"""<rect x="{Format(capsuleX)}" y="{Format(capsuleY)}" width="{Format(capsuleWidth)}" height="{Format(capsuleHeight)}" rx="{Format(capsuleHeight * 0.34)}" fill="#ffffff" stroke="#d8eef0" stroke-width="1.2" />""");
-        svg.AppendLine($"""<text class="transit-title-cn" x="{Format(centerX)}" y="{Format(capsuleY + capsuleHeight * 0.46)}" text-anchor="middle">{Escape(mainTitle)}</text>""");
-        svg.AppendLine($"""<text class="transit-title-en" x="{Format(centerX)}" y="{Format(capsuleY + capsuleHeight * 0.73)}" text-anchor="middle">Transport System Map</text>""");
-        svg.AppendLine($"""<circle cx="{Format(infoX)}" cy="{Format(infoY)}" r="{Format(capsuleHeight * 0.33)}" fill="#17a979" />""");
-        svg.AppendLine($"""<text class="transit-info-icon" x="{Format(infoX)}" y="{Format(infoY + capsuleHeight * 0.22)}" text-anchor="middle">i</text>""");
+        svg.AppendLine("<defs>");
+        svg.AppendLine("""<linearGradient id="transit-header-band" x1="0" y1="0" x2="1" y2="0">""");
+        svg.AppendLine("""<stop offset="0" stop-color="#176ba8" />""");
+        svg.AppendLine("""<stop offset="0.45" stop-color="#16a889" />""");
+        svg.AppendLine("""<stop offset="1" stop-color="#80bf1f" />""");
+        svg.AppendLine("</linearGradient>");
+        svg.AppendLine("</defs>");
+        svg.AppendLine($"""<rect x="0" y="0" width="{options.Width}" height="{Format(bandHeight)}" fill="url(#transit-header-band)" />""");
+        svg.AppendLine($"""<rect x="0" y="{Format(bandHeight - 5)}" width="{options.Width}" height="5" fill="#0e4f7c" opacity="0.35" />""");
         svg.AppendLine($"""<line x1="0" y1="{Format(headerHeight - 1.2)}" x2="{options.Width}" y2="{Format(headerHeight - 1.2)}" stroke="#d1d5db" stroke-width="1.1" opacity="0.65" />""");
+        svg.AppendLine($"""<rect x="{Format(capsuleX)}" y="{Format(capsuleY)}" width="{Format(capsuleWidth)}" height="{Format(capsuleHeight)}" rx="{Format(capsuleHeight * 0.3)}" fill="#ffffff" stroke="#d8eef0" stroke-width="1.2" />""");
+        svg.AppendLine($"""<text class="transit-title-cn" x="{Format(centerX)}" y="{Format(titleBaselineY)}" text-anchor="middle">{Escape(mainTitle)}</text>""");
+        svg.AppendLine($"""<text class="transit-title-en" x="{Format(centerX)}" y="{Format(subtitleBaselineY)}" text-anchor="middle">Transport System Map</text>""");
+        svg.AppendLine($"""<circle cx="{Format(infoX)}" cy="{Format(infoY)}" r="{Format(infoRadius)}" fill="#17a979" />""");
+        svg.AppendLine($"""<text class="transit-info-icon" x="{Format(infoX)}" y="{Format(infoY + (infoRadius * 0.52))}" text-anchor="middle">i</text>""");
         if (!IsSchematicMapLayout(options))
         {
-            svg.AppendLine($"""<text class="transit-city" x="{Format(capsuleX + 26)}" y="{Format(capsuleY + capsuleHeight + 28)}">{Escape(title)}</text>""");
+            svg.AppendLine($"""<text class="transit-city" x="{Format(Math.Max(24, capsuleX))}" y="{Format(capsuleY + capsuleHeight + 28)}">{Escape(title)}</text>""");
         }
         svg.AppendLine("</g>");
+    }
+
+    private static double EstimateHeaderTextWidth(string text, double fontSize)
+    {
+        double units = 0;
+        foreach (char character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                units += 0.35;
+            }
+            else if (character <= 0x7f)
+            {
+                units += 0.58;
+            }
+            else
+            {
+                units += 1.0;
+            }
+        }
+
+        return Math.Max(units, 2) * fontSize;
     }
 
     private static string BuildTransitMapMainTitle(string? rawCityName)
