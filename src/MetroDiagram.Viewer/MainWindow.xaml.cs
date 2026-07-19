@@ -1848,9 +1848,10 @@ public partial class MainWindow : Window
         string heightText = displayedHeight.ToString("0.###", CultureInfo.InvariantCulture);
         string svgWidthText = svgSize.Width.ToString("0.###", CultureInfo.InvariantCulture);
         string svgHeightText = svgSize.Height.ToString("0.###", CultureInfo.InvariantCulture);
+        const string sheetCss = "box-shadow: 0 1px 3px rgba(16, 24, 40, 0.10), 0 8px 24px rgba(16, 24, 40, 0.08); border-radius: 4px; background: white;";
         string svgCss = fitWidth || fitPage
-            ? "svg { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }"
-            : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; box-shadow: 0 1px 4px rgba(16, 24, 40, 0.18); background: white; }}");
+            ? $"svg {{ display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; {sheetCss} }}"
+            : string.Create(CultureInfo.InvariantCulture, $"svg {{ display: block; width: {widthText}px; height: {heightText}px; max-width: none; margin: 0; {sheetCss} }}");
         bool editStations = enableManualEditing && string.Equals(manualEditMode, "station", StringComparison.Ordinal);
         bool editLabels = enableManualEditing && string.Equals(manualEditMode, "label", StringComparison.Ordinal);
         bool editSegments = enableManualEditing && string.Equals(manualEditMode, "segment", StringComparison.Ordinal);
@@ -1876,6 +1877,11 @@ public partial class MainWindow : Window
             "    html, body { margin: 0; min-height: 100%; background: #f4f6f8; }",
             "    body { padding: 16px; box-sizing: border-box; overflow: auto; }",
             "    .preview-frame { min-width: 100%; overflow: visible; }",
+            "    ::-webkit-scrollbar { width: 10px; height: 10px; }",
+            "    ::-webkit-scrollbar-track { background: transparent; }",
+            "    ::-webkit-scrollbar-thumb { background: #c3ccd7; border-radius: 6px; border: 2px solid #f4f6f8; }",
+            "    ::-webkit-scrollbar-thumb:hover { background: #a8b4c2; }",
+            "    ::-webkit-scrollbar-corner { background: transparent; }",
             $"    {svgCss}",
             dragCss,
             "  </style>",

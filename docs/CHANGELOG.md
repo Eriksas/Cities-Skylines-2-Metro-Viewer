@@ -24,6 +24,11 @@ Desktop sheet header redesign and a whole-map preview mode.
 - **Save-format selector.** A small SVG / PNG / PDF dropdown next to "Save
   Map" pre-selects the format in the save dialog, so players no longer need
   to know the file type is chosen by extension. The choice is remembered.
+- **The control system is fully styled.** Dropdowns, checkboxes, the
+  advanced-settings expander, and data-grid headers now follow the same flat
+  rounded design language as the buttons (accent hover, soft popup shadow,
+  tinted selection) instead of stock WPF chrome; the preview pane gets thin
+  modern scrollbars and a softer paper shadow.
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 

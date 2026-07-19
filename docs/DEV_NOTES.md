@@ -1,5 +1,26 @@
 # Development Notes
 
+## 2026-07-19 Viewer Design-system Completion (unreleased)
+
+- The remaining stock-WPF chrome made the app read as unfinished even after
+  the button/tab styling: gray gradient combos, native checkboxes, the
+  circled expander arrow, stock DataGrid headers, and heavy preview
+  scrollbars.
+- App.xaml now templates the rest of the control set with the same tokens
+  (radius 6, StrongBorder, accent hover, GhostHover): ComboBox (flat toggle
+  border + chevron Path + rounded popup with DropShadowEffect and MinWidth
+  bound to the combo), ComboBoxItem (rounded hover pill, #DFF2EB selected
+  tint), CheckBox (17px rounded box, accent fill + white check Path),
+  Expander (rotating chevron ToggleButton header), DataGridColumnHeader /
+  DataGridCell (flat headers, calm selection tint, no focus chrome).
+- Preview HTML: thin ::-webkit-scrollbar styling and a two-layer paper
+  shadow with 4px sheet radius.
+- Verified live: toolbar resting state, open combo popup, checked
+  manual-edit state (accent box + sub-toolbar expansion). WPF gotcha: the
+  combo popup border needs Margin for the DropShadowEffect to render
+  without clipping, and ComboBox templates must bind the ToggleButton to
+  IsDropDownOpen TwoWay with ClickMode=Press.
+
 ## 2026-07-19 Viewer Chrome Slimming + Save-format Selector (unreleased)
 
 - Diagnosis: header chrome consumed ~350px before the preview started (brand
