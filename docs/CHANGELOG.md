@@ -32,6 +32,14 @@ Desktop sheet header redesign and a whole-map preview mode.
 - **The preview shows the complete sheet.** Content-bounds focusing no longer
   crops the transit-map header at the top or the bottom "Key to lines and
   symbols" legend; plain renders still trim empty margins.
+- **Noto Sans SC ships with the toolchain.** All sheet text (title, station
+  labels, legend) now renders in 思源黑体 with a Microsoft YaHei fallback. The
+  fonts (SIL OFL, license included) are bundled into the exporter library, so
+  the Viewer preview, PNG, and PDF look identical on machines without the
+  font installed.
+- **The header band fully encloses the title card** (official metro-map
+  convention, per the owner's reference), and the whole title block scales
+  down proportionally on short sheets instead of overflowing.
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 

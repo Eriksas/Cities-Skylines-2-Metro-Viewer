@@ -54,7 +54,9 @@ public static class SvgDocumentExporter
 
     private static SKSvg LoadSvg(string svgText, out SKPicture picture)
     {
+        // Bundled typefaces are cosmetic: any failure falls back to system fonts.
         SKSvg svg = new();
+        BundledFonts.Apply(svg);
         try
         {
             picture = svg.FromSvg(svgText)

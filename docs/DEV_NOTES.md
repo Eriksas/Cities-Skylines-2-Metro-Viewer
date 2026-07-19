@@ -1,5 +1,36 @@
 # Development Notes
 
+## 2026-07-19 Bundled Noto Sans SC + Enclosing Header Band (unreleased)
+
+- Owner picked 思源黑体 (Noto Sans SC) from the offered options and approved
+  bundling; reference image: the Guangzhou Metro official map (band encloses
+  the title card).
+- Fonts: `NotoSansSC-{Regular,Bold}.otf` (SubsetOTF/SC from the official
+  notofonts/noto-cjk repo, family name verified "Noto Sans SC", ~8MB each)
+  plus the OFL license, embedded in `MetroDiagram.Export` so the Viewer AND
+  the CLI both get them.
+- `BundledFonts`: lazy `CustomTypefaceProvider(Stream, 0)` list applied to
+  each `SKSvg` via `svg.Settings.TypefaceProviders.Insert(0, ...)` (Svg.Skia
+  5.1.1 has no settings ctor — the `Settings` property is per-instance), and
+  a LocalAppData extraction (`%LOCALAPPDATA%\CS2MetroDiagram\fonts`) for
+  consumers that need file paths. All silent-degrade: font failure must never
+  break an export.
+- Viewer preview: `SetVirtualHostNameToFolderMapping("metrodiagram-assets",
+  extractedDir, Allow)` + two `@font-face` rules — required because
+  `NavigateToString` pages cannot load `file://` subresources and have a ~2MB
+  string limit (no base64 inlining).
+- Sheet CSS: all 13 `font:` declarations now lead with
+  `'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif`.
+- Header band now encloses the title capsule (band = inset + capsule +
+  underhang). First attempt raised `GetTransitMapHeaderHeight` floors and
+  broke a schematic-map corridor test by shrinking the small-canvas map area;
+  correct fix: keep the header reserve formula byte-stable and scale the
+  whole title block by `GetTransitHeaderScale` (min(1, (header-6)/(full+6)))
+  on short sheets. 163 tests pass.
+- Verified: CLI PNG export renders Noto via the Skia provider; Viewer preview
+  renders Noto via the virtual-host @font-face; enclosed band on tall and
+  short sheets.
+
 ## 2026-07-19 Viewer Design-system Completion (unreleased)
 
 - The remaining stock-WPF chrome made the app read as unfinished even after

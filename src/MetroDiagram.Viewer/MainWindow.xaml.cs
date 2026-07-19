@@ -88,6 +88,23 @@ public partial class MainWindow : Window
             PreviewBrowser.CoreWebView2.Settings.AreDefaultScriptDialogsEnabled = false;
             PreviewBrowser.CoreWebView2.Settings.AreDevToolsEnabled = false;
             PreviewBrowser.CoreWebView2.WebMessageReceived += PreviewBrowser_WebMessageReceived;
+
+            // Serve the bundled Noto Sans SC to the preview page; cosmetic, so
+            // any failure just falls back to system fonts.
+            try
+            {
+                if (MetroDiagram.Export.BundledFonts.ExtractedFontDirectory is { } fontDirectory)
+                {
+                    PreviewBrowser.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                        "metrodiagram-assets",
+                        fontDirectory,
+                        Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+                }
+            }
+            catch
+            {
+            }
+
             _previewBrowserReady = true;
 
             if (!string.IsNullOrWhiteSpace(_pendingPreviewHtml))
@@ -1874,6 +1891,8 @@ public partial class MainWindow : Window
             "  <meta charset=\"utf-8\">",
             "  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">",
             "  <style>",
+            "    @font-face { font-family: 'Noto Sans SC'; font-weight: 400; src: url('https://metrodiagram-assets/NotoSansSC-Regular.otf'); }",
+            "    @font-face { font-family: 'Noto Sans SC'; font-weight: 700; src: url('https://metrodiagram-assets/NotoSansSC-Bold.otf'); }",
             "    html, body { margin: 0; min-height: 100%; background: #f4f6f8; }",
             "    body { padding: 16px; box-sizing: border-box; overflow: auto; }",
             "    .preview-frame { min-width: 100%; overflow: visible; }",

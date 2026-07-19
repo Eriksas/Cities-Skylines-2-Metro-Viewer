@@ -23,28 +23,28 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine("<defs>");
         svg.AppendLine("<style>");
         svg.AppendLine("            .background { fill: #ffffff; }");
-        svg.AppendLine("            .title { font: 700 28px Arial, sans-serif; fill: #1f2933; }");
-        svg.AppendLine("            .transit-title-cn { font: 700 54px Arial, 'Microsoft YaHei', sans-serif; fill: #143a78; letter-spacing: 1.2px; }");
-        svg.AppendLine("            .transit-title-en { font: 600 24px Arial, sans-serif; fill: #143a78; }");
-        svg.AppendLine("            .transit-city { font: 600 15px Arial, 'Microsoft YaHei', sans-serif; fill: #4b5563; }");
-        svg.AppendLine("            .transit-info-icon { font: 800 34px Arial, sans-serif; fill: #ffffff; }");
+        svg.AppendLine("            .title { font: 700 28px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #1f2933; }");
+        svg.AppendLine($"            .transit-title-cn {{ font: 700 {Format(GetTransitTitleFontSize(options))}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #143a78; letter-spacing: 1.2px; }}");
+        svg.AppendLine($"            .transit-title-en {{ font: 600 {Format(GetTransitSubtitleFontSize(options))}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #143a78; }}");
+        svg.AppendLine("            .transit-city { font: 600 15px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #4b5563; }");
+        svg.AppendLine($"            .transit-info-icon {{ font: 800 {Format(34 * GetTransitHeaderScale(options))}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #ffffff; }}");
         svg.AppendLine($"            .route {{ fill: none; stroke-width: {Format(visualStyle.BaseRouteWidth)}; stroke-linecap: round; stroke-linejoin: round; }}");
         svg.AppendLine("            .express-decoration { fill: none; stroke-linecap: round; stroke-linejoin: round; }");
         svg.AppendLine($"            .station {{ fill: #ffffff; stroke: #1f2933; stroke-width: {Format(visualStyle.StationMarkerStrokeWidth)}; }}");
         svg.AppendLine($"            .station.terminal {{ stroke-width: {Format(visualStyle.StationMarkerStrokeWidth + 0.35)}; }}");
         svg.AppendLine($"            .station.interchange {{ stroke-width: {Format(visualStyle.InterchangeMarkerStrokeWidth)}; }}");
         svg.AppendLine("            .station-interchange-inner { fill: none; stroke: #1f2933; stroke-width: 1.45; pointer-events: none; }");
-        svg.AppendLine($"            .station-label {{ font: 600 {Format(options.LabelFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
+        svg.AppendLine($"            .station-label {{ font: 600 {Format(options.LabelFontSize)}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #1f2933; }}");
         svg.AppendLine("            .station-label[data-label-important=\"true\"] { font-weight: 700; fill: #111827; }");
         svg.AppendLine($"            .station-label-halo {{ stroke: #ffffff; stroke-width: {Format(labelHaloWidth)}; paint-order: stroke; stroke-linejoin: round; }}");
         svg.AppendLine("            .virtual-transfer-hint { fill: none; stroke: #6b7280; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 8 6; opacity: 0.72; }");
-        svg.AppendLine("            .empty-notice { font: 600 16px Arial, sans-serif; fill: #52616f; }");
-        svg.AppendLine($"            .legend-label {{ font: 600 {Format(options.LegendLabelFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
-        svg.AppendLine($"            .legend-variant {{ font: 500 {Format(legendVariantFontSize)}px Arial, sans-serif; fill: #52616f; }}");
-        svg.AppendLine($"            .legend-title {{ font: 700 {Format(legendTitleFontSize)}px Arial, sans-serif; fill: #1f2933; }}");
-        svg.AppendLine("            .transit-footer-label { font: 700 13px Arial, sans-serif; fill: #374151; }");
-        svg.AppendLine("            .transit-footer-note { font: 500 12px Arial, sans-serif; fill: #7b8491; }");
-        svg.AppendLine($"            .route-badge-label {{ font: 800 {Format(GetRouteBadgeFontSize(options))}px Arial, sans-serif; fill: #ffffff; }}");
+        svg.AppendLine("            .empty-notice { font: 600 16px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #52616f; }");
+        svg.AppendLine($"            .legend-label {{ font: 600 {Format(options.LegendLabelFontSize)}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #1f2933; }}");
+        svg.AppendLine($"            .legend-variant {{ font: 500 {Format(legendVariantFontSize)}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #52616f; }}");
+        svg.AppendLine($"            .legend-title {{ font: 700 {Format(legendTitleFontSize)}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #1f2933; }}");
+        svg.AppendLine("            .transit-footer-label { font: 700 13px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #374151; }");
+        svg.AppendLine("            .transit-footer-note { font: 500 12px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #7b8491; }");
+        svg.AppendLine($"            .route-badge-label {{ font: 800 {Format(GetRouteBadgeFontSize(options))}px 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif; fill: #ffffff; }}");
         svg.AppendLine("</style>");
         svg.AppendLine("</defs>");
         svg.AppendLine($"""<rect class="background" x="0" y="0" width="{options.Width}" height="{options.Height}" />""");
@@ -61,20 +61,22 @@ public sealed partial class MetroSvgRenderer
     private static void AppendTransitMapHeader(StringBuilder svg, string? rawCityName, string title, SvgRenderOptions options)
     {
         double headerHeight = GetTransitMapHeaderHeight(options);
-        double bandHeight = Math.Max(options.CompactTransitMapFrame ? 60 : 52, headerHeight * (options.CompactTransitMapFrame ? 0.66 : 0.64));
+        bool compact = options.CompactTransitMapFrame;
         string mainTitle = BuildTransitMapMainTitle(rawCityName);
 
-        // The title capsule is sized from its typography (CN 54px + EN 24px)
-        // instead of stretching across the sheet: a near-full-width capsule hid
-        // the band except for clipped-looking corner slivers, and fixed-size
-        // text overflowed the proportional capsule on small sheets.
-        const double titleFontSize = 54;
-        const double subtitleFontSize = 24;
-        const double padTop = 10;
-        const double titleGap = 8;
-        const double padBottom = 12;
-        double infoRadius = 23;
+        // The title capsule is sized from its typography instead of stretching
+        // across the sheet, and the band fully encloses the capsule (official
+        // metro-map convention): band bottom sits below the capsule bottom.
+        double headerScale = GetTransitHeaderScale(options);
+        double titleFontSize = GetTransitTitleFontSize(options);
+        double subtitleFontSize = GetTransitSubtitleFontSize(options);
+        double padTop = (compact ? 8 : 10) * headerScale;
+        double titleGap = (compact ? 6 : 8) * headerScale;
+        double padBottom = (compact ? 10 : 12) * headerScale;
+        double infoRadius = (compact ? 19 : 23) * headerScale;
         double capsuleHeight = padTop + titleFontSize + titleGap + subtitleFontSize + padBottom;
+        double capsuleTopInset = (compact ? 12 : 14) * headerScale;
+        double bandHeight = capsuleTopInset + capsuleHeight + ((compact ? 10 : 14) * headerScale);
         double titleWidthEstimate = EstimateHeaderTextWidth(mainTitle, titleFontSize);
         double subtitleWidthEstimate = EstimateHeaderTextWidth("Transport System Map", subtitleFontSize);
         double textBlockWidth = Math.Max(titleWidthEstimate, subtitleWidthEstimate);
@@ -82,7 +84,7 @@ public sealed partial class MetroSvgRenderer
             Math.Max(360, textBlockWidth + 120 + (infoRadius * 2) + 26),
             options.Width - 88);
         double capsuleX = (options.Width - capsuleWidth) / 2.0;
-        double capsuleY = Math.Max(14, (bandHeight - capsuleHeight) * 0.5 + 6);
+        double capsuleY = capsuleTopInset;
         double centerX = options.Width / 2.0;
         double titleBaselineY = capsuleY + padTop + (titleFontSize * 0.82);
         double subtitleBaselineY = capsuleY + padTop + titleFontSize + titleGap + (subtitleFontSize * 0.82);
@@ -107,9 +109,19 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine($"""<text class="transit-info-icon" x="{Format(infoX)}" y="{Format(infoY + (infoRadius * 0.52))}" text-anchor="middle">i</text>""");
         if (!IsSchematicMapLayout(options))
         {
-            svg.AppendLine($"""<text class="transit-city" x="{Format(Math.Max(24, capsuleX))}" y="{Format(capsuleY + capsuleHeight + 28)}">{Escape(title)}</text>""");
+            svg.AppendLine($"""<text class="transit-city" x="{Format(Math.Max(24, capsuleX))}" y="{Format(bandHeight + 24)}">{Escape(title)}</text>""");
         }
         svg.AppendLine("</g>");
+    }
+
+    private static double GetTransitTitleFontSize(SvgRenderOptions options)
+    {
+        return (options.CompactTransitMapFrame ? 44 : 54) * GetTransitHeaderScale(options);
+    }
+
+    private static double GetTransitSubtitleFontSize(SvgRenderOptions options)
+    {
+        return (options.CompactTransitMapFrame ? 20 : 24) * GetTransitHeaderScale(options);
     }
 
     private static double EstimateHeaderTextWidth(string text, double fontSize)
@@ -1599,6 +1611,15 @@ public sealed partial class MetroSvgRenderer
         }
 
         return Math.Clamp(options.Height * 0.09, 104, 150);
+    }
+
+    // Scales the title band typography down on short sheets so the enclosing
+    // band always fits inside the unchanged header reserve (layout untouched).
+    private static double GetTransitHeaderScale(SvgRenderOptions options)
+    {
+        double headerHeight = GetTransitMapHeaderHeight(options);
+        double fullBandHeight = options.CompactTransitMapFrame ? 110 : 136;
+        return Math.Min(1.0, (headerHeight - 6) / (fullBandHeight + 6));
     }
 
     private static double GetTransitMapFooterHeight(SvgRenderOptions options)
