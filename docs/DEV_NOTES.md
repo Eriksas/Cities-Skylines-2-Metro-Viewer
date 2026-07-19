@@ -1,5 +1,19 @@
 # Development Notes
 
+## 2026-07-20 Beta.9 publication (GitHub, Viewer-only)
+
+- Release source commit: `6788550` (`release: prepare v0.1.0-beta.9`).
+- GitHub tag and Release: `v0.1.0-beta.9` (Latest). Uploaded Viewer ZIP
+  SHA-256:
+  `850C2AF19DF7BAE64BD176BA62687FB0CE4A8A2EF69E0D3C939CFD7EE1678AD0`.
+- Viewer-only release (alpha.4/5 pattern): `git diff` confirmed zero changes
+  under `CS2 Metro/` and `src/MetroDiagram.Engine` since the beta.8 release
+  commit, so mod-side version strings (`VersionInfo.cs`,
+  `PublishConfiguration.xml`) stay at beta.8 and **no Paradox republish is
+  needed**.
+- Package 84.8MB (+14MB bundled Noto Sans SC). Cold-start smoke of the
+  packaged exe: window in 4.9s, WebView2 up.
+
 ## 2026-07-19 Bundled Noto Sans SC + Enclosing Header Band (unreleased)
 
 - Owner picked 思源黑体 (Noto Sans SC) from the offered options and approved
