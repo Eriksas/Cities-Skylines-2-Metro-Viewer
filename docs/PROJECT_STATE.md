@@ -4,8 +4,8 @@
 
 Repository and companion Viewer: `v0.1.0-beta.9`
 
-Current public release: `v0.1.0-beta.8` on GitHub and `0.1.0-beta.8` on the
-existing public Paradox Mods ModId `146643`.
+Current public releases: Viewer `v0.1.0-beta.9` on GitHub; in-game Mod
+`0.1.0-beta.8` on the existing public Paradox Mods ModId `146643`.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on

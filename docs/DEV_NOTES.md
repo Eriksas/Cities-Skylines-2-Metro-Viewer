@@ -1,5 +1,22 @@
 # Development Notes
 
+## 2026-07-20 - Beta.9 review and PDX release boundary
+
+- Reviewed all commits after the published beta.8 Mod. Beta.9 changes are
+  confined to the desktop Viewer, desktop export/font support, product-map
+  header rendering, release metadata, and documentation.
+- `CS2 Metro` and `MetroDiagram.Engine` have no source changes after the beta.8
+  PDX publication. The Mod-side `VersionInfo.ReleaseVersion`, exporter
+  `generator.version`, and `PublishConfiguration.xml` remain beta.8.
+- Full solution build, all 163 tests, `node --check`, the CS2 Release
+  post-process, the PDX `PublishNewVersion` dry run, self-contained Viewer
+  publish, and a five-second Viewer startup smoke test passed.
+- Decision: do not publish a duplicate PDX version for the Viewer-only beta.9
+  release. Paradox Mods remains on beta.8 until game-side code or metadata has
+  a real, separately versioned update.
+- Three existing nullable warnings in `MetroDiagram.Engine` remain a small,
+  non-blocking cleanup item.
+
 ## 2026-07-20 Beta.9 publication (GitHub, Viewer-only)
 
 - Release source commit: `6788550` (`release: prepare v0.1.0-beta.9`).
