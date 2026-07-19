@@ -20,7 +20,7 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.8`
+Repository and Viewer: `v0.1.0-beta.9`
 
 Paradox Mods current release: `v0.1.0-beta.8` (Public, existing ModId `146643`)
 

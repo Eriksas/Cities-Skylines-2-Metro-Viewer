@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.1.0-beta.9 - 2026-07-19
 
-Desktop sheet header redesign and a whole-map preview mode.
+Viewer experience release: sheet header redesign, bundled CJK typography,
+whole-map preview, and a completed control design system. The in-game mod is
+unchanged; Paradox Mods stays on beta.8.
 
 ### Viewer / desktop renderer
 

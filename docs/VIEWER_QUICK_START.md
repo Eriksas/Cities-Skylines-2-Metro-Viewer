@@ -1,6 +1,6 @@
 # CS2 Metro Diagram Viewer Quick Start
 
-Version: `v0.1.0-beta.8`
+Version: `v0.1.0-beta.9`
 
 This is a beta build, not a stable release.
 
@@ -49,7 +49,7 @@ renderer as the CLI. After you open a JSON file, the app switches to `Map
 Preview` and shows the generated metro diagram directly; you do not need to save
 the SVG first or open it manually in a browser.
 
-Use `Preview` to choose the in-app preview scale. `100%` shows the SVG at its actual rendered pixel size, based on the SVG root `width` and `height`, and lets you scroll around large maps. `Fit width` gives an overview by scaling the whole SVG down to the preview pane width.
+Use `Preview` to choose the in-app preview scale. `Fit window` (the default) scales the whole sheet to fit the preview pane in both directions — the best overview for tall maps. `Fit width` scales to the pane width only. `100%` shows the SVG at its actual rendered pixel size and lets you scroll around large maps.
 
 Layout modes:
 
@@ -152,8 +152,14 @@ Documents\CS2MetroDiagram\viewer-settings.json
 
 ## Save
 
-Click `Save Map` and choose a destination path. The file type picks the format:
+Pick a format in the small dropdown next to `Save Map` (SVG / PNG / PDF), then
+click `Save Map` — the save dialog opens pre-set to that format. Changing the
+file extension in the dialog still switches the format:
 
 - `.svg` — the vector document, openable in any browser.
 - `.png` — a raster image at the map's full pixel size.
 - `.pdf` — a single-page vector PDF with embedded fonts, ready for print.
+
+Sheet text renders in the bundled Noto Sans SC (思源黑体, SIL OFL license
+included) with a Microsoft YaHei fallback, so output looks the same on
+machines without the font installed.

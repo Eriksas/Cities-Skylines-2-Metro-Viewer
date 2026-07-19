@@ -20,7 +20,7 @@ body:
     attributes:
       label: "Version / 版本"
       description: "Shown in the Viewer title bar and on the Paradox Mods page. / 见查看器标题栏或 Paradox Mods 页面。"
-      placeholder: "v0.1.0-beta.8"
+      placeholder: "v0.1.0-beta.9"
     validations:
       required: true
   - type: textarea
