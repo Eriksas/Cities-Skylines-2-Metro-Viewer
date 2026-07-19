@@ -29,6 +29,9 @@ Desktop sheet header redesign and a whole-map preview mode.
   rounded design language as the buttons (accent hover, soft popup shadow,
   tinted selection) instead of stock WPF chrome; the preview pane gets thin
   modern scrollbars and a softer paper shadow.
+- **The preview shows the complete sheet.** Content-bounds focusing no longer
+  crops the transit-map header at the top or the bottom "Key to lines and
+  symbols" legend; plain renders still trim empty margins.
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 
