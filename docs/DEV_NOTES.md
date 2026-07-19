@@ -1,5 +1,23 @@
 # Development Notes
 
+## 2026-07-19 Viewer Chrome Slimming + Save-format Selector (unreleased)
+
+- Diagnosis: header chrome consumed ~350px before the preview started (brand
+  42 + selectors 40 + always-visible manual-edit row 50 + expander 28 + a
+  three-line file card 76 + margins) — ~45% of a 920px window.
+- Changes: "Manual edit" checkbox moved into the selector row and the edit
+  button card (`ManualEditToolbarCard`) collapses unless checked (toggled at
+  the end of `UpdateManualEditButtons`, which every relevant state change
+  already calls); file card is one `DockPanel` line (path left, city stats
+  right) with the error row auto-collapsing via a `Text=""` style trigger;
+  paddings/margins tightened. Preview area 55% -> ~72% of the window.
+- Save-format selector: `SaveFormatComboBox` (SVG/PNG/PDF) beside Save Map
+  presets the dialog `FilterIndex`/`DefaultExt`/filename extension; choice
+  persists as `ViewerSettings.SaveFormat`; tooltip localized
+  (`SaveFormatToolTip`). Exporters unchanged (extension still decides).
+- Verified live with the Oster export: one-line file card, hidden edit row,
+  format combo next to Save, saved user settings untouched. 163 tests pass.
+
 ## 2026-07-18 Sheet Header Redesign + Viewer Fit-window Preview (unreleased)
 
 - Owner feedback on the Oster save-map PNG: the header's slanted color-block

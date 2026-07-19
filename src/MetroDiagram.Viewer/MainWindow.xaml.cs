@@ -358,11 +358,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        string format = ReadSelectedSaveFormat();
         SaveFileDialog dialog = new()
         {
             Filter = "SVG (*.svg)|*.svg|PNG (*.png)|*.png|PDF (*.pdf)|*.pdf",
+            FilterIndex = format switch { "png" => 2, "pdf" => 3, _ => 1 },
+            DefaultExt = "." + format,
             Title = T("SaveSvgTitle"),
-            FileName = BuildDefaultSvgFileName()
+            FileName = Path.ChangeExtension(BuildDefaultSvgFileName(), "." + format)
         };
 
         string folder = GetPreferredExportFolder(createIfMissing: false);
@@ -471,6 +474,22 @@ public partial class MainWindow : Window
         else if (_document is null)
         {
             ClearPreview(T("InitialPreview"));
+        }
+
+        TrySaveCurrentSettings(showError: false);
+    }
+
+    private string ReadSelectedSaveFormat()
+    {
+        string? tag = (SaveFormatComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        return tag is "png" or "pdf" ? tag : "svg";
+    }
+
+    private void SaveFormatComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady || _suppressUiEvents)
+        {
+            return;
         }
 
         TrySaveCurrentSettings(showError: false);
@@ -1448,6 +1467,10 @@ public partial class MainWindow : Window
         OpenOverridesButton.IsEnabled = hasDocument;
         UndoButton.IsEnabled = hasDocument && _undoStack.Count > 0;
         RedoButton.IsEnabled = hasDocument && _redoStack.Count > 0;
+        // The edit sub-toolbar occupies a full row, so it only exists while editing.
+        ManualEditToolbarCard.Visibility = ManualEditCheckBox.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     // ---- Manual-edit undo/redo (snapshots of the whole override document) ----
@@ -2825,11 +2848,17 @@ public partial class MainWindow : Window
             UsePathPointsCheckBox.IsChecked = settings.UsePathPoints;
             SimplifyPathPointsCheckBox.IsChecked = settings.PathPointSimplificationEnabled;
             PathSimplificationToleranceTextBox.Text = settings.PathPointSimplificationTolerance.ToString(CultureInfo.InvariantCulture);
+            SelectComboBoxItem(SaveFormatComboBox, NormalizeSaveFormat(settings.SaveFormat));
         }
         finally
         {
             _suppressUiEvents = false;
         }
+    }
+
+    private static string NormalizeSaveFormat(string? format)
+    {
+        return format is "png" or "pdf" ? format : "svg";
     }
 
     private void ApplyLanguage()
@@ -2842,6 +2871,7 @@ public partial class MainWindow : Window
         ResetButton.Content = T("ResetDefaults");
         RefreshButton.Content = T("RefreshPreview");
         SaveButton.Content = T("SaveSvg");
+        SaveFormatComboBox.ToolTip = T("SaveFormatToolTip");
         OpenDiagnosticsButton.Content = T("OpenDiagnostics");
         LayoutLabelTextBlock.Text = T("Layout");
         SizePresetLabelTextBlock.Text = T("SizePreset");
@@ -2933,6 +2963,7 @@ public partial class MainWindow : Window
             LayoutMode = GetLayoutModeText(ReadSelectedLayoutMode()),
             SizePreset = ReadSelectedSizePreset(),
             PreviewZoom = ReadSelectedPreviewZoom(),
+            SaveFormat = ReadSelectedSaveFormat(),
             Width = ReadIntOrDefault(WidthTextBox, _settings.Width),
             Height = ReadIntOrDefault(HeightTextBox, _settings.Height),
             LegendWidth = ReadIntOrDefault(LegendWidthTextBox, _settings.LegendWidth),

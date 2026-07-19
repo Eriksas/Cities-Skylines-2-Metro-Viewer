@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <!-- ===================== Header / toolbar ===================== -->
-        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,12">
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
             <StackPanel>
                 <!-- Brand + primary actions -->
                 <DockPanel LastChildFill="False">
@@ -32,6 +32,11 @@
                     <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
                         <Button x:Name="OpenDefaultButton" Style="{StaticResource PrimaryButton}" Content="Open Default Export" MinWidth="150" Margin="0,0,8,0" Click="OpenDefaultExport_Click" IsEnabled="False" />
                         <Button x:Name="OpenButton" Content="Open JSON" MinWidth="98" Margin="0,0,8,0" Click="OpenJson_Click" />
+                        <ComboBox x:Name="SaveFormatComboBox" Width="68" Margin="0,0,4,0" VerticalAlignment="Center" SelectionChanged="SaveFormatComboBox_SelectionChanged">
+                            <ComboBoxItem Content="SVG" Tag="svg" IsSelected="True" />
+                            <ComboBoxItem Content="PNG" Tag="png" />
+                            <ComboBoxItem Content="PDF" Tag="pdf" />
+                        </ComboBox>
                         <Button x:Name="SaveButton" Style="{StaticResource PrimaryButton}" Content="Save SVG" MinWidth="92" Margin="0,0,14,0" Click="SaveSvg_Click" IsEnabled="False" />
                         <Button x:Name="RefreshButton" Style="{StaticResource GhostButton}" Content="Refresh Preview" MinWidth="120" Margin="0,0,2,0" Click="RefreshPreview_Click" />
                         <Button x:Name="OpenFolderButton" Style="{StaticResource GhostButton}" Content="Open Export Folder" MinWidth="132" Margin="0,0,2,0" Click="OpenExportFolder_Click" />
@@ -40,7 +45,7 @@
                 </DockPanel>
 
                 <!-- Selectors -->
-                <WrapPanel Margin="0,14,0,0">
+                <WrapPanel Margin="0,10,0,0">
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
                         <TextBlock x:Name="LayoutLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Layout" Margin="0,0,8,0" />
                         <ComboBox x:Name="LayoutComboBox" Width="152" SelectionChanged="LayoutComboBox_SelectionChanged">
@@ -83,13 +88,14 @@
                             <ComboBoxItem Content="中文" Tag="zh" />
                         </ComboBox>
                     </StackPanel>
+
+                    <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="0,0,0,8" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
                 </WrapPanel>
 
-                <!-- Manual editing sub-toolbar -->
-                <Border Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,9" Margin="0,4,0,0">
+                <!-- Manual editing sub-toolbar (visible only while editing) -->
+                <Border x:Name="ManualEditToolbarCard" Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,9" Margin="0,4,0,0" Visibility="Collapsed">
                     <WrapPanel VerticalAlignment="Center">
                         <TextBlock x:Name="ManualEditingHeader" Style="{StaticResource InlineLabel}" Text="Manual editing" Margin="0,0,14,0" />
-                        <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="0,0,12,0" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
                         <ComboBox x:Name="ManualEditModeComboBox" Width="104" Margin="0,0,12,0" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
                             <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
                             <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
@@ -109,7 +115,7 @@
                 </Border>
 
                 <!-- Advanced settings (collapsed by default) -->
-                <Expander x:Name="AdvancedSettingsExpander" Header="Advanced settings" IsExpanded="False" Margin="2,10,0,0">
+                <Expander x:Name="AdvancedSettingsExpander" Header="Advanced settings" IsExpanded="False" Margin="2,6,0,0">
                     <StackPanel Margin="0,10,0,0">
                         <UniformGrid Columns="8">
                             <StackPanel Margin="0,0,12,0">
@@ -146,7 +152,7 @@
                             </StackPanel>
                         </UniformGrid>
 
-                        <WrapPanel Margin="0,14,0,0">
+                        <WrapPanel Margin="0,10,0,0">
                             <CheckBox x:Name="ShowNonImportantStationLabelsCheckBox" Content="Show default / non-important station labels" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                             <CheckBox x:Name="VirtualTransferHintsCheckBox" Content="Show virtual transfer hints" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                             <CheckBox x:Name="HideCrowdedCheckBox" Content="Hide crowded labels" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
@@ -162,19 +168,32 @@
                     </StackPanel>
                 </Expander>
 
-                <!-- File info -->
-                <Border Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="14,10" Margin="0,12,0,0">
+                <!-- File info (single line; error row appears only with content) -->
+                <Border Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,7" Margin="0,8,0,0">
                     <StackPanel>
-                        <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                        <TextBlock x:Name="SummaryTextBlock" Text="City: -   Lines: -   Stations: -" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                        <TextBlock x:Name="ErrorTextBlock" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="SummaryTextBlock" DockPanel.Dock="Right" Text="City: -   Lines: -   Stations: -" Foreground="{StaticResource MutedTextBrush}" Margin="16,0,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                            <TextBlock x:Name="FileTextBlock" Text="No JSON loaded" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        </DockPanel>
+                        <TextBlock x:Name="ErrorTextBlock" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,5,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
             </StackPanel>
         </Border>
 
         <!-- ===================== Content ===================== -->
-        <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="16,12,16,12" Background="Transparent" BorderThickness="0">
+        <TabControl x:Name="MainContentTabControl" Grid.Row="1" Margin="16,8,16,10" Background="Transparent" BorderThickness="0">
             <TabItem x:Name="MapPreviewTabItem" Header="Map Preview">
                 <Border Style="{StaticResource Card}" Margin="0,8,0,0">
                     <Border CornerRadius="8" ClipToBounds="True">

@@ -21,6 +21,9 @@ public sealed class ViewerSettings
     [JsonPropertyName("previewZoom")]
     public string PreviewZoom { get; set; } = "fit-page";
 
+    [JsonPropertyName("saveFormat")]
+    public string SaveFormat { get; set; } = "svg";
+
     [JsonPropertyName("width")]
     public int Width { get; set; } = 1200;
 

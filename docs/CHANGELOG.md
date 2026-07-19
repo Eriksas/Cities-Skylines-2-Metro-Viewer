@@ -16,6 +16,14 @@ Desktop sheet header redesign and a whole-map preview mode.
   Scales the whole sheet to fit both preview dimensions, so tall maps no
   longer open as a narrow scrolling slice. "Fit width" and the percent zooms
   are unchanged; saved user settings are respected.
+- **The preview gets much more of the window.** The manual-edit button row
+  now appears only while "Manual edit" is checked (the checkbox moved into
+  the selector row), the file-info card is a single line, error text shows
+  only when present, and chrome margins are tighter — roughly 140px more
+  preview height on a standard window.
+- **Save-format selector.** A small SVG / PNG / PDF dropdown next to "Save
+  Map" pre-selects the format in the save dialog, so players no longer need
+  to know the file type is chosen by extension. The choice is remembered.
 
 First player-reported bug (issue #4): an 8-line city rendered only 3 lines.
 
