@@ -126,9 +126,10 @@ Current Phase 7B-E development output:
 E:\SteamLibrary\steamapps\common\Cities Skylines II\mods\Cities Skylines II\ModsData\cs2-local-mods\CS2 Metro
 ```
 
-Beta.8 is the current public GitHub and PDX baseline. `ModPublisher.exe`
-reported `New mod version published` for ModId `146643`; GitHub Release
-`v0.1.0-beta.8` contains the self-contained Viewer ZIP.
+The desktop Viewer is published as GitHub Release `v0.1.0`; the in-game Mod
+remains the public PDX beta.8 baseline. `ModPublisher.exe` previously reported
+`New mod version published` for ModId `146643`, and the 2026-07-20 metadata-only
+refresh did not create another Mod binary/version.
 
 Current publication state:
 

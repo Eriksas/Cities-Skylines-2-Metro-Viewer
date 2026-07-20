@@ -2,6 +2,10 @@
 
 ## 2026-07-20 - Viewer v0.1.0 and independent release trains
 
+- Release source/tag commit: `ebbc1eb`.
+- GitHub Release: `v0.1.0` (Latest), containing
+  `CS2MetroDiagram-v0.1.0-win-x64.zip` (SHA-256
+  `D94C1A1CA94B465491BE4CDC1DC004CD7D67757DE232D0AC92A3EE52EC562467`).
 - The desktop Viewer/toolchain is promoted from beta.9 to stable `v0.1.0`.
 - The existing public PDX Mod remains `0.1.0-beta.8` on ModId `146643`; this
   desktop promotion does not upload another Mod binary.
