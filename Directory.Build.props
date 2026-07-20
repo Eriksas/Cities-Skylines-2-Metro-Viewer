@@ -1,8 +1,18 @@
 <Project>
   <PropertyGroup>
-    <Version>0.1.0-beta.9</Version>
+    <!-- The desktop toolchain and the in-game Mod have independent release
+         trains. Viewer-oriented projects inherit the stable desktop version;
+         Mod-owned projects override Version from MetroDiagramModVersion. -->
+    <MetroDiagramViewerVersion>0.1.0</MetroDiagramViewerVersion>
+    <MetroDiagramViewerInformationalVersion>v0.1.0</MetroDiagramViewerInformationalVersion>
+    <MetroDiagramViewerFileVersion>0.1.0.14</MetroDiagramViewerFileVersion>
+    <MetroDiagramModVersion>0.1.0-beta.8</MetroDiagramModVersion>
+    <MetroDiagramModInformationalVersion>v0.1.0-beta.8</MetroDiagramModInformationalVersion>
+    <MetroDiagramModFileVersion>0.1.0.13</MetroDiagramModFileVersion>
+
+    <Version>$(MetroDiagramViewerVersion)</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.13</FileVersion>
-    <InformationalVersion>v0.1.0-beta.9</InformationalVersion>
+    <FileVersion>$(MetroDiagramViewerFileVersion)</FileVersion>
+    <InformationalVersion>$(MetroDiagramViewerInformationalVersion)</InformationalVersion>
   </PropertyGroup>
 </Project>

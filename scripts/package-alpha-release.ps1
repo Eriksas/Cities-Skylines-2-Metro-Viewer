@@ -2,10 +2,10 @@
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-# Single source of truth for the version string.
-$version = ([xml](Get-Content (Join-Path $repoRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.InformationalVersion
+# This package contains the standalone Viewer; use its independent version.
+$version = ([xml](Get-Content (Join-Path $repoRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.MetroDiagramViewerInformationalVersion
 if ([string]::IsNullOrWhiteSpace($version)) {
-    throw 'Could not read InformationalVersion from Directory.Build.props.'
+    throw 'Could not read MetroDiagramViewerInformationalVersion from Directory.Build.props.'
 }
 
 $packageName = "CS2MetroDiagram-$version"

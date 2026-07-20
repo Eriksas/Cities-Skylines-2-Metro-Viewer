@@ -192,6 +192,10 @@ public static readonly List<(string Name, Action Test)> tests =
     ("missing station references report a clear validation issue", MissingStationReferencesReportClearly),
     ("empty networks and empty lines do not crash", EmptyNetworksAndEmptyLinesDoNotCrash),
     ("geometry cache keeps repeat and override renders identical", GeometryCacheKeepsRepeatAndOverrideRendersIdentical),
+    ("desktop Viewer and in-game Mod use independent version trains", DesktopViewerAndModUseIndependentVersionTrains),
+    ("Viewer persists fit-window preview and save format defaults", ViewerPersistsFitWindowPreviewAndSaveFormatDefaults),
+    ("Viewer export ships bundled CJK font resources", ViewerExportShipsBundledCjkFontResources),
+    ("Viewer PNG export falls back to bundled CJK fonts", ViewerPngExportFallsBackToBundledCjkFonts),
     ("PNG export writes a decodable image at SVG size", PngExportWritesDecodableImageAtSvgSize),
     ("PDF export writes a vector document", PdfExportWritesVectorDocument)
 ];
@@ -5674,6 +5678,97 @@ static void GeometryCacheKeepsRepeatAndOverrideRendersIdentical()
     SvgRenderResult freshOverride = new MetroSvgRenderer().Render(document, MakeOptions(overrides));
     Assert(string.Equals(cachedOverride.Svg, freshOverride.Svg, StringComparison.Ordinal), "geometry cache: cached-override render differs from a fresh render.");
     Assert(!string.Equals(cachedOverride.Svg, first.Svg, StringComparison.Ordinal), "geometry cache: station override had no visible effect.");
+}
+
+static void DesktopViewerAndModUseIndependentVersionTrains()
+{
+    string root = FindRepositoryRoot();
+    XDocument props = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
+    string viewerVersion = props.Descendants("MetroDiagramViewerInformationalVersion").Single().Value;
+    string modVersion = props.Descendants("MetroDiagramModInformationalVersion").Single().Value;
+
+    Assert(viewerVersion == "v0.1.0", $"Viewer version source was '{viewerVersion}', expected v0.1.0.");
+    Assert(modVersion == "v0.1.0-beta.8", $"Mod version source was '{modVersion}', expected v0.1.0-beta.8.");
+    Assert(MetroDiagram.Core.MetroDiagramAppInfo.Version == viewerVersion, "Viewer app version does not match the Viewer version source.");
+
+    string modProject = File.ReadAllText(Path.Combine(root, "CS2 Metro", "CS2 Metro.csproj"));
+    string engineProject = File.ReadAllText(Path.Combine(root, "src", "MetroDiagram.Engine", "MetroDiagram.Engine.csproj"));
+    Assert(modProject.Contains("<Version>$(MetroDiagramModVersion)</Version>", StringComparison.Ordinal), "CS2 Mod project did not override the desktop version source.");
+    Assert(engineProject.Contains("<Version>$(MetroDiagramModVersion)</Version>", StringComparison.Ordinal), "Portable Engine project did not stay on the Mod version source.");
+}
+
+static void ViewerPersistsFitWindowPreviewAndSaveFormatDefaults()
+{
+    string root = FindRepositoryRoot();
+    string settings = File.ReadAllText(Path.Combine(root, "src", "MetroDiagram.Viewer", "ViewerSettings.cs"));
+    string xaml = File.ReadAllText(Path.Combine(root, "src", "MetroDiagram.Viewer", "MainWindow.xaml"));
+    string windowCode = File.ReadAllText(Path.Combine(root, "src", "MetroDiagram.Viewer", "MainWindow.xaml.cs"));
+
+    Assert(settings.Contains("PreviewZoom { get; set; } = \"fit-page\"", StringComparison.Ordinal), "ViewerSettings no longer defaults to fit-window preview.");
+    Assert(settings.Contains("SaveFormat { get; set; } = \"svg\"", StringComparison.Ordinal), "ViewerSettings no longer persists a stable default save format.");
+    Assert(xaml.Contains("Tag=\"fit-page\" IsSelected=\"True\"", StringComparison.Ordinal), "Fit-window is not the selected Viewer preview option.");
+    foreach (string format in new[] { "svg", "png", "pdf" })
+    {
+        Assert(xaml.Contains($"Tag=\"{format}\"", StringComparison.Ordinal), $"Viewer save format '{format}' is missing from the toolbar.");
+    }
+
+    Assert(windowCode.Contains("Math.min(pageWidth / Math.max(1, width), pageHeight / Math.max(1, height))", StringComparison.Ordinal), "Fit-window preview no longer constrains both dimensions.");
+    Assert(windowCode.Contains("'transit-map-header'", StringComparison.Ordinal) && windowCode.Contains("'legend'", StringComparison.Ordinal), "Fit-window content bounds no longer include the complete map sheet.");
+    Assert(windowCode.Contains("SaveFormat = ReadSelectedSaveFormat()", StringComparison.Ordinal), "Viewer save format is not persisted to settings.");
+    Assert(windowCode.Contains("SelectComboBoxItem(SaveFormatComboBox, NormalizeSaveFormat(settings.SaveFormat))", StringComparison.Ordinal), "Viewer save format is not restored from settings.");
+}
+
+static void ViewerExportShipsBundledCjkFontResources()
+{
+    string[] resources = typeof(MetroDiagram.Export.BundledFonts).Assembly.GetManifestResourceNames();
+    foreach (string expected in new[]
+    {
+        "MetroDiagram.Export.Assets.Fonts.NotoSansSC-Regular.otf",
+        "MetroDiagram.Export.Assets.Fonts.NotoSansSC-Bold.otf",
+        "MetroDiagram.Export.Assets.Fonts.OFL-LICENSE.txt"
+    })
+    {
+        Assert(resources.Contains(expected, StringComparer.Ordinal), $"Bundled font resource '{expected}' is missing.");
+        using Stream? stream = typeof(MetroDiagram.Export.BundledFonts).Assembly.GetManifestResourceStream(expected);
+        Assert(stream is not null && stream.Length > 0, $"Bundled font resource '{expected}' is empty.");
+    }
+}
+
+static void ViewerPngExportFallsBackToBundledCjkFonts()
+{
+    const string svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180">
+          <rect width="640" height="180" fill="#ffffff" />
+          <text x="36" y="104" font-family="Definitely Missing Font, Noto Sans SC, Arial, sans-serif" font-size="54" font-weight="700" fill="#17212b">地铁线路图 Metro Diagram</text>
+        </svg>
+        """;
+    string path = Path.Combine(Path.GetTempPath(), $"metro-cjk-font-test-{Guid.NewGuid():N}.png");
+    try
+    {
+        MetroDiagram.Export.SvgDocumentExporter.ExportPng(svg, path);
+        using SkiaSharp.SKBitmap? bitmap = SkiaSharp.SKBitmap.Decode(path);
+        Assert(bitmap is not null, "Bundled-font fallback PNG could not be decoded.");
+        Assert(bitmap!.Width == 640 && bitmap.Height == 180, "Bundled-font fallback PNG changed the requested canvas size.");
+
+        int darkPixels = 0;
+        for (int y = 35; y < 125; y++)
+        {
+            for (int x = 20; x < 620; x++)
+            {
+                SkiaSharp.SKColor pixel = bitmap.GetPixel(x, y);
+                if (pixel.Red < 180 || pixel.Green < 180 || pixel.Blue < 180)
+                {
+                    darkPixels++;
+                }
+            }
+        }
+
+        Assert(darkPixels > 1200, $"Bundled-font fallback rendered too little text ({darkPixels} dark pixels).");
+    }
+    finally
+    {
+        File.Delete(path);
+    }
 }
 
 static void PngExportWritesDecodableImageAtSvgSize()

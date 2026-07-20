@@ -5,6 +5,9 @@
     <LangVersion>9.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <Version>$(MetroDiagramModVersion)</Version>
+    <FileVersion>$(MetroDiagramModFileVersion)</FileVersion>
+    <InformationalVersion>$(MetroDiagramModInformationalVersion)</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

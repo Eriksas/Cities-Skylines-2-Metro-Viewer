@@ -16,7 +16,7 @@ $zipPath = Join-Path $candidateRoot "$packageName-win-x64.zip"
 $viewerSource = Join-Path $repoRoot 'artifacts\viewer-win-x64-self-contained'
 $modSource = Join-Path $LocalModsPath 'CS2 Metro'
 $propsPath = Join-Path $repoRoot 'Directory.Build.props'
-$embeddedVersion = ([xml](Get-Content -LiteralPath $propsPath -Raw)).Project.PropertyGroup.InformationalVersion
+$embeddedVersion = ([xml](Get-Content -LiteralPath $propsPath -Raw)).Project.PropertyGroup.MetroDiagramModInformationalVersion
 
 function Assert-UnderPath {
     param(

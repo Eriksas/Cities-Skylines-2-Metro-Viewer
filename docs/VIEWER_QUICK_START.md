@@ -1,8 +1,9 @@
 # CS2 Metro Diagram Viewer Quick Start
 
-Version: `v0.1.0-beta.9`
+Viewer version: `v0.1.0`
 
-This is a beta build, not a stable release.
+This is the first stable desktop Viewer release. The separately distributed
+in-game Mod remains beta.
 
 ## Run
 

@@ -3,6 +3,9 @@
 	<PropertyGroup>
 		<Configurations>Debug;Release</Configurations>
 		<CsiiToolPath Condition="'$(CsiiToolPath)' == ''">$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))</CsiiToolPath>
+		<Version>$(MetroDiagramModVersion)</Version>
+		<FileVersion>$(MetroDiagramModFileVersion)</FileVersion>
+		<InformationalVersion>$(MetroDiagramModInformationalVersion)</InformationalVersion>
 	
 		<!--The file where mod information which is required for publishing mod on PDX mods are stored-->
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>

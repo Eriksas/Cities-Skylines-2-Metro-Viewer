@@ -1,10 +1,11 @@
-# Feedback Template - v0.1.0-beta.9
+# Feedback Template - Viewer v0.1.0 / Mod 0.1.0-beta.8
 
 Please include as much of this information as possible.
 
 ## Environment
 
-- CS2 Metro Diagram version: `v0.1.0-beta.9`
+- Desktop Viewer version: `v0.1.0`
+- In-game Mod version: `0.1.0-beta.8`
 - Cities: Skylines II game version:
 - Operating system:
 - Are other transport-related mods enabled? If yes, list them:

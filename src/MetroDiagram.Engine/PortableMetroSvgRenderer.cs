@@ -303,7 +303,7 @@ namespace MetroDiagram.Engine
         {
             int starts = ComputeAnnealStartCount(layout.Positions.Length, options.AnnealAttemptLimit);
             Point2[] initialPositions = (Point2[])layout.Positions.Clone();
-            Point2[] bestPositions = null;
+            Point2[]? bestPositions = null;
             double bestCost = double.MaxValue;
 
             for (int start = 0; start < starts; start++)
@@ -1088,8 +1088,7 @@ namespace MetroDiagram.Engine
             MapFrame mapFrame = CreateMapFrame(options);
             foreach (KeyValuePair<string, Point2> pair in stationPoints)
             {
-                MetroSnapshotStation station;
-                if (!stations.TryGetValue(pair.Key, out station))
+                if (!stations.TryGetValue(pair.Key, out MetroSnapshotStation? station) || station is null)
                 {
                     continue;
                 }
@@ -1115,7 +1114,7 @@ namespace MetroDiagram.Engine
             }
 
             double legendX = options.Width - options.LegendWidth + 24;
-            string legendHeader = string.IsNullOrEmpty(options.LegendHeader) ? "Lines" : options.LegendHeader;
+            string legendHeader = string.IsNullOrEmpty(options.LegendHeader) ? "Lines" : options.LegendHeader!;
             svg.Append("<g class=\"legend\"><text x=\"").Append(F(legendX)).Append("\" y=\"72\" font-family=\"").Append(SvgFontFamily).Append("\" font-size=\"16\" font-weight=\"700\" fill=\"#263442\">").Append(Xml(legendHeader)).Append("</text>");
             for (int i = 0; i < routes.Count; i++)
             {
@@ -1865,9 +1864,9 @@ namespace MetroDiagram.Engine
             return "#4b67c8";
         }
 
-        private static string GetTitle(string cityName, string titleSuffix)
+        private static string GetTitle(string? cityName, string? titleSuffix)
         {
-            string suffix = string.IsNullOrEmpty(titleSuffix) ? " Metro Diagram" : titleSuffix;
+            string suffix = string.IsNullOrEmpty(titleSuffix) ? " Metro Diagram" : titleSuffix!;
             return string.IsNullOrWhiteSpace(cityName) ? "CS2" + suffix : cityName + suffix;
         }
 
@@ -1875,7 +1874,7 @@ namespace MetroDiagram.Engine
 
         private static string F(double value) { return value.ToString("0.###", CultureInfo.InvariantCulture); }
 
-        private static string Xml(string value)
+        private static string Xml(string? value)
         {
             return (value ?? string.Empty).Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
         }

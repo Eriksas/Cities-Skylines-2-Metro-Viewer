@@ -1,6 +1,7 @@
-# CS2 Metro Diagram v0.1.0-beta.9 Quick Start
+# CS2 Metro Diagram Quick Start
 
-This is a beta build for testing. It is not a stable release.
+Desktop Viewer: `v0.1.0`. In-game Mod: `0.1.0-beta.8`. The Viewer is stable;
+the Mod remains a beta build for testing.
 
 ## What Is Included
 

@@ -9,9 +9,11 @@
 	<LongDescription>
 Turn the metro/subway network of your Cities: Skylines II city into a clean, readable metro map.
 
-Beta.6 includes a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
+The current beta includes a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
 
 For the most complete official-style schematic map, export your city's metro network to JSON and open it in the free companion Windows Viewer. The Viewer can save SVG, PNG, or PDF for wallpapers, posters, printing, and sharing.
+
+The companion Windows Viewer is released separately on GitHub and is now at v0.1.0. Its version may be newer than the in-game Mod because Viewer-only updates do not require a duplicate Paradox Mods upload.
 
 How to use:
 1. Load a city and click the metro-map button in the top-right toolbar for the in-game preview.

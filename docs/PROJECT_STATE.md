@@ -2,16 +2,19 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0-beta.9`
+Repository and companion Viewer: `v0.1.0`
 
-Current public releases: Viewer `v0.1.0-beta.9` on GitHub; in-game Mod
+Current public releases: Viewer `v0.1.0` on GitHub; in-game Mod
 `0.1.0-beta.8` on the existing public Paradox Mods ModId `146643`.
+
+The PDX page metadata has been refreshed to explain the independent stable
+Viewer release. The Mod binary/version was intentionally not republished.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on
 2026-07-16 after universal offline framing validation.
 
-This is beta software. It is not a stable release.
+The desktop Viewer is the first stable release. The in-game Mod remains beta.
 
 ## Current Status
 
@@ -129,7 +132,7 @@ reported `New mod version published` for ModId `146643`; GitHub Release
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0-beta.9` (published)
+- Repository/Viewer release line: `v0.1.0` (published)
 - Paradox Mods release: `0.1.0-beta.8` (published 2026-07-18)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`

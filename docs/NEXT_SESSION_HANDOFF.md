@@ -20,9 +20,18 @@ docs\archive\historical
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0-beta.9`
+Repository and Viewer: `v0.1.0`
 
 Paradox Mods current release: `v0.1.0-beta.8` (Public, existing ModId `146643`)
+
+Viewer and Mod now use independent version sources. Desktop packaging reads
+`MetroDiagramViewerInformationalVersion`; `CS2 Metro` and
+`MetroDiagram.Engine` explicitly read the Mod version properties. Do not bump
+or republish the PDX Mod for a Viewer-only release.
+
+The PDX page metadata update for ModId `146643` completed successfully without
+creating a new Mod version. Viewer v0.1.0 validation is 0-warning build, 167
+tests, CS2 post-process, self-contained publish, and startup smoke.
 
 ## Beta.6 Publication Note
 

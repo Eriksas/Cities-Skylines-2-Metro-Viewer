@@ -1,6 +1,7 @@
-# Known Issues - v0.1.0-beta.9
+# Known Issues - Viewer v0.1.0 / Mod 0.1.0-beta.8
 
-This is a beta build. It is intended for testing and feedback, not production use.
+The desktop Viewer is stable. The in-game Mod remains beta and should still be
+treated as test software, although its preview/export path is read-only.
 
 ## Current Limitations
 

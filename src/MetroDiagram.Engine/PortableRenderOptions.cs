@@ -41,12 +41,12 @@ namespace MetroDiagram.Engine
         /// historical "{city} Metro Diagram"). Null or empty falls back to the
         /// default so existing outputs stay byte-identical.
         /// </summary>
-        public string TitleSuffix { get; set; }
+        public string? TitleSuffix { get; set; }
 
         /// <summary>
         /// Legend header text; null or empty falls back to "Lines".
         /// </summary>
-        public string LegendHeader { get; set; }
+        public string? LegendHeader { get; set; }
     }
 
     public sealed class PortableRenderResult

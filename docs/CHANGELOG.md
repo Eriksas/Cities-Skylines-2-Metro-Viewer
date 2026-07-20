@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.0 - 2026-07-20
+
+First stable desktop Viewer release. This promotes the validated beta.9 Viewer
+feature set without changing the in-game Mod, which remains on
+`0.1.0-beta.8` on Paradox Mods.
+
+- Split Viewer/toolchain and Mod version sources so desktop releases no longer
+  force duplicate PDX uploads.
+- Viewer title, packaging scripts, build information, and documentation now use
+  `v0.1.0`; the CS2 Mod and portable in-game Engine remain on beta.8.
+- Added regression coverage for fit-window preview, persisted SVG/PNG/PDF save
+  format, bundled Noto Sans SC resources, and missing-font PNG fallback.
+- Cleared the remaining nullable warnings in the portable Engine without
+  changing rendering behavior.
+- Refreshed the existing public PDX page metadata only; no duplicate Mod binary
+  was uploaded.
+
 ## v0.1.0-beta.9 - 2026-07-19
 
 Viewer experience release: sheet header redesign, bundled CJK typography,

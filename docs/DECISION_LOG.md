@@ -6,6 +6,24 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Release The Viewer And Mod On Independent Version Trains
+
+Decision: promote the desktop Viewer/toolchain to stable `v0.1.0`, while the
+existing public in-game Mod stays at `0.1.0-beta.8` until a game-side change
+needs a new PDX binary. Store both version sources in `Directory.Build.props`;
+Mod-owned projects must explicitly select the Mod properties.
+
+Reason: the Viewer can evolve in typography, preview, export, and desktop UX
+without changing any game assembly. Coupling both products to one version
+created pressure to upload duplicate Mod binaries and made release state
+ambiguous for users.
+
+Consequence: Viewer scripts and GitHub Releases use the Viewer version; the CS2
+project, portable Engine, exporter generator version, and PDX ModVersion use the
+Mod version. Viewer-only releases may update PDX page metadata with
+`UpdatePublishedConfiguration`, but must not call `PublishNewVersion` or
+`PublishNewMod`.
+
 ## Spend Leftover Anneal Budget On Restarts, Never On Per-map Tuning
 
 Decision: when one anneal pass (stationCount x 300 attempts) uses less than

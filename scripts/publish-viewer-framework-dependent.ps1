@@ -2,10 +2,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-# Keep package metadata aligned with the app and release scripts.
-$version = ([xml](Get-Content (Join-Path $repoRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.InformationalVersion
+# Keep package metadata aligned with the desktop Viewer release train.
+$version = ([xml](Get-Content (Join-Path $repoRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.MetroDiagramViewerInformationalVersion
 if ([string]::IsNullOrWhiteSpace($version)) {
-    throw 'Could not read InformationalVersion from Directory.Build.props.'
+    throw 'Could not read MetroDiagramViewerInformationalVersion from Directory.Build.props.'
 }
 $projectPath = Join-Path $repoRoot 'src\MetroDiagram.Viewer\MetroDiagram.Viewer.csproj'
 $outputPath = Join-Path $repoRoot 'artifacts\viewer-win-x64-framework-dependent'

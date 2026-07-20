@@ -1,5 +1,36 @@
 # Development Notes
 
+## 2026-07-20 - Viewer v0.1.0 and independent release trains
+
+- The desktop Viewer/toolchain is promoted from beta.9 to stable `v0.1.0`.
+- The existing public PDX Mod remains `0.1.0-beta.8` on ModId `146643`; this
+  desktop promotion does not upload another Mod binary.
+- `Directory.Build.props` now exposes separate
+  `MetroDiagramViewer*Version` and `MetroDiagramMod*Version` properties.
+  Desktop projects inherit the Viewer version, while `CS2 Metro.csproj` and
+  `MetroDiagram.Engine.csproj` explicitly override assembly metadata from the
+  Mod properties.
+- Viewer publish/package scripts read the Viewer property. The Phase 7 Mod
+  package script reads the Mod property.
+- Regression coverage locks fit-window preview, persisted SVG/PNG/PDF format,
+  embedded Noto Sans SC resources, runtime missing-font fallback, and the
+  Viewer/Mod version boundary.
+- The three remaining portable Engine nullable warnings were fixed by making
+  the title/legend/XML null boundary explicit; rendering semantics are
+  unchanged.
+- PDX publication for this release is metadata-only through
+  `UpdatePublishedConfiguration`. Keep `ModVersion=0.1.0-beta.8` and never use
+  `PublishNewMod` for the existing listing.
+- Final validation: solution build passed with zero warnings/errors; all 167
+  catalog tests passed; CS2 Release build/post-process passed; the self-contained
+  Viewer published and stayed running through the five-second startup smoke.
+- Assembly metadata verification: Viewer `v0.1.0` / file `0.1.0.14`; Mod and
+  portable Engine `v0.1.0-beta.8` / file `0.1.0.13`.
+- PDX `UpdatePublishedConfiguration` completed successfully for public ModId
+  `146643`. The publisher emitted its known cross-volume downloader
+  `IOERR_101` log before completing, then reported `Mod metadata Updated`; no
+  binary version was created.
+
 ## 2026-07-20 - Beta.9 review and PDX release boundary
 
 - Reviewed all commits after the published beta.8 Mod. Beta.9 changes are
