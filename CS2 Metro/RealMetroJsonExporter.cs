@@ -229,7 +229,7 @@ namespace CS2_Metro
             RouteGeometryDiagnostics.AppendSummary(context.Diagnostics, context.RouteGeometrySummary);
 
             context.Diagnostics.AppendLine();
-            context.Diagnostics.AppendLine($"Subway lines exported: {export.Lines.Count}");
+            context.Diagnostics.AppendLine($"Transit lines exported: {export.Lines.Count}");
             context.Diagnostics.AppendLine($"Stations exported: {export.Stations.Count}");
 
             return export;
@@ -345,8 +345,11 @@ namespace CS2_Metro
             int routeNumber = ReadRouteNumber(context.EntityManager, lineEntity);
             int waypointCount = GetWaypointCount(context.EntityManager, lineEntity);
             string color = ReadLineColor(context.EntityManager, lineEntity, export.Lines.Count, context.Diagnostics, lineEntityId);
+
+            string lineMode = ClassifyLineMode(context, lineEntity, out string modeReason);
+
             string lineNameSource;
-            string lineName = ReadLineName(context, lineEntity, routeNumber, lineIndex, out lineNameSource);
+            string lineName = ReadLineName(context, lineEntity, routeNumber, lineIndex, lineMode ?? MetroLineModes.Metro, out lineNameSource);
 
             context.Diagnostics.AppendLine($"Line candidate {lineEntityId}");
             context.Diagnostics.AppendLine($"- RouteNumber: {(routeNumber > 0 ? routeNumber.ToString(CultureInfo.InvariantCulture) : "unavailable")}");
@@ -354,14 +357,14 @@ namespace CS2_Metro
             context.Diagnostics.AppendLine($"- Waypoint count: {waypointCount}");
             context.Diagnostics.AppendLine($"- Name: {lineName} (source: {lineNameSource})");
 
-            if (!IsSubwayLine(context, lineEntity, out string subwayReason))
+            if (lineMode == null)
             {
-                context.Diagnostics.AppendLine($"- Skipped line: not identified as Subway. Checks: {subwayReason}");
+                context.Diagnostics.AppendLine($"- Skipped line: not an included transit mode. Checks: {modeReason}");
                 context.Diagnostics.AppendLine();
                 return;
             }
 
-            context.Diagnostics.AppendLine($"- Subway match: {subwayReason}");
+            context.Diagnostics.AppendLine($"- Mode match ({lineMode}): {modeReason}");
             RouteGeometryDiagnostics.AppendLineDiagnostics(context.EntityManager, context.NameSystem, lineEntity, lineName, routeNumber, waypointCount, context.Diagnostics, context.RouteGeometrySummary);
 
             MetroLineExport line = new MetroLineExport
@@ -369,7 +372,7 @@ namespace CS2_Metro
                 Id = lineEntityId,
                 Name = lineName,
                 Color = color,
-                Mode = "metro"
+                Mode = lineMode
             };
             RoutePathPointExtractionResult pathPointResult = RoutePathPointExtractor.Extract(context.EntityManager, lineEntity);
             line.PathPoints.AddRange(pathPointResult.PathPoints);
@@ -420,9 +423,13 @@ namespace CS2_Metro
 
             bool isSubwayStop = context.EntityManager.HasComponent<SubwayStop>(connectedStop);
             bool isTransportStop = context.EntityManager.HasComponent<RouteTransportStop>(connectedStop);
-            if (!isSubwayStop && !isTransportStop)
+            // Defensive: tram/train stops usually also carry the shared TransportStop,
+            // but accept their dedicated components explicitly in case one does not.
+            bool isRailStop = context.EntityManager.HasComponent<TramStop>(connectedStop)
+                || context.EntityManager.HasComponent<TrainStop>(connectedStop);
+            if (!isSubwayStop && !isTransportStop && !isRailStop)
             {
-                context.Diagnostics.AppendLine($"  - Skipped waypoint[{waypointIndex}] {FormatEntity(waypointEntity)}: connected entity {FormatEntity(connectedStop)} has no SubwayStop or TransportStop.");
+                context.Diagnostics.AppendLine($"  - Skipped waypoint[{waypointIndex}] {FormatEntity(waypointEntity)}: connected entity {FormatEntity(connectedStop)} has no Subway/Transport/Tram/Train stop.");
                 return;
             }
 
@@ -459,8 +466,13 @@ namespace CS2_Metro
             line.Stops.Add(station.Id);
         }
 
-        private static bool IsSubwayLine(ExportContext context, Entity lineEntity, out string reason)
+        // Returns the exported mode string (metro/tram/train) for a line, or null
+        // to skip it. When ExportTramAndTrainLines is OFF only Subway lines match
+        // and this is behaviourally identical to the old IsSubwayLine gate, so
+        // subway-only output stays byte-for-byte unchanged.
+        private static string ClassifyLineMode(ExportContext context, Entity lineEntity, out string reason)
         {
+            bool includeExtra = Mod.Settings != null && Mod.Settings.ExportTramAndTrainLines;
             List<string> checks = new List<string>();
 
             try
@@ -468,13 +480,14 @@ namespace CS2_Metro
                 if (context.EntityManager.HasComponent<PrefabRef>(lineEntity))
                 {
                     Entity prefab = context.EntityManager.GetComponentData<PrefabRef>(lineEntity).m_Prefab;
-                    if (IsTransportLinePrefabSubway(context.EntityManager, prefab))
+                    if (TryReadLinePrefabTransportType(context.EntityManager, prefab, out TransportType lineType)
+                        && TryMapIncludedMode(lineType, includeExtra, out string lineMode))
                     {
-                        reason = $"TransportLineData prefab {FormatEntity(prefab)} transport type Subway";
-                        return true;
+                        reason = $"TransportLineData prefab {FormatEntity(prefab)} transport type {lineType}";
+                        return lineMode;
                     }
 
-                    checks.Add($"TransportLineData prefab {FormatEntity(prefab)} not Subway/unreadable");
+                    checks.Add($"TransportLineData prefab {FormatEntity(prefab)} not an included mode/unreadable");
                 }
                 else
                 {
@@ -494,13 +507,14 @@ namespace CS2_Metro
                     if (models.Length > 0)
                     {
                         Entity primaryPrefab = models[0].m_PrimaryPrefab;
-                        if (IsVehiclePrefabSubway(context.EntityManager, primaryPrefab))
+                        if (TryReadVehiclePrefabTransportType(context.EntityManager, primaryPrefab, out TransportType vehicleType)
+                            && TryMapIncludedMode(vehicleType, includeExtra, out string vehicleMode))
                         {
-                            reason = $"VehicleModel[0].m_PrimaryPrefab {FormatEntity(primaryPrefab)} transport type Subway";
-                            return true;
+                            reason = $"VehicleModel[0].m_PrimaryPrefab {FormatEntity(primaryPrefab)} transport type {vehicleType}";
+                            return vehicleMode;
                         }
 
-                        checks.Add($"VehicleModel[0] primary prefab {FormatEntity(primaryPrefab)} not Subway/unreadable");
+                        checks.Add($"VehicleModel[0] primary prefab {FormatEntity(primaryPrefab)} not an included mode/unreadable");
                     }
                     else
                     {
@@ -526,14 +540,31 @@ namespace CS2_Metro
                     {
                         Entity waypoint = waypoints[i].m_Waypoint;
                         Entity connected = ReadConnectedEntity(context.EntityManager, waypoint);
-                        if (IsValidEntity(context.EntityManager, connected) && context.EntityManager.HasComponent<SubwayStop>(connected))
+                        if (!IsValidEntity(context.EntityManager, connected))
+                        {
+                            continue;
+                        }
+
+                        if (context.EntityManager.HasComponent<SubwayStop>(connected))
                         {
                             reason = $"RouteWaypoint[{i}] connected to SubwayStop {FormatEntity(connected)}";
-                            return true;
+                            return MetroLineModes.Metro;
+                        }
+
+                        if (includeExtra && context.EntityManager.HasComponent<TramStop>(connected))
+                        {
+                            reason = $"RouteWaypoint[{i}] connected to TramStop {FormatEntity(connected)}";
+                            return MetroLineModes.Tram;
+                        }
+
+                        if (includeExtra && context.EntityManager.HasComponent<TrainStop>(connected))
+                        {
+                            reason = $"RouteWaypoint[{i}] connected to TrainStop {FormatEntity(connected)}";
+                            return MetroLineModes.Train;
                         }
                     }
 
-                    checks.Add("No waypoint connected to SubwayStop");
+                    checks.Add("No waypoint connected to an included stop type");
                 }
                 else
                 {
@@ -542,10 +573,36 @@ namespace CS2_Metro
             }
             catch (Exception ex)
             {
-                checks.Add($"Waypoint SubwayStop check failed: {ex.GetType().Name}: {ex.Message}");
+                checks.Add($"Waypoint stop check failed: {ex.GetType().Name}: {ex.Message}");
             }
 
             reason = string.Join("; ", checks.ToArray());
+            return null;
+        }
+
+        // Subway is always included; tram/train only when opted in. Anything else
+        // (bus, ship, air, taxi) is never a diagram mode.
+        private static bool TryMapIncludedMode(TransportType transportType, bool includeExtra, out string mode)
+        {
+            if (transportType == TransportType.Subway)
+            {
+                mode = MetroLineModes.Metro;
+                return true;
+            }
+
+            if (includeExtra && transportType == TransportType.Tram)
+            {
+                mode = MetroLineModes.Tram;
+                return true;
+            }
+
+            if (includeExtra && transportType == TransportType.Train)
+            {
+                mode = MetroLineModes.Train;
+                return true;
+            }
+
+            mode = null;
             return false;
         }
 
@@ -615,18 +672,28 @@ namespace CS2_Metro
             }
         }
 
-        private static bool IsTransportLinePrefabSubway(EntityManager entityManager, Entity prefab)
+        private static bool TryReadLinePrefabTransportType(EntityManager entityManager, Entity prefab, out TransportType transportType)
         {
-            return IsValidEntity(entityManager, prefab)
-                && entityManager.HasComponent<TransportLineData>(prefab)
-                && entityManager.GetComponentData<TransportLineData>(prefab).m_TransportType == TransportType.Subway;
+            if (IsValidEntity(entityManager, prefab) && entityManager.HasComponent<TransportLineData>(prefab))
+            {
+                transportType = entityManager.GetComponentData<TransportLineData>(prefab).m_TransportType;
+                return true;
+            }
+
+            transportType = default;
+            return false;
         }
 
-        private static bool IsVehiclePrefabSubway(EntityManager entityManager, Entity prefab)
+        private static bool TryReadVehiclePrefabTransportType(EntityManager entityManager, Entity prefab, out TransportType transportType)
         {
-            return IsValidEntity(entityManager, prefab)
-                && entityManager.HasComponent<PublicTransportVehicleData>(prefab)
-                && entityManager.GetComponentData<PublicTransportVehicleData>(prefab).m_TransportType == TransportType.Subway;
+            if (IsValidEntity(entityManager, prefab) && entityManager.HasComponent<PublicTransportVehicleData>(prefab))
+            {
+                transportType = entityManager.GetComponentData<PublicTransportVehicleData>(prefab).m_TransportType;
+                return true;
+            }
+
+            transportType = default;
+            return false;
         }
 
         private static int ReadRouteNumber(EntityManager entityManager, Entity lineEntity)
@@ -853,7 +920,7 @@ namespace CS2_Metro
             return usedFallback ? $"Station {stationNumber}" : name;
         }
 
-        private static string ReadLineName(ExportContext context, Entity lineEntity, int routeNumber, int lineIndex, out string source)
+        private static string ReadLineName(ExportContext context, Entity lineEntity, int routeNumber, int lineIndex, string mode, out string source)
         {
             // A player-typed custom name is authoritative.
             try
@@ -877,7 +944,7 @@ namespace CS2_Metro
             if (routeNumber > 0)
             {
                 source = "generated";
-                return BuildGeneratedLineName(routeNumber);
+                return BuildGeneratedLineName(routeNumber, mode);
             }
 
             string rendered = ReadDisplayName(context, lineEntity);
@@ -888,10 +955,10 @@ namespace CS2_Metro
             }
 
             source = "fallback";
-            return BuildGeneratedLineName(lineIndex + 1);
+            return BuildGeneratedLineName(lineIndex + 1, mode);
         }
 
-        private static string BuildGeneratedLineName(int number)
+        private static string BuildGeneratedLineName(int number, string mode)
         {
             bool useChinese = false;
             try
@@ -903,9 +970,21 @@ namespace CS2_Metro
             {
             }
 
-            return useChinese
-                ? string.Format(CultureInfo.InvariantCulture, "地铁 {0} 号线", number)
-                : string.Format(CultureInfo.InvariantCulture, "Metro Line {0}", number);
+            switch (MetroLineModes.Normalize(mode))
+            {
+                case MetroLineModes.Tram:
+                    return useChinese
+                        ? string.Format(CultureInfo.InvariantCulture, "有轨电车 {0} 号线", number)
+                        : string.Format(CultureInfo.InvariantCulture, "Tram {0}", number);
+                case MetroLineModes.Train:
+                    return useChinese
+                        ? string.Format(CultureInfo.InvariantCulture, "城际 {0} 号线", number)
+                        : string.Format(CultureInfo.InvariantCulture, "Line {0} (Intercity)", number);
+                default:
+                    return useChinese
+                        ? string.Format(CultureInfo.InvariantCulture, "地铁 {0} 号线", number)
+                        : string.Format(CultureInfo.InvariantCulture, "Metro Line {0}", number);
+            }
         }
 
         private static string ReadDisplayName(ExportContext context, Entity entity)

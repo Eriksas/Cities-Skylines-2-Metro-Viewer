@@ -37,6 +37,14 @@ namespace MetroDiagram.Engine
         public bool AdaptCanvasHeightToNetwork { get; set; } = true;
 
         /// <summary>
+        /// Opt-in, default off. When false, non-metro lines (tram/train) are
+        /// excluded so the in-game preview stays metro-only and byte-identical.
+        /// The portable renderer does not yet style tram/train distinctly, so
+        /// this only gates their inclusion.
+        /// </summary>
+        public bool IncludeTramsAndTrains { get; set; }
+
+        /// <summary>
         /// Appended to the city name to form the sheet title (defaults keep the
         /// historical "{city} Metro Diagram"). Null or empty falls back to the
         /// default so existing outputs stay byte-identical.

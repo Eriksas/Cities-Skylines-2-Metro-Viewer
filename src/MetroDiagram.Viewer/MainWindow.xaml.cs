@@ -753,6 +753,7 @@ public partial class MainWindow : Window
             HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
             EnableVirtualTransferHints = VirtualTransferHintsCheckBox.IsChecked == true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
+            IncludeTramsAndTrains = IncludeTramsTrainsCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
             UsePathPoints = UsePathPointsCheckBox.IsChecked == true,
@@ -2866,6 +2867,7 @@ public partial class MainWindow : Window
             ShowNonImportantStationLabelsCheckBox.IsChecked = !settings.HideGenericStationLabels;
             VirtualTransferHintsCheckBox.IsChecked = settings.EnableVirtualTransferHints;
             HideCrowdedCheckBox.IsChecked = settings.HideCrowdedLabels;
+            IncludeTramsTrainsCheckBox.IsChecked = settings.IncludeTramsAndTrains;
             AlwaysInterchangesCheckBox.IsChecked = settings.AlwaysShowInterchanges;
             AlwaysTerminalsCheckBox.IsChecked = settings.AlwaysShowTerminals;
             UsePathPointsCheckBox.IsChecked = settings.UsePathPoints;
@@ -2931,6 +2933,7 @@ public partial class MainWindow : Window
         ShowNonImportantStationLabelsCheckBox.Content = T("ShowNonImportantLabels");
         VirtualTransferHintsCheckBox.Content = T("VirtualTransferHints");
         HideCrowdedCheckBox.Content = T("HideCrowded");
+        IncludeTramsTrainsCheckBox.Content = T("IncludeTramsTrains");
         AlwaysInterchangesCheckBox.Content = T("AlwaysInterchanges");
         AlwaysTerminalsCheckBox.Content = T("AlwaysTerminals");
         UsePathPointsCheckBox.Content = T("UsePathPoints");
@@ -2998,6 +3001,7 @@ public partial class MainWindow : Window
             HideGenericStationLabels = ShowNonImportantStationLabelsCheckBox.IsChecked != true,
             EnableVirtualTransferHints = VirtualTransferHintsCheckBox.IsChecked == true,
             HideCrowdedLabels = HideCrowdedCheckBox.IsChecked == true,
+            IncludeTramsAndTrains = IncludeTramsTrainsCheckBox.IsChecked == true,
             AlwaysShowInterchanges = AlwaysInterchangesCheckBox.IsChecked == true,
             AlwaysShowTerminals = AlwaysTerminalsCheckBox.IsChecked == true,
             UsePathPoints = UsePathPointsCheckBox.IsChecked == true,

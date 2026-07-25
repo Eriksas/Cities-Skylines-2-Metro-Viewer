@@ -1,5 +1,51 @@
 # Development Notes
 
+## 2026-07-24 Opt-in Tram + Intercity-Train Support (unreleased)
+
+- Feature request #6. Scoped by the owner: trams + intercity trains only (no
+  bus), opt-in default-off, Viewer/export/CLI now (in-game styling deferred),
+  trams keep player color (differentiated by style, not forced grey).
+- Preceded by a 7-agent understand workflow (exhaustive code-path map) and a
+  4-dimension adversarial review workflow.
+- Key enabling fact: the per-line `mode` field was already plumbed end-to-end
+  (JSON -> MetroLine.Mode -> MetroSnapshotLine.Mode -> revision hash); no schema
+  change. CS2 `TransportType` (Bus=0/Train=1/Tram=3/Subway=8) and dedicated
+  `Game.Routes.TramStop`/`TrainStop` confirmed in Game.dll.
+- Architecture: two default-off gates. (1) Mod `Setting.ExportTramAndTrainLines`
+  widens `RealMetroJsonExporter.ClassifyLineMode` (replaces IsSubwayLine) to
+  accept Tram/Train and tag mode; off = byte-identical subway-only export.
+  (2) `SvgRenderOptions.IncludeTramsAndTrains` / `PortableRenderOptions.
+  IncludeTramsAndTrains` filter non-metro lines before family resolution when
+  off, so a multimodal JSON renders identically to its metro subset.
+- Shared `MetroDiagram.Engine.MetroLineModes` constants (metro/tram/train +
+  Normalize/IsNonMetro) keep exporter/resolver/renderer spelling in lockstep.
+- Styling (desktop only this pass): metro unchanged (byte-identical); tram =
+  same color, ~62% width (inline style); intercity train = colored base +
+  white dashed cross-tie overlay reusing the express-stripe technique
+  (`data-railway-ties`), plus matching legend swatches. Mode markup
+  (`data-line-mode`) is emitted ONLY for non-metro, so metro output is
+  unchanged. `DisplayLineFamily` gained a `Mode` member; mode joins the family
+  group key and the VisibleLaneResolver lane key (empty suffix for metro) so
+  same-numbered cross-mode lines never merge.
+- **Adversarial-review catch (fixed)**: the intercity-train white cross-tie
+  overlay polyline uses `class="railway-ties"`, which has no `.route` CSS rule,
+  so without an explicit `fill="none"` the open polyline filled its implied area
+  solid black over the whole train route. Added `fill="none"` (Corridors.cs).
+  Confirmed visually on a 3-mode fixture: metro solid, tram thinner same-color,
+  train colored-with-white-ties, no black blob. The express-stripe overlay
+  avoided this only because `.express-decoration` already carries `fill:none`.
+- **Byte-stability caveat learned**: schematic-map AND schematic-v2 (the
+  retained legacy/experimental comparison modes) are NON-deterministic
+  run-to-run on the Anling export in BOTH the pre and post trees (baseline: 4
+  distinct hashes / 5 runs; post: 2 / 5) — a pre-existing property, NOT
+  introduced here. The deterministic product modes (schematic-anneal default,
+  geographic) are byte-identical pre-vs-post on Sheffield/Zhaoqing/Anling/Oster
+  (8/8). Do not use schematic-map/v2 for byte baselines.
+- Deferred/known: in-game portable renderer keeps metro-only (option + filter
+  added, styling + panel toggle not yet); network.type stays "metro" (unused
+  downstream); the diagnostic-only RouteGeometryDiagnostics.IsSubwayLine copy
+  was left subway-worded (does not affect the export).
+
 ## 2026-07-20 - Viewer v0.1.0 and independent release trains
 
 - Release source/tag commit: `ebbc1eb`.

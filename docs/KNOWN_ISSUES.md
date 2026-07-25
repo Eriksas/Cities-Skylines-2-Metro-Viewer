@@ -5,7 +5,11 @@ treated as test software, although its preview/export path is read-only.
 
 ## Current Limitations
 
-- Only metro/subway networks are supported.
+- Metro/subway is the default. Tram and intercity-train lines are supported as an
+  opt-in (mod export option + Viewer/CLI "Include trams & trains"), off by default;
+  buses are not supported. In the Viewer, trams keep their player color as a thinner
+  line and intercity trains render with white railway cross-ties. The in-game preview
+  stays metro-only for now.
 - Offline save parsing is not supported. You must load a city and export from inside Cities: Skylines II.
 - Legacy `schematic-lite` has been removed from the toolchain. Historical outputs remain in old validation bundles and git history.
 - `schematic-v2` is experimental. It is a topology-first diagnostic base intended to preserve stop order, adjacency, interchange nodes, exact shared station-edge corridors, and pathPoints-based physical corridor hints before visual polish. It is not the alpha default.

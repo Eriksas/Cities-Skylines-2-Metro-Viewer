@@ -285,6 +285,12 @@ public sealed partial class MetroSvgRenderer
         return SvgVisualStyle.From(options).ExpressStripeWidth;
     }
 
+    // Trams read as a lighter rail: same player color, ~62% of the metro width.
+    private static double GetTramRouteWidth(SvgRenderOptions options)
+    {
+        return Math.Max(1.0, SvgVisualStyle.From(options).BaseRouteWidth * 0.62);
+    }
+
     private static bool ShouldRenderExpressCenterStripe(SvgRenderOptions options, DisplayLineFamily family)
     {
         return HasExpressServiceVariant(family)
@@ -310,10 +316,35 @@ public sealed partial class MetroSvgRenderer
         SvgRenderOptions options,
         string routeStyle = "")
     {
-        string styleAttribute = string.IsNullOrWhiteSpace(routeStyle)
+        string mode = MetroDiagram.Engine.MetroLineModes.Normalize(family.Mode);
+
+        // Tram keeps the player's color but reads as a thinner line. Metro is
+        // untouched so its markup stays byte-identical.
+        string effectiveRouteStyle = routeStyle;
+        if (mode == MetroDiagram.Engine.MetroLineModes.Tram)
+        {
+            string tramWidth = $"stroke-width: {Format(GetTramRouteWidth(options))};";
+            effectiveRouteStyle = string.IsNullOrWhiteSpace(routeStyle) ? tramWidth : $"{tramWidth} {routeStyle}";
+        }
+
+        string styleAttribute = string.IsNullOrWhiteSpace(effectiveRouteStyle)
             ? string.Empty
-            : $" style=\"{Escape(routeStyle)}\"";
+            : $" style=\"{Escape(effectiveRouteStyle)}\"";
         svg.AppendLine($"""<polyline {commonAttributes} stroke="{Escape(family.Color)}"{styleAttribute} />""");
+
+        // Intercity train keeps its color but gets white cross-ties over the top
+        // (railway convention), reusing the express-stripe overlay technique.
+        if (mode == MetroDiagram.Engine.MetroLineModes.Train)
+        {
+            double baseWidth = SvgVisualStyle.From(options).BaseRouteWidth;
+            string tieStyle = $"stroke-width: {Format(baseWidth)}; stroke-dasharray: {Format(Math.Max(2, baseWidth * 0.32))} {Format(Math.Max(6, baseWidth * 1.35))};";
+            // fill="none" is required: this polyline is not covered by the .route
+            // CSS rule (its class is railway-ties), so without it the open polyline
+            // fills its implied area solid black over the whole train route.
+            string tieAttributes = commonAttributes.Replace("class=\"route\"", "class=\"railway-ties\"", StringComparison.Ordinal);
+            svg.AppendLine($"""<polyline {tieAttributes} data-railway-ties="intercity" fill="none" stroke="#ffffff" style="{Escape(tieStyle)}" />""");
+        }
+
         if (!ShouldRenderExpressCenterStripe(options, family))
         {
             return;

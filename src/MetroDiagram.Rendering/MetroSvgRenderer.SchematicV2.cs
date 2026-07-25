@@ -356,6 +356,7 @@ public sealed partial class MetroSvgRenderer
             EnableServiceFamilyMerge = options.EnableServiceFamilyMerge,
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = options.EnableExpressCenterStripe,
+            IncludeTramsAndTrains = options.IncludeTramsAndTrains,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
             StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,

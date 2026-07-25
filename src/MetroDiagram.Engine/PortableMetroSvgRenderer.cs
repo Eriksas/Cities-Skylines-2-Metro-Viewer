@@ -40,7 +40,7 @@ namespace MetroDiagram.Engine
                 .Where(station => !string.IsNullOrWhiteSpace(station.Id))
                 .GroupBy(station => station.Id, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-            List<DisplayRoute> routes = ResolveDisplayRoutes(snapshot.Lines, options.MergeServiceFamilies);
+            List<DisplayRoute> routes = ResolveDisplayRoutes(snapshot.Lines, options.MergeServiceFamilies, options.IncludeTramsAndTrains);
             SourceProjector projector = SourceProjector.Create(snapshot, options, options.LayoutMode == PortableLayoutMode.Geographic);
             Dictionary<string, Point2> projectedStations = ProjectStations(stations.Values, projector);
 
@@ -112,12 +112,22 @@ namespace MetroDiagram.Engine
                 HideCrowdedLabels = options.HideCrowdedLabels,
                 MergeServiceFamilies = options.MergeServiceFamilies,
                 AnnealAttemptLimit = options.AnnealAttemptLimit,
-                AdaptCanvasHeightToNetwork = options.AdaptCanvasHeightToNetwork
+                AdaptCanvasHeightToNetwork = options.AdaptCanvasHeightToNetwork,
+                IncludeTramsAndTrains = options.IncludeTramsAndTrains,
+                TitleSuffix = options.TitleSuffix,
+                LegendHeader = options.LegendHeader
             };
         }
 
-        private static List<DisplayRoute> ResolveDisplayRoutes(IReadOnlyList<MetroSnapshotLine> lines, bool mergeFamilies)
+        private static List<DisplayRoute> ResolveDisplayRoutes(IReadOnlyList<MetroSnapshotLine> lines, bool mergeFamilies, bool includeTramsAndTrains)
         {
+            // Opt-in off: drop non-metro lines before merge so the in-game preview
+            // is metro-only and byte-identical (every existing snapshot is metro).
+            if (!includeTramsAndTrains)
+            {
+                lines = lines.Where(line => !MetroLineModes.IsNonMetro(line.Mode)).ToList();
+            }
+
             if (!mergeFamilies)
             {
                 return lines.Select(line => new DisplayRoute(GetFamilyKey(line), line)).ToList();

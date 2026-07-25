@@ -369,7 +369,12 @@ public sealed partial class MetroSvgRenderer
                     : string.Empty;
                 string schematicV2GuideAttributes = BuildSchematicV2RouteGuideAttributes(family, geometry);
                 string schematicV2ServiceAttributes = BuildSchematicV2ServiceFamilyAttributes(family, line, options);
-                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicMapBendAttributes}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} points=\"{pointList}\"";
+                // Metro emits no mode attribute (byte-identical); tram/train tag
+                // themselves so styling, the legend, and tests can select them.
+                string modeAttribute = MetroDiagram.Engine.MetroLineModes.IsNonMetro(family.Mode)
+                    ? $" data-line-mode=\"{Escape(family.Mode)}\""
+                    : string.Empty;
+                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{modeAttribute}{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicMapBendAttributes}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} points=\"{pointList}\"";
                 if (polyline.SharedCorridorStroke is not null)
                 {
                     AppendSharedCorridorRoutePolylines(svg, commonAttributes, polyline.SharedCorridorStroke, options);
@@ -1252,6 +1257,21 @@ public sealed partial class MetroSvgRenderer
         return new SvgRect(left, top, right, bottom);
     }
 
+    // Legend swatch that matches each line's mode styling. Metro emits the exact
+    // original single <line> (byte-identical); tram is thinner in the player's
+    // color; intercity train adds white cross-ties over the colored swatch.
+    private static void AppendLegendModeSwatch(StringBuilder svg, double x1, double x2, double y, DisplayLineFamily family, double baseWidth)
+    {
+        string mode = MetroDiagram.Engine.MetroLineModes.Normalize(family.Mode);
+        double width = mode == MetroDiagram.Engine.MetroLineModes.Tram ? Math.Max(1.0, baseWidth * 0.62) : baseWidth;
+        svg.AppendLine($"""<line x1="{Format(x1)}" y1="{Format(y)}" x2="{Format(x2)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(width)}" stroke-linecap="round" />""");
+        if (mode == MetroDiagram.Engine.MetroLineModes.Train)
+        {
+            string tieStyle = $"stroke-dasharray: {Format(Math.Max(2, baseWidth * 0.5))} {Format(Math.Max(4, baseWidth * 1.2))};";
+            svg.AppendLine($"""<line x1="{Format(x1)}" y1="{Format(y)}" x2="{Format(x2)}" y2="{Format(y)}" stroke="#ffffff" stroke-width="{Format(baseWidth)}" style="{Escape(tieStyle)}" data-legend-railway-ties="intercity" />""");
+        }
+    }
+
     private static void AppendLegend(StringBuilder svg, IReadOnlyList<DisplayLineFamily> families, SvgRenderOptions options, bool hasLegend)
     {
         if (!hasLegend)
@@ -1280,7 +1300,7 @@ public sealed partial class MetroSvgRenderer
         double y = legendY + legendTitleGap;
         foreach (DisplayLineFamily family in families)
         {
-            svg.AppendLine($"""<line x1="{Format(legendX)}" y1="{Format(y)}" x2="{Format(legendX + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(Math.Max(5, options.LineWidth * 0.57))}" stroke-linecap="round" />""");
+            AppendLegendModeSwatch(svg, legendX, legendX + sampleLength, y, family, Math.Max(5, options.LineWidth * 0.57));
             svg.AppendLine($"""<text class="legend-label" x="{Format(labelX)}" y="{Format(y + 5)}">{Escape(family.DisplayName)}</text>""");
 
             if (family.Variants.Count > 1)
@@ -1346,7 +1366,7 @@ public sealed partial class MetroSvgRenderer
             double x = itemAreaX + column * columnWidth;
             double y = panelY + 27 + row * rowHeight;
             double textX = x + sampleLength + 12;
-            svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(lineWidth)}" stroke-linecap="round" />""");
+            AppendLegendModeSwatch(svg, x, x + sampleLength, y, family, lineWidth);
             svg.AppendLine($"""<text class="legend-label" x="{Format(textX)}" y="{Format(y + 5)}">{Escape(family.DisplayName)}</text>""");
             if (HasExpressServiceVariant(family))
             {

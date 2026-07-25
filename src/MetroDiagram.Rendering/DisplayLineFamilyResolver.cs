@@ -1,4 +1,5 @@
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -23,21 +24,25 @@ internal static class DisplayLineFamilyResolver
         // placeholders, so the color keeps them separate. The family key only
         // gains a color suffix when a name is actually shared by several colors,
         // keeping existing outputs byte-identical.
-        List<IGrouping<(string FamilyKey, string ColorKey), LineWithIndex>> groups = lines
+        // Mode joins the group key so a tram and a metro line sharing a name
+        // (and color) can never merge into one family. All-metro corpora have a
+        // constant mode, so the grouping/order is byte-identical to before.
+        List<IGrouping<(string FamilyKey, string ColorKey, string Mode), LineWithIndex>> groups = lines
             .Select((line, index) => new LineWithIndex(line, index, ExtractFamilyParts(line)))
             .GroupBy(item => (
                 item.Parts.FamilyKey,
-                ColorKey: HasLineNumber(item.Parts.FamilyKey) ? string.Empty : NormalizeColorKey(item.Line.Color)))
+                ColorKey: HasLineNumber(item.Parts.FamilyKey) ? string.Empty : NormalizeColorKey(item.Line.Color),
+                Mode: MetroLineModes.Normalize(item.Line.Mode)))
             .ToList();
-        Dictionary<string, int> colorsPerName = groups
-            .GroupBy(group => group.Key.FamilyKey, StringComparer.Ordinal)
-            .ToDictionary(byName => byName.Key, byName => byName.Count(), StringComparer.Ordinal);
+        Dictionary<(string, string), int> colorsPerNameMode = groups
+            .GroupBy(group => (group.Key.FamilyKey, group.Key.Mode))
+            .ToDictionary(byNameMode => byNameMode.Key, byNameMode => byNameMode.Count());
 
         return groups
             .Select(group => CreateFamily(
                 group.ToList(),
                 stationsById,
-                colorsPerName[group.Key.FamilyKey] > 1 ? group.Key.ColorKey : null))
+                colorsPerNameMode[(group.Key.FamilyKey, group.Key.Mode)] > 1 ? group.Key.ColorKey : null))
             .ToList();
     }
 
@@ -79,7 +84,8 @@ internal static class DisplayLineFamilyResolver
             line.Color,
             line,
             [variant],
-            HasColorMismatch([line]));
+            HasColorMismatch([line]),
+            MetroLineModes.Normalize(line.Mode));
     }
 
     private static DisplayLineFamily CreateFamily(
@@ -112,7 +118,8 @@ internal static class DisplayLineFamilyResolver
             primary.Line.Color,
             primary.Line,
             variants,
-            HasColorMismatch(lines.Select(item => item.Line)));
+            HasColorMismatch(lines.Select(item => item.Line)),
+            MetroLineModes.Normalize(primary.Line.Mode));
     }
 
     private static DisplayServiceVariant CreateVariant(
@@ -243,7 +250,8 @@ internal sealed record DisplayLineFamily(
     string? Color,
     MetroLine PrimaryLine,
     List<DisplayServiceVariant> Variants,
-    bool HasColorMismatch);
+    bool HasColorMismatch,
+    string Mode);
 
 internal sealed record DisplayServiceVariant(
     string LineId,

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -28,6 +29,13 @@ public sealed partial class MetroSvgRenderer
         MetroNetwork network = document.Network ?? new MetroNetwork();
         List<MetroStation> stations = network.Stations ?? [];
         List<MetroLine> lines = network.Lines ?? [];
+        if (!options.IncludeTramsAndTrains)
+        {
+            // Opt-in off: drop non-metro lines up front so families, terminals,
+            // geometry, and legend are all metro-only — a multimodal JSON then
+            // renders byte-identically to its metro-only subset.
+            lines = lines.Where(line => !MetroLineModes.IsNonMetro(line.Mode ?? MetroLineModes.Metro)).ToList();
+        }
         Dictionary<string, MetroStation> stationsById = stations
             .Where(station => !string.IsNullOrWhiteSpace(station.Id))
             .GroupBy(station => station.Id!, StringComparer.Ordinal)
@@ -468,6 +476,7 @@ public sealed partial class MetroSvgRenderer
             EnableServiceFamilyMerge = options.EnableServiceFamilyMerge,
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = true,
+            IncludeTramsAndTrains = options.IncludeTramsAndTrains,
             LayoutOverrides = options.LayoutOverrides,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,

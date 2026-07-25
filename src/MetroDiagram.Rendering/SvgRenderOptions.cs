@@ -105,6 +105,12 @@ public sealed class SvgRenderOptions
 
     public bool EnableExpressCenterStripe { get; init; }
 
+    // Opt-in, default off. When false, non-metro lines (tram/train) are excluded
+    // from the render entirely, so a multimodal JSON renders byte-identically to
+    // its metro-only subset. When true, tram/train lines are drawn with distinct
+    // styling and legend entries.
+    public bool IncludeTramsAndTrains { get; init; }
+
     public LayoutOverrideDocument? LayoutOverrides { get; init; }
 
     public bool EnableStationRouteAnchoring { get; init; } = true;

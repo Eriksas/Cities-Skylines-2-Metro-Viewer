@@ -152,6 +152,10 @@ public static readonly List<(string Name, Action Test)> tests =
     ("service family merge chooses densest path as primary", ServiceFamilyMergeChoosesDensestPathAsPrimary),
     ("service family legend shows variant stop patterns", ServiceFamilyLegendShowsVariantStopPatterns),
     ("shared corridor style is off by default", SharedCorridorStyleIsOffByDefault),
+    ("multi-mode styling is off by default", MultiModeStylingIsOffByDefault),
+    ("multi-mode styling applies tram and train when enabled", MultiModeStylingAppliesTramAndTrainWhenEnabled),
+    ("exporter classifies tram and train modes", ExporterClassifiesTramAndTrainModes),
+    ("portable preview excludes non-metro by default", PortablePreviewExcludesNonMetroByDefault),
     ("shared corridor style builds one continuous run", SharedCorridorStyleBuildsOneContinuousRun),
     ("shared corridor style ignores nearby non-overlapping families", SharedCorridorStyleIgnoresNearbyNonOverlappingFamilies),
     ("shared corridor style detects reverse direction sharing", SharedCorridorStyleDetectsReverseDirectionSharing),
@@ -2893,6 +2897,126 @@ static MetroExportDocument CreateMinimalDocument(string? cityName)
     };
 }
 
+// A metro + tram + intercity-train network sharing stations. The tram shares
+// the metro's numbered name AND color to exercise cross-mode non-merge. When
+// includeNonMetro is false the tram/train lines are omitted, giving the exact
+// metro-only control for the byte-for-byte off-by-default guarantee.
+static MetroExportDocument CreateMultiModeDocument(bool includeNonMetro)
+{
+    List<MetroLine> lines =
+    [
+        new MetroLine { Id = "metro_1", Name = "1号线", Color = "#E4002B", Mode = "metro", Stops = ["a", "b", "c"] }
+    ];
+    if (includeNonMetro)
+    {
+        lines.Add(new MetroLine { Id = "tram_1", Name = "1号线", Color = "#E4002B", Mode = "tram", Stops = ["a", "d"] });
+        lines.Add(new MetroLine { Id = "train_1", Name = "机场线", Color = "#0072CE", Mode = "train", Stops = ["b", "e"] });
+    }
+
+    return new MetroExportDocument
+    {
+        City = new CityInfo { Name = "Multimode City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation { Id = "a", Name = "甲站", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["metro_1", "tram_1"] },
+                new MetroStation { Id = "b", Name = "乙站", Position = new MetroPosition { X = 120, Z = 0 }, Lines = ["metro_1", "train_1"] },
+                new MetroStation { Id = "c", Name = "丙站", Position = new MetroPosition { X = 120, Z = 120 }, Lines = ["metro_1"] },
+                new MetroStation { Id = "d", Name = "丁站", Position = new MetroPosition { X = 0, Z = 120 }, Lines = ["tram_1"] },
+                new MetroStation { Id = "e", Name = "戊站", Position = new MetroPosition { X = 240, Z = 60 }, Lines = ["train_1"] }
+            ],
+            Lines = lines
+        }
+    };
+}
+
+static void MultiModeStylingIsOffByDefault()
+{
+    // A multimodal JSON rendered with DEFAULT options must be byte-identical to
+    // its metro-only subset: non-metro lines are excluded unless opted in.
+    string mixed = new MetroSvgRenderer().Render(CreateMultiModeDocument(includeNonMetro: true)).Svg;
+    string metroOnly = new MetroSvgRenderer().Render(CreateMultiModeDocument(includeNonMetro: false)).Svg;
+    Assert(mixed == metroOnly, "Default render of a multimodal document was not byte-identical to its metro-only subset.");
+    Assert(!mixed.Contains("data-line-mode", StringComparison.Ordinal), "Default render leaked a mode attribute for a non-metro line.");
+    Assert(!mixed.Contains("data-railway-ties", StringComparison.Ordinal), "Default render leaked railway-tie styling.");
+}
+
+static void MultiModeStylingAppliesTramAndTrainWhenEnabled()
+{
+    SvgRenderOptions options = new() { IncludeTramsAndTrains = true };
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(CreateMultiModeDocument(includeNonMetro: true), options).Svg);
+
+    List<XElement> routes = xml.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "route")
+        .ToList();
+    Assert(routes.Count == 3, $"Enabled multimodal render expected 3 routes, got {routes.Count}.");
+
+    string[] lineIds = routes.Select(route => (string?)route.Attribute("data-line-id") ?? string.Empty).ToArray();
+    Assert(lineIds.Contains("metro_1") && lineIds.Contains("tram_1") && lineIds.Contains("train_1"),
+        "Same-numbered metro and tram families merged instead of staying separate across modes.");
+
+    Assert(routes.Any(route => (string?)route.Attribute("data-line-id") == "tram_1" && (string?)route.Attribute("data-line-mode") == "tram"),
+        "Tram line was not tagged with its mode.");
+    Assert(routes.Any(route => (string?)route.Attribute("data-line-id") == "train_1" && (string?)route.Attribute("data-line-mode") == "train"),
+        "Intercity train line was not tagged with its mode.");
+    Assert(!routes.Any(route => (string?)route.Attribute("data-line-id") == "metro_1" && route.Attribute("data-line-mode") is not null),
+        "Metro line unexpectedly gained a mode attribute.");
+
+    Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-railway-ties") == "intercity"),
+        "Intercity train did not render its railway cross-ties.");
+    Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-legend-railway-ties") == "intercity"),
+        "Legend did not render an intercity-train swatch.");
+    AssertValidSvg(xml, "enabled multimodal SVG");
+}
+
+static void ExporterClassifiesTramAndTrainModes()
+{
+    string exporter = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "RealMetroJsonExporter.cs"));
+    Assert(exporter.Contains("TransportType.Tram", StringComparison.Ordinal) && exporter.Contains("TransportType.Train", StringComparison.Ordinal),
+        "Exporter no longer classifies tram/train transport types.");
+    Assert(exporter.Contains("MetroLineModes.Tram", StringComparison.Ordinal) && exporter.Contains("MetroLineModes.Train", StringComparison.Ordinal),
+        "Exporter no longer emits the tram/train mode strings.");
+    Assert(exporter.Contains("Mod.Settings.ExportTramAndTrainLines", StringComparison.Ordinal),
+        "Exporter no longer gates tram/train on the opt-in setting.");
+    Assert(exporter.Contains("HasComponent<TramStop>", StringComparison.Ordinal) && exporter.Contains("HasComponent<TrainStop>", StringComparison.Ordinal),
+        "Exporter no longer detects tram/train stops.");
+
+    string setting = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "Setting.cs"));
+    Assert(setting.Contains("ExportTramAndTrainLines = false", StringComparison.Ordinal),
+        "The ExportTramAndTrainLines setting no longer defaults to false.");
+}
+
+static void PortablePreviewExcludesNonMetroByDefault()
+{
+    MetroNetworkSnapshot snapshot = new(
+        "Multimode City",
+        "2026-07-24T00:00:00Z",
+        [
+            new MetroSnapshotStation("a", "甲站", 0, 0, ["metro_1", "tram_1"], false),
+            new MetroSnapshotStation("b", "乙站", 120, 0, ["metro_1", "train_1"], false),
+            new MetroSnapshotStation("c", "丙站", 120, 120, ["metro_1"], false),
+            new MetroSnapshotStation("d", "丁站", 0, 120, ["tram_1"], false),
+            new MetroSnapshotStation("e", "戊站", 240, 60, ["train_1"], false)
+        ],
+        [
+            new MetroSnapshotLine("metro_1", "1号线", "#E4002B", "metro", ["a", "b", "c"], []),
+            new MetroSnapshotLine("tram_1", "有轨1号线", "#8A8A8A", "tram", ["a", "d"], []),
+            new MetroSnapshotLine("train_1", "机场线", "#0072CE", "train", ["b", "e"], [])
+        ]);
+
+    PortableMetroSvgRenderer renderer = new();
+    XDocument off = XDocument.Parse(renderer.Render(snapshot, PortableRenderProfiles.CreateInGameGeographic(false, true)).Svg);
+    int offRoutes = off.Descendants().Count(element => (string?)element.Attribute("class") == "route");
+    Assert(offRoutes == 1, $"In-game preview should show metro-only by default (1 route), got {offRoutes}.");
+
+    PortableRenderOptions onOptions = PortableRenderProfiles.CreateInGameGeographic(false, true);
+    onOptions.IncludeTramsAndTrains = true;
+    XDocument on = XDocument.Parse(renderer.Render(snapshot, onOptions).Svg);
+    int onRoutes = on.Descendants().Count(element => (string?)element.Attribute("class") == "route");
+    Assert(onRoutes == 3, $"In-game preview with the opt-in should show all 3 lines, got {onRoutes}.");
+}
+
 static MetroExportDocument CreateParallelCorridorDocument(params List<MetroPathPoint>[] linePathPoints)
 {
     MetroNetwork network = new()
@@ -3712,7 +3836,7 @@ static void ExporterResolvesAutoNamedRouteNames()
 
     Assert(exporter.Contains("TryGetCustomName", StringComparison.Ordinal),
         "Exporter no longer prefers the player-typed custom route name.");
-    Assert(exporter.Contains("BuildGeneratedLineName(routeNumber)", StringComparison.Ordinal),
+    Assert(exporter.Contains("BuildGeneratedLineName(routeNumber, mode)", StringComparison.Ordinal),
         "Exporter no longer rebuilds numbered names for auto-named routes (GetRenderedLabelName returns the route tool prefab name for them).");
     Assert(exporter.Contains("地铁 {0} 号线", StringComparison.Ordinal) && exporter.Contains("Metro Line {0}", StringComparison.Ordinal),
         "Exporter generated-name templates are missing.");
