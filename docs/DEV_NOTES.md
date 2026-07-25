@@ -1,5 +1,31 @@
 # Development Notes
 
+## 2026-07-25 Freight Exclusion + Numbered-name Collision Fix (unreleased)
+
+- Owner exported Oster with the new option ON (already running my staged
+  tram/train build; version string still reads beta.8 since not bumped) and
+  asked whether it had trams/trains. It did: 2 tram + 10 train + 6 metro. But
+  the owner suspected freight-train naming — correct.
+- Root cause 1 (freight): CS2 `TransportType.Train` covers BOTH passenger
+  intercity rail AND cargo/freight rail; the line prefab reports Train for
+  both (diagnostics showed the same prefab 185:1). The freight lines served
+  stations literally named "货运站". There is no `CargoLine` component; the
+  reliable signals are `Game.Prefabs.CargoTransportVehicleData` (vehicle
+  prefab) and `CargoTransportStationData` (stop prefab). Added
+  `IsCargoLine()` guard at the top of `ClassifyLineMode` — checks the vehicle
+  model prefab, then falls back to scanning stop prefabs (covers empty lines).
+- Root cause 2 (collision/drop): CS2 numbers freight and passenger rail
+  independently, so distinct lines auto-named "城际 1 号线" collided. The
+  "numbered name merges by name alone" rule (built for metro 10号线 service
+  variants) then merged them and dropped 3 of 10 train families. Fix: that
+  rule is now METRO-ONLY; tram/train always keep color in the group key
+  (distinct color = distinct line). Verified on the real Oster export: 7 → 10
+  train families rendered. Metro path byte-unchanged (all-metro => rule
+  identical to before).
+- 173 tests (2 new: cargo-exclusion source assertion, numbered-collision
+  render). Freight exclusion itself needs an in-game re-export to fully
+  verify (owner step) since it depends on CS2 runtime types.
+
 ## 2026-07-24 Opt-in Tram + Intercity-Train Support (unreleased)
 
 - Feature request #6. Scoped by the owner: trams + intercity trains only (no

@@ -27,12 +27,23 @@ internal static class DisplayLineFamilyResolver
         // Mode joins the group key so a tram and a metro line sharing a name
         // (and color) can never merge into one family. All-metro corpora have a
         // constant mode, so the grouping/order is byte-identical to before.
+        // "Numbered name merges by name alone" is a METRO rule (10号线 is a stable
+        // service identity across color drift). Tram/train numbers are auto-
+        // generated from unreliable route numbers that collide across genuinely
+        // distinct lines, so those always keep color in the key (distinct color =
+        // distinct line). Metro grouping is unchanged, so all-metro output stays
+        // byte-identical.
         List<IGrouping<(string FamilyKey, string ColorKey, string Mode), LineWithIndex>> groups = lines
             .Select((line, index) => new LineWithIndex(line, index, ExtractFamilyParts(line)))
-            .GroupBy(item => (
-                item.Parts.FamilyKey,
-                ColorKey: HasLineNumber(item.Parts.FamilyKey) ? string.Empty : NormalizeColorKey(item.Line.Color),
-                Mode: MetroLineModes.Normalize(item.Line.Mode)))
+            .GroupBy(item =>
+            {
+                string mode = MetroLineModes.Normalize(item.Line.Mode);
+                bool mergeNumberedByNameAlone = mode == MetroLineModes.Metro && HasLineNumber(item.Parts.FamilyKey);
+                return (
+                    item.Parts.FamilyKey,
+                    ColorKey: mergeNumberedByNameAlone ? string.Empty : NormalizeColorKey(item.Line.Color),
+                    Mode: mode);
+            })
             .ToList();
         Dictionary<(string, string), int> colorsPerNameMode = groups
             .GroupBy(group => (group.Key.FamilyKey, group.Key.Mode))

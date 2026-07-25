@@ -12,6 +12,9 @@ not included.
   on, the exporter also writes tram and intercity-train lines, tagged
   `mode: "tram"` / `mode: "train"`, and rebuilds their numbered names in the
   mod language. When off, the export is identical to before (subway only).
+- **Cargo/freight rail is excluded.** CS2 gives freight trains the same
+  `Train` transport type as passenger intercity rail, so freight lines are
+  detected by their cargo vehicle/station types and left out of the diagram.
 
 ### Viewer / CLI / renderer
 
@@ -21,7 +24,8 @@ not included.
 - When on, **trams keep their player color as a thinner line** and **intercity
   trains render with white railway cross-ties** over the colored line, each with
   a matching legend swatch. Same-numbered lines of different modes no longer
-  merge into one family.
+  merge into one family. Auto-numbered tram/train lines that collide on a number
+  but differ in color stay separate (metro line numbers still merge by number).
 - The in-game preview stays metro-only for now (distinct in-game styling is a
   later pass).
 

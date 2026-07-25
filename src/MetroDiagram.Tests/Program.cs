@@ -155,6 +155,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("multi-mode styling is off by default", MultiModeStylingIsOffByDefault),
     ("multi-mode styling applies tram and train when enabled", MultiModeStylingAppliesTramAndTrainWhenEnabled),
     ("exporter classifies tram and train modes", ExporterClassifiesTramAndTrainModes),
+    ("exporter excludes cargo freight lines", ExporterExcludesCargoFreightLines),
+    ("tram train numbered names keep color while metro merges by number", TramTrainNumberedNamesKeepColorWhileMetroMergesByNumber),
     ("portable preview excludes non-metro by default", PortablePreviewExcludesNonMetroByDefault),
     ("shared corridor style builds one continuous run", SharedCorridorStyleBuildsOneContinuousRun),
     ("shared corridor style ignores nearby non-overlapping families", SharedCorridorStyleIgnoresNearbyNonOverlappingFamilies),
@@ -2985,6 +2987,59 @@ static void ExporterClassifiesTramAndTrainModes()
     string setting = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "Setting.cs"));
     Assert(setting.Contains("ExportTramAndTrainLines = false", StringComparison.Ordinal),
         "The ExportTramAndTrainLines setting no longer defaults to false.");
+}
+
+static void ExporterExcludesCargoFreightLines()
+{
+    // Cargo/freight rail shares TransportType.Train with passenger intercity
+    // rail, so the exporter must exclude it by its cargo vehicle/station types.
+    string exporter = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "CS2 Metro", "RealMetroJsonExporter.cs"));
+    Assert(exporter.Contains("IsCargoLine", StringComparison.Ordinal),
+        "Exporter no longer detects cargo/freight lines.");
+    Assert(exporter.Contains("CargoTransportVehicleData", StringComparison.Ordinal)
+        && exporter.Contains("CargoTransportStationData", StringComparison.Ordinal),
+        "Exporter no longer keys cargo detection on cargo vehicle/station data.");
+    Assert(exporter.Contains("cargo/freight line excluded", StringComparison.Ordinal),
+        "Exporter no longer short-circuits cargo lines before classification.");
+}
+
+static void TramTrainNumberedNamesKeepColorWhileMetroMergesByNumber()
+{
+    // Two intercity-train lines auto-named "城际 1 号线" with DIFFERENT colors are
+    // distinct lines (CS2 numbers freight/passenger rail independently), so they
+    // must NOT merge — unlike two metro "10号线" services which merge by number.
+    MetroExportDocument doc = new()
+    {
+        City = new CityInfo { Name = "Collision City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation { Id = "a", Name = "A", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["mA", "mB", "tA", "tB"] },
+                new MetroStation { Id = "b", Name = "B", Position = new MetroPosition { X = 100, Z = 0 }, Lines = ["mA", "mB", "tA", "tB"] }
+            ],
+            Lines =
+            [
+                // Metro "10号线" twice, slightly different colors -> should merge (one family).
+                new MetroLine { Id = "mA", Name = "10号线", Color = "#0FBA7C", Mode = "metro", Stops = ["a", "b"] },
+                new MetroLine { Id = "mB", Name = "10号线", Color = "#28D4A4", Mode = "metro", Stops = ["a", "b"] },
+                // Train "城际 1 号线" twice, clearly different colors -> must stay two families.
+                new MetroLine { Id = "tA", Name = "城际 1 号线", Color = "#A48C43", Mode = "train", Stops = ["a", "b"] },
+                new MetroLine { Id = "tB", Name = "城际 1 号线", Color = "#5DE71D", Mode = "train", Stops = ["a", "b"] }
+            ]
+        }
+    };
+
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(doc, new SvgRenderOptions { IncludeTramsAndTrains = true }).Svg);
+    string[] lineIds = xml.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "route")
+        .Select(element => (string?)element.Attribute("data-line-id") ?? string.Empty)
+        .ToArray();
+
+    Assert(lineIds.Contains("tA") && lineIds.Contains("tB"),
+        "Distinct-color same-number intercity-train lines merged and one was dropped.");
+    Assert(lineIds.Count(id => id is "mA" or "mB") == 1,
+        "Same-number metro services no longer merge by number (Zhaoqing 10号线 case regressed).");
 }
 
 static void PortablePreviewExcludesNonMetroByDefault()
