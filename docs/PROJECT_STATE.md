@@ -18,6 +18,20 @@ The desktop Viewer is the first stable release. The in-game Mod remains beta.
 
 ## Current Status
 
+### Tram and intercity experiment parked
+
+The opt-in tram/intercity prototype and its follow-up renderer rescue were
+removed from `master` on 2026-07-26 after real-output review. Geographic output
+was usable, but the portable schematic did not meet the product's visual
+standard. The complete experiment remains available on the local archive branch
+`archive/tram-intercity-experiment-20260726` at commit `eab572b`.
+
+The supported product path is restored to metro/subway only. Export, snapshot,
+portable rendering, desktop rendering, CLI, Viewer, and in-game preview now
+match the stable tree from before the experiment. Do not expose tram or
+intercity controls, and do not resume multimodal rendering without a new design
+phase and representative real-city fixtures.
+
 ### Beta.6 single-line preview framing fix
 
 Code-side complete on 2026-07-16. The owner authorized Beta.6 publication based

@@ -63,6 +63,12 @@ is not yet fixed and must remain non-blocking.
 
 ## Current Direction
 
+The tram/intercity prototype is parked. It was archived on local branch
+`archive/tram-intercity-experiment-20260726` (`eab572b`) and reverted from
+`master` after its schematic output failed visual review. Continue from the
+stable metro-only behavior; do not reintroduce multimodal export or rendering
+as a small follow-up patch.
+
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
 preserving the exporter, Viewer, CLI, and JSON schema. Beta.8 is the current

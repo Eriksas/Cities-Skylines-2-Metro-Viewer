@@ -869,3 +869,20 @@ the current scale.
 Consequence: zoom remains bounded and drag remains mouse-compatible, but text
 and routes retain vector clarity. At fit scale the view cannot be panned beyond
 the source page; after zooming, panning is clamped to the page bounds.
+
+## Park Tram And Intercity Support After Visual Review
+
+Decision: remove the opt-in tram/intercity experiment from `master` and restore
+the stable metro-only product behavior. Preserve the complete implementation
+and diagnostics on local archive branch
+`archive/tram-intercity-experiment-20260726` instead of deleting the research.
+
+Reason: the geographic output could display the additional modes, but the
+portable schematic did not provide a coherent multimodal cartographic language.
+Further local fixes were increasing exporter, schema, renderer, Viewer, and
+in-game-preview risk without producing a release-quality map.
+
+Consequence: metro/subway remains the only supported exported and rendered
+mode. No player-facing tram/intercity control is shipped. A future multimodal
+phase must start from explicit product grammar, multiple real-city fixtures,
+and separate acceptance criteria rather than reviving the parked patch series.
