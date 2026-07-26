@@ -123,13 +123,6 @@ namespace CS2_Metro
         [SettingsUIHidden]
         public bool InGamePreviewHideCrowdedLabels { get; set; } = true;
 
-        // Opt-in, default OFF. When false the exporter is byte-for-byte
-        // identical to the subway-only behaviour: no tram/train line is ever
-        // written. When true, tram and intercity-train lines are also exported
-        // (tagged mode=tram / mode=train) so the Viewer can style them.
-        [SettingsUISection(kSection, kExportGroup)]
-        public bool ExportTramAndTrainLines { get; set; }
-
         [SettingsUISection(kSection, kExportGroup)]
         [SettingsUIButton]
         public bool ExportRealMetroJson
@@ -148,7 +141,6 @@ namespace CS2_Metro
             InGamePreviewGeographicDefaultApplied = false;
             InGamePreviewShowGenericStationNames = false;
             InGamePreviewHideCrowdedLabels = true;
-            ExportTramAndTrainLines = false;
         }
 
         internal bool ShouldUseChinese(string localeId)
@@ -223,8 +215,6 @@ namespace CS2_Metro
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDesktopExportFolder)), "Set export folder to Desktop\\CS2MetroDiagram." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDDriveExportFolder)), "Use D:\\CS2MetroDiagram" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDDriveExportFolder)), "Set export folder to D:\\CS2MetroDiagram. Use this only if the D: drive exists." },
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportTramAndTrainLines)), "Include trams & intercity trains" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportTramAndTrainLines)), "Off by default. When on, the export also includes tram and intercity-train lines (not just metro/subway). Open the JSON in the Viewer and enable \"Include trams & trains\" to style them. Buses are not included." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportRealMetroJson)), "Export Real Metro JSON" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportRealMetroJson)), "Exports your city's metro/subway network to JSON. Open the JSON in the CS2 Metro Diagram Viewer to render the map. No SVG preview is generated in-game." }
             };
@@ -252,8 +242,6 @@ namespace CS2_Metro
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDesktopExportFolder)), "将导出文件夹设为 Desktop\\CS2MetroDiagram。" },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDDriveExportFolder)), "使用 D:\\CS2MetroDiagram" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.UseDDriveExportFolder)), "将导出文件夹设为 D:\\CS2MetroDiagram。仅在电脑存在 D: 盘时使用。" },
-                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportTramAndTrainLines)), "包含有轨电车与城际列车" },
-                { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportTramAndTrainLines)), "默认关闭。开启后，导出会额外包含有轨电车和城际列车线路（不再只有地铁）。在 Viewer 中打开 JSON 并勾选\"包含电车与火车\"即可为它们应用样式。不含公交。" },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportRealMetroJson)), "导出真实地铁 JSON" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportRealMetroJson)), "把当前城市的地铁线路导出为 JSON。随后可在 CS2 地铁线路图 Viewer 中打开并生成线路图；游戏内不会生成 SVG 预览。" }
             };

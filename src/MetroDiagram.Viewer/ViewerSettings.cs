@@ -57,12 +57,6 @@ public sealed class ViewerSettings
     [JsonPropertyName("hideCrowdedLabels")]
     public bool HideCrowdedLabels { get; set; } = true;
 
-    // Opt-in, default off: multimodal (tram/train) styling is disabled unless the
-    // user ticks it, so a metro-only preview is the default even for a JSON that
-    // happens to contain tram/train lines.
-    [JsonPropertyName("includeTramsAndTrains")]
-    public bool IncludeTramsAndTrains { get; set; }
-
     [JsonPropertyName("alwaysShowInterchanges")]
     public bool AlwaysShowInterchanges { get; set; } = true;
 

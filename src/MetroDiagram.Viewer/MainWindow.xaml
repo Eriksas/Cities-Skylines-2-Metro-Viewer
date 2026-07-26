@@ -160,7 +160,6 @@
                             <CheckBox x:Name="AlwaysTerminalsCheckBox" Content="Always show terminals" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                             <CheckBox x:Name="UsePathPointsCheckBox" Content="Use exported path geometry" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                             <CheckBox x:Name="SimplifyPathPointsCheckBox" Content="Simplify path geometry" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
-                            <CheckBox x:Name="IncludeTramsTrainsCheckBox" Content="Include trams &amp; trains" Margin="0,0,20,8" Checked="RenderOptionChanged" Unchecked="RenderOptionChanged" />
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                 <TextBlock x:Name="PathToleranceLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Path tolerance" Margin="0,0,8,0" />
                                 <TextBox x:Name="PathSimplificationToleranceTextBox" Text="0.75" Width="70" />

@@ -38,7 +38,7 @@ Unsupported `schemaVersion` values are load errors.
 
 ## Network
 
-- `type`: currently always `metro` (write-only; consumers key off per-line `mode`).
+- `type`: currently `metro`.
 - `stations`: array of station objects.
 - `lines`: array of line objects.
 
@@ -96,10 +96,7 @@ Fallbacks:
 
 - Missing or blank `name` becomes `Line N`.
 - Missing or invalid `color` receives an internal palette color.
-- `mode` is one of `metro` (default), `tram`, or `train` (intercity rail). Missing
-  or unrecognized values become `metro`. Tram/train lines are only present when the
-  mod's "Include trams & intercity trains" export option is enabled; buses are never
-  exported. In the Viewer/CLI they are hidden unless "Include trams & trains" is on.
+- Missing `mode` becomes `metro`.
 - Missing `stops` becomes an empty array.
 - Missing `pathPoints` becomes an empty array.
 

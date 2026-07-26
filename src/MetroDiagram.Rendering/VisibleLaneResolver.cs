@@ -7,23 +7,19 @@ internal static class VisibleLaneResolver
     public static VisibleLaneKey CreateKey(DisplayLineFamily family)
     {
         string colorKey = NormalizeColorKey(family.Color);
-        // A non-metro mode suffix keeps tram-N / metro-N (same color) on separate
-        // visible lanes. Metro is the default so the suffix is empty for all-metro
-        // networks, keeping their lane keys byte-identical.
-        string modeSuffix = MetroDiagram.Engine.MetroLineModes.IsNonMetro(family.Mode) ? $"|mode:{family.Mode}" : string.Empty;
         int? lineNumber = ExtractLineNumber(family.DisplayName);
         if (lineNumber.HasValue)
         {
             string badge = lineNumber.Value.ToString(CultureInfo.InvariantCulture);
             return new VisibleLaneKey(
-                $"badge:{badge}|{colorKey}{modeSuffix}",
+                $"badge:{badge}|{colorKey}",
                 badge,
                 colorKey,
                 "same-line-number-same-color");
         }
 
         return new VisibleLaneKey(
-            $"{family.FamilyKey}|{colorKey}{modeSuffix}",
+            $"{family.FamilyKey}|{colorKey}",
             family.FamilyKey,
             colorKey,
             "family-key-color");

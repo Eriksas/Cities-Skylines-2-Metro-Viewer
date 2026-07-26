@@ -6,29 +6,6 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
-## Multimodal Support Is Two Independent Default-Off Gates
-
-Decision: tram/intercity-train support is gated twice, both default off and
-independent. (1) A mod export setting decides whether tram/train lines are
-written to JSON at all. (2) A render option (Viewer/CLI/portable) decides
-whether non-metro lines are drawn. Neither implies the other.
-
-Reason: the exporter gate keeps new exports subway-only by default and keeps
-the mod's byte-for-byte export guarantee trivial (no extra lines). The render
-gate lets a user who exported a multimodal JSON still choose a metro-only view,
-and — critically — makes "off" mean "render the metro subset," which is a
-directly testable byte-equality property (multimodal-default == metro-only).
-Trams keep the player's line color (differentiated by weight/style, not a
-forced grey) so the map stays faithful to the player's city; buses are out of
-scope by request.
-
-Consequence: the metro-only path must stay byte-identical, so all mode markup
-and styling is emitted only for non-metro lines and gated behind the render
-flag. The in-game portable renderer only gets the filter this pass (stays
-metro-only); distinct in-game tram/train styling is deferred. Verify with the
-deterministic modes (schematic-anneal, geographic) — never schematic-map,
-which is non-deterministic.
-
 ## Release The Viewer And Mod On Independent Version Trains
 
 Decision: promote the desktop Viewer/toolchain to stable `v0.1.0`, while the

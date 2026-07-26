@@ -1,35 +1,5 @@
 # Changelog
 
-## Unreleased
-
-Opt-in tram and intercity-train support (feature request #6). Off by default —
-existing metro-only exports and renders are byte-for-byte unchanged; buses are
-not included.
-
-### In-game mod
-
-- New export option **"Include trams & intercity trains"** (default off). When
-  on, the exporter also writes tram and intercity-train lines, tagged
-  `mode: "tram"` / `mode: "train"`, and rebuilds their numbered names in the
-  mod language. When off, the export is identical to before (subway only).
-
-### Viewer / CLI / renderer
-
-- New **"Include trams & trains"** toggle (Viewer checkbox, CLI
-  `--include-trams-trains`), default off. When off, non-metro lines are excluded
-  so a multimodal JSON renders identically to its metro-only subset.
-- When on, **trams keep their player color as a thinner line** and **intercity
-  trains render with white railway cross-ties** over the colored line, each with
-  a matching legend swatch. Same-numbered lines of different modes no longer
-  merge into one family.
-- The in-game preview stays metro-only for now (distinct in-game styling is a
-  later pass).
-
-### Notes
-
-- Verified: 171 tests; schematic-anneal and geographic renders of three real
-  cities are byte-identical with the feature off.
-
 ## v0.1.0 - 2026-07-20
 
 First stable desktop Viewer release. This promotes the validated beta.9 Viewer

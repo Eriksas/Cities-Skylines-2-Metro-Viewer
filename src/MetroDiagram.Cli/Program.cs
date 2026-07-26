@@ -7,7 +7,7 @@ using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg|.png|.pdf> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--include-trams-trains] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg|.png|.pdf> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -162,7 +162,6 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
     bool hideGenericLabels = false;
     bool enableVirtualTransferHints = false;
     bool hideCrowdedLabels = false;
-    bool includeTramsAndTrains = false;
     bool alwaysShowInterchanges = false;
     bool alwaysShowTerminals = false;
     bool usePathPoints = false;
@@ -225,9 +224,6 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
                 break;
             case "--hide-crowded-labels":
                 hideCrowdedLabels = true;
-                break;
-            case "--include-trams-trains":
-                includeTramsAndTrains = true;
                 break;
             case "--always-show-interchanges":
                 alwaysShowInterchanges = true;
@@ -318,7 +314,6 @@ static SvgRenderOptions ParseRenderOptions(string[] optionArgs)
         HideGenericStationLabels = hideGenericLabels,
         EnableVirtualTransferHints = enableVirtualTransferHints,
         HideCrowdedLabels = hideCrowdedLabels,
-        IncludeTramsAndTrains = includeTramsAndTrains,
         AlwaysShowInterchanges = alwaysShowInterchanges || defaults.AlwaysShowInterchanges,
         AlwaysShowTerminals = alwaysShowTerminals || defaults.AlwaysShowTerminals,
         UsePathPoints = usePathPoints,
