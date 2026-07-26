@@ -473,16 +473,6 @@ namespace CS2_Metro
         private static string ClassifyLineMode(ExportContext context, Entity lineEntity, out string reason)
         {
             bool includeExtra = Mod.Settings != null && Mod.Settings.ExportTramAndTrainLines;
-
-            // Cargo/freight rail shares TransportType.Train with passenger intercity
-            // rail, but a metro-style diagram only wants passenger lines. Freight
-            // lines carry a cargo vehicle or serve cargo stations; exclude them.
-            if (IsCargoLine(context, lineEntity))
-            {
-                reason = "cargo/freight line excluded";
-                return null;
-            }
-
             List<string> checks = new List<string>();
 
             try
@@ -680,62 +670,6 @@ namespace CS2_Metro
             {
                 diagnostics.AppendLine($"  - skipped: {reason}");
             }
-        }
-
-        // A line is cargo/freight if its vehicle prefab is a cargo transport, or
-        // any of its stops is a cargo station (covers empty lines with no vehicle
-        // assigned). The line prefab's TransportType alone cannot tell freight
-        // from passenger rail (both report Train).
-        private static bool IsCargoLine(ExportContext context, Entity lineEntity)
-        {
-            try
-            {
-                if (context.EntityManager.HasBuffer<VehicleModel>(lineEntity))
-                {
-                    DynamicBuffer<VehicleModel> models = context.EntityManager.GetBuffer<VehicleModel>(lineEntity, true);
-                    if (models.Length > 0)
-                    {
-                        Entity vehiclePrefab = models[0].m_PrimaryPrefab;
-                        if (IsValidEntity(context.EntityManager, vehiclePrefab)
-                            && context.EntityManager.HasComponent<CargoTransportVehicleData>(vehiclePrefab))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                if (context.EntityManager.HasBuffer<RouteWaypoint>(lineEntity))
-                {
-                    DynamicBuffer<RouteWaypoint> waypoints = context.EntityManager.GetBuffer<RouteWaypoint>(lineEntity, true);
-                    for (int i = 0; i < waypoints.Length; i++)
-                    {
-                        Entity connected = ReadConnectedEntity(context.EntityManager, waypoints[i].m_Waypoint);
-                        if (!IsValidEntity(context.EntityManager, connected)
-                            || !context.EntityManager.HasComponent<PrefabRef>(connected))
-                        {
-                            continue;
-                        }
-
-                        Entity stopPrefab = context.EntityManager.GetComponentData<PrefabRef>(connected).m_Prefab;
-                        if (IsValidEntity(context.EntityManager, stopPrefab)
-                            && context.EntityManager.HasComponent<CargoTransportStationData>(stopPrefab))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            return false;
         }
 
         private static bool TryReadLinePrefabTransportType(EntityManager entityManager, Entity prefab, out TransportType transportType)
