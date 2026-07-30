@@ -32,6 +32,12 @@ namespace MetroDiagram.Engine
 
         public bool MergeServiceFamilies { get; set; } = true;
 
+        /// <summary>
+        /// Development-only geographic passenger-rail overlay. It stays false in
+        /// every in-game profile until the owner validates it against CS2 data.
+        /// </summary>
+        public bool ShowIntercityRail { get; set; }
+
         public int AnnealAttemptLimit { get; set; } = 24000;
 
         public bool AdaptCanvasHeightToNetwork { get; set; } = true;

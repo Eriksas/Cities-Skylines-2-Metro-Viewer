@@ -1,4 +1,4 @@
-# Feedback Template - Viewer v0.1.0 / Mod 0.1.0-beta.8
+# Feedback Template - Viewer v0.1.1 / Mod 0.1.0-beta.8
 
 Please include as much of this information as possible.
 

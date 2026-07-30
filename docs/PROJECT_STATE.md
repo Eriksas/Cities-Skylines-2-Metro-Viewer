@@ -2,13 +2,14 @@
 
 ## Current Version
 
-Repository and companion Viewer: `v0.1.0`
+Repository and companion Viewer: `v0.1.1`
 
-Current public releases: Viewer `v0.1.0` on GitHub; in-game Mod
+Current public releases: Viewer `v0.1.1` on GitHub; in-game Mod
 `0.1.0-beta.8` on the existing public Paradox Mods ModId `146643`.
 
-The PDX page metadata has been refreshed to explain the independent stable
-Viewer release. The Mod binary/version was intentionally not republished.
+The Viewer v0.1.1 release adds map-element editing, information boxes, and
+station-node multi-selection. The PDX Mod binary/version was intentionally not
+republished because the Viewer and Mod use independent release trains.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on
@@ -31,6 +32,57 @@ portable rendering, desktop rendering, CLI, Viewer, and in-game preview now
 match the stable tree from before the experiment. Do not expose tram or
 intercity controls, and do not resume multimodal rendering without a new design
 phase and representative real-city fixtures.
+
+### Intercity Geographic v2: IG2.2 code-side complete
+
+A replacement plan now exists in
+`docs\INTERCITY_GEOGRAPHIC_PLAN.md`. It is a new geographic-only passenger-rail
+track, not a continuation of the parked multimodal patch series.
+
+IG2.0 through IG2.2 passed code-side validation on 2026-07-28. The branch now
+contains:
+
+- a pure shared city-envelope clipping and projection helper;
+- an isolated passenger-train collector with explicit cargo evidence priority;
+- CurveElement-first passenger-rail path extraction;
+- desktop and portable geographic-only rendering from the same clipped geometry;
+- a continuous dark-grey railway bed with equal-spaced white sleeper marks;
+- clean clipped outside-city endpoints and train-specific legend samples;
+- hidden/default-off development gates in export and rendering.
+
+The three-city renderer audit agrees at DOM level between desktop and portable
+renderers: 奥斯特 has 6 clipped railway parts, 肇庆 has 22, and 谢菲尔德 has
+7. Both renderers now emit zero continuation arrows. Default rendering emits
+zero intercity route elements. Synthetic tests also cover clipping,
+through-routes, projection, cargo-priority classification, and
+geographic-only gating.
+
+The railway interior pattern was stabilized on 2026-07-29 after real-output
+review showed that SVG `stroke-dasharray` produced uneven white fragments on
+dense curves, clipped route parts, and scaled browser/Coherent surfaces.
+Desktop routes, portable in-game routes, and both legends now use one shared
+arc-length sampler that emits explicit equal-length white inserts. The audit
+rejects legacy dashed route textures and records the explicit mark totals.
+All three city PNGs were visually reviewed; the railway grammar is now regular
+through straight sections and bends and is substantially closer to the
+approved style study.
+
+The same pass also restores the intended information hierarchy: intercity
+rail uses about 72% of the corresponding metro route width (with a portable
+minimum for legibility), and the legend follows the same ratio. Passenger rail
+remains readable without competing with the primary metro network.
+
+Mixed geographic outputs now place metro and passenger-intercity legend
+entries in adjacent mode-specific groups rather than interspersing both modes
+in one list. Desktop standard legends, transit-map bottom legends, and the
+portable in-game legend share this grouping contract. The three-city audit
+requires one metro group and one intercity group on both renderer surfaces.
+
+This is not player release approval. Archived exports are strong geometry
+evidence but cannot prove the new ECS collector excludes every cargo case.
+Intercity remains absent from schematic layouts and has no Viewer, CLI, or
+player-facing in-game control. A newly built mod must be validated in CS2 with
+both passenger and cargo rail before IG2.3 may begin.
 
 ### Beta.6 single-line preview framing fix
 
@@ -522,3 +574,94 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-in-game-preview-a
 
 Do not publish this post-Beta.4 follow-up until the owner verifies the new
 schematic in CS2. Geographic remains the reliable in-game default.
+
+## Intercity Geographic v2 - IG2.2
+
+IG2.0 through IG2.2 are code-side complete on branch
+`feature/intercity-geographic-v2`.
+
+- Passenger rail uses an isolated `PassengerIntercityRailCollector`.
+- Cargo vehicle/station prefab evidence overrides positive Train evidence.
+- Route geometry remains CurveElement-first and uses the existing
+  `line.mode`, `line.stops`, and `line.pathPoints` contract.
+- Desktop and portable geographic renderers use the shared
+  `IntercityGeographicGeometry` clipping/projection contract.
+- Outside stations and tails are excluded from the city frame; continuation
+  arrows preserve the fact that the railway leaves the map.
+- Passenger railway uses the approved dark-grey bed plus equal-spaced white
+  marks.
+- The feature is hidden and default-off; metro-only behavior is unchanged when
+  disabled.
+- No Viewer, CLI, JSON schema, or player-facing option was added.
+
+Three archived real-city exports contain 17 train lines and 46,830 train path
+points. This is useful geometry evidence, not final ECS cargo validation. The
+renderer audit reports exact desktop/portable geometry parity:
+
+| City | Railway parts | Continuations |
+| --- | ---: | ---: |
+| 奥斯特 | 6 | 4 |
+| 肇庆 | 22 | 10 |
+| 谢菲尔德 | 7 | 2 |
+
+The solution build, full tests, and CS2 Release post-process pass with zero
+warnings/errors. Owner in-game validation remains a hard gate before any
+exposure or publication.
+
+Desktop passenger-rail rendering no longer assigns the generic `.route` CSS
+class to its base and white-mark layers. That class previously overrode both
+explicit railway widths with the metro route width, causing the white marks to
+cover the grey bed and appear transparent. Desktop and portable output now
+retain the same dark-grey bed, narrow white marks, and subordinate width
+hierarchy.
+
+### Viewer manual map icons
+
+The desktop Viewer can now add, drag, reset, and delete manual map icons in
+`Manual edit > Icons`. The first icon set covers airport, railway station,
+intercity rail, bus terminal, ferry terminal, landmark/POI, and information.
+Icons are stored only in the sibling `*.layout-overrides.json` sidecar and do
+not modify `metro-export.json`, exporter behavior, or the JSON schema.
+
+The taxonomy and interaction model were informed by the public Rail Map
+Painter project, but this repository does not copy its GPL-3.0 source code or
+assets. CS2 Metro Diagram uses its own icon glyphs and MIT-compatible
+implementation.
+
+The 2026-07-29 validation passed with zero build warnings/errors, the full test
+suite, a self-contained Viewer publish, and three-city desktop/portable
+intercity audits. Intercity collection and rendering remain hidden and
+default-off until fresh owner validation in CS2.
+
+The first published icon-editor candidate had an SVG pointer-event regression
+that prevented dragging. It is repaired with an explicit transparent hit area
+per icon. Airport and railway-station symbols also use the blue/white and
+red/white transport-badge grammar from the owner's visual references.
+
+## Viewer map elements and node multi-select
+
+The desktop Viewer now exposes `Map elements` as a top-level command instead of
+hiding icons inside the manual-edit mode selector.
+
+- Railway stations use a project-owned China Railway-style red/white emblem.
+- Editable information boxes support a title and body text.
+- Airport, railway, intercity, bus, ferry, landmark, and information symbols
+  remain available.
+- Empty-area marquee selection and Ctrl-click selection can select multiple
+  station nodes for group drag, alignment, and nudging.
+- All additions remain render-time sidecar data. The exporter, JSON schema,
+  raw stops, and raw path geometry are unchanged.
+
+The visual smoke fixture is stored under `output/playwright` and verifies the
+railway emblem and information-box composition through the production CLI
+render path.
+
+Code-side implementation and packaging are complete. The published local
+candidate starts successfully from:
+
+```text
+artifacts\viewer-win-x64-self-contained\MetroDiagram.Viewer.exe
+```
+
+Owner interaction validation should focus on marquee selection, group drag,
+information-box text editing, and dragging newly added map elements.

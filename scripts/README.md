@@ -34,6 +34,22 @@ PowerShell scripts are grouped by workflow. Run scripts from the repository root
 
 ## Route Geometry And Schematic Diagnostics
 
+- `generate-intercity-style-study.ps1` - generates a renderer-independent
+  comparison of the recommended black/white sleeper railway grammar and two
+  quieter alternatives for Intercity Geographic v2.
+- `initialize-intercity-geographic-baseline.ps1` - freezes deterministic
+  metro-only geographic SVG hashes/DOM counts and records hashes for the local
+  real-city fixture inventory without copying player exports.
+- `audit-intercity-real-fixtures.ps1` - reads the local real-fixture manifest
+  and writes per-city/per-train-line classification and path-density summaries
+  without copying player exports. Cargo-name warnings are heuristic only; ECS
+  cargo exclusion still requires in-game validation.
+- `generate-intercity-geographic-render-audit.ps1` - renders desktop and exact
+  portable geographic outputs for the three archived real-city fixtures,
+  verifies intercity is absent by default, compares clipped railway-part and
+  rendered continuation-arrow counts (expected zero), captures PNG evidence, and writes
+  `renderer-audit.csv`. Use `-NoBuild` after building and `-SkipPng` for a fast
+  DOM-only refresh.
 - `generate-in-game-preview-audit.ps1` - renders the exact portable
   geographic/schematic profiles used by the CS2 panel, captures PNG evidence,
   audits schematic geometry, and summarizes route-chain normalization and label

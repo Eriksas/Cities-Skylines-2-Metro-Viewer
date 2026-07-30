@@ -123,6 +123,11 @@ namespace CS2_Metro
         [SettingsUIHidden]
         public bool InGamePreviewHideCrowdedLabels { get; set; } = true;
 
+        // Development-only gate for the isolated passenger intercity collector.
+        // Keep this hidden and off until real CS2 exports have been reviewed.
+        [SettingsUIHidden]
+        public bool ExportPassengerIntercityRailDevelopment { get; set; }
+
         [SettingsUISection(kSection, kExportGroup)]
         [SettingsUIButton]
         public bool ExportRealMetroJson
@@ -141,6 +146,7 @@ namespace CS2_Metro
             InGamePreviewGeographicDefaultApplied = false;
             InGamePreviewShowGenericStationNames = false;
             InGamePreviewHideCrowdedLabels = true;
+            ExportPassengerIntercityRailDevelopment = false;
         }
 
         internal bool ShouldUseChinese(string localeId)

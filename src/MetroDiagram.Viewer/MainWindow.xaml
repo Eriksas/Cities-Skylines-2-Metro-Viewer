@@ -89,19 +89,22 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="0,0,0,8" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
+                    <CheckBox x:Name="ManualEditCheckBox" Content="Manual edit" Margin="0,0,12,8" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
+                    <Button x:Name="MapElementsButton" Content="Map elements" MinWidth="112" Margin="0,0,0,8" Click="MapElements_Click" IsEnabled="False" />
                 </WrapPanel>
 
                 <!-- Manual editing sub-toolbar (visible only while editing) -->
                 <Border x:Name="ManualEditToolbarCard" Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,9" Margin="0,4,0,0" Visibility="Collapsed">
                     <WrapPanel VerticalAlignment="Center">
                         <TextBlock x:Name="ManualEditingHeader" Style="{StaticResource InlineLabel}" Text="Manual editing" Margin="0,0,14,0" />
-                        <ComboBox x:Name="ManualEditModeComboBox" Width="104" Margin="0,0,12,0" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
+                        <ComboBox x:Name="ManualEditModeComboBox" Width="112" Margin="0,0,12,0" SelectionChanged="ManualEditControl_Changed" IsEnabled="False">
                             <ComboBoxItem x:Name="ManualEditStationsItem" Content="Stations" Tag="station" IsSelected="True" />
                             <ComboBoxItem x:Name="ManualEditLabelsItem" Content="Labels" Tag="label" />
                             <ComboBoxItem x:Name="ManualEditSegmentsItem" Content="Segments" Tag="segment" />
                             <ComboBoxItem x:Name="ManualEditBendsItem" Content="Bends" Tag="bend" />
+                            <ComboBoxItem x:Name="ManualEditIconsItem" Content="Icons" Tag="icon" />
                         </ComboBox>
+                        <CheckBox x:Name="MultiSelectCheckBox" Content="Multi-select" Margin="0,0,12,0" VerticalAlignment="Center" Checked="ManualEditControl_Changed" Unchecked="ManualEditControl_Changed" IsEnabled="False" />
                         <Button x:Name="UndoButton" Content="Undo" MinWidth="62" Margin="0,0,8,0" Click="Undo_Click" IsEnabled="False" ToolTip="Ctrl+Z" />
                         <Button x:Name="RedoButton" Content="Redo" MinWidth="62" Margin="0,0,12,0" Click="Redo_Click" IsEnabled="False" ToolTip="Ctrl+Y" />
                         <Button x:Name="AlignHorizontalButton" Content="Align H" MinWidth="74" Margin="0,0,8,0" Click="AlignHorizontal_Click" IsEnabled="False" />
@@ -112,6 +115,36 @@
                         <Button x:Name="ClearOverridesButton" Content="Clear Edits" MinWidth="88" Margin="0,0,8,0" Click="ClearOverrides_Click" IsEnabled="False" />
                         <Button x:Name="OpenOverridesButton" Content="Open Edit File" MinWidth="106" Click="OpenOverrides_Click" IsEnabled="False" />
                     </WrapPanel>
+                </Border>
+
+                <!-- Dedicated map-elements entry. Icons and information boxes remain
+                     render-time sidecar annotations, never source export data. -->
+                <Border x:Name="MapElementsToolbarCard" Style="{StaticResource Card}" Background="{StaticResource SubtleSurfaceBrush}" Padding="12,9" Margin="0,4,0,0" Visibility="Collapsed">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False">
+                            <TextBlock x:Name="MapElementsHeader" Style="{StaticResource InlineLabel}" Text="Map elements" Margin="0,0,14,8" DockPanel.Dock="Left" />
+                            <Button x:Name="CloseMapElementsButton" Content="Close" MinWidth="72" Click="CloseMapElements_Click" DockPanel.Dock="Right" />
+                        </DockPanel>
+                        <WrapPanel VerticalAlignment="Center">
+                            <ComboBox x:Name="IconTypeComboBox" Width="152" Margin="0,0,8,8" IsEnabled="False">
+                                <ComboBoxItem x:Name="IconAirportItem" Content="Airport" Tag="airport" IsSelected="True" />
+                                <ComboBoxItem x:Name="IconRailwayItem" Content="Railway station" Tag="railway" />
+                                <ComboBoxItem x:Name="IconIntercityItem" Content="Intercity rail" Tag="intercity" />
+                                <ComboBoxItem x:Name="IconBusItem" Content="Bus terminal" Tag="bus" />
+                                <ComboBoxItem x:Name="IconFerryItem" Content="Ferry terminal" Tag="ferry" />
+                                <ComboBoxItem x:Name="IconLandmarkItem" Content="Landmark" Tag="landmark" />
+                                <ComboBoxItem x:Name="IconInformationItem" Content="Information" Tag="information" />
+                                <ComboBoxItem x:Name="IconInformationBoxItem" Content="Information box" Tag="information-box" />
+                            </ComboBox>
+                            <Button x:Name="AddIconButton" Content="Add element" MinWidth="98" Margin="0,0,8,8" Click="AddIcon_Click" IsEnabled="False" />
+                            <Button x:Name="DeleteIconButton" Content="Delete element" MinWidth="108" Margin="0,0,16,8" Click="DeleteIcon_Click" IsEnabled="False" />
+                            <TextBlock x:Name="MapElementTitleLabel" Style="{StaticResource InlineLabel}" Text="Title / label" Margin="0,0,8,8" />
+                            <TextBox x:Name="MapElementTitleTextBox" Width="190" Margin="0,0,12,8" />
+                            <TextBlock x:Name="MapElementTextLabel" Style="{StaticResource InlineLabel}" Text="Information" Margin="0,0,8,8" />
+                            <TextBox x:Name="MapElementTextTextBox" Width="300" MinHeight="30" MaxHeight="72" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,8,8" />
+                            <Button x:Name="ApplyMapElementTextButton" Content="Apply text" MinWidth="92" Margin="0,0,0,8" Click="ApplyMapElementText_Click" IsEnabled="False" />
+                        </WrapPanel>
+                    </StackPanel>
                 </Border>
 
                 <!-- Advanced settings (collapsed by default) -->

@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-07-28",
+  "purpose": "Local real-city regression inventory for Intercity Geographic v2.",
+  "privacy": "Source exports remain local and are not copied into the repository.",
+  "fixtures": [
+    {
+      "city": "奥斯特",
+      "source": "D:\\CS2MetroDiagram\\exports\\metro-export-奥斯特-20260726-195421.json",
+      "lines": 13,
+      "stations": 61,
+      "modes": {
+        "metro": 7,
+        "train": 4,
+        "tram": 2
+      }
+    },
+    {
+      "city": "肇庆",
+      "source": "D:\\CS2MetroDiagram\\exports\\metro-export-肇庆-20260725-225250.json",
+      "lines": 22,
+      "stations": 66,
+      "modes": {
+        "metro": 11,
+        "train": 7,
+        "tram": 4
+      }
+    },
+    {
+      "city": "谢菲尔德",
+      "source": "D:\\CS2MetroDiagram\\exports\\metro-export-谢菲尔德-20260725-225124.json",
+      "lines": 18,
+      "stations": 84,
+      "modes": {
+        "metro": 10,
+        "train": 6,
+        "tram": 2
+      }
+    }
+  ]
+}

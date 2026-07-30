@@ -154,6 +154,13 @@ public partial class MainWindow : Window
                 case "segmentSelected":
                     SelectManualEditSegment(stationIds);
                     break;
+                case "iconSelected":
+                    string? iconId = ReadMessageString(root, "iconId");
+                    if (!string.IsNullOrWhiteSpace(iconId))
+                    {
+                        SelectManualEditIcon(iconId);
+                    }
+                    break;
                 case "selectionCleared":
                     ClearManualEditSelection();
                     break;
@@ -194,6 +201,15 @@ public partial class MainWindow : Window
                         TryReadMessageDouble(root, "bendY", out double bendY))
                     {
                         ApplyBendOverride(stationIds[0], stationIds[1], bendX, bendY);
+                    }
+                    break;
+                case "iconDragged":
+                    string? draggedIconId = ReadMessageString(root, "iconId");
+                    if (!string.IsNullOrWhiteSpace(draggedIconId) &&
+                        TryReadMessageDouble(root, "deltaX", out double iconDeltaX) &&
+                        TryReadMessageDouble(root, "deltaY", out double iconDeltaY))
+                    {
+                        ApplyIconDragOverride(draggedIconId, iconDeltaX, iconDeltaY);
                     }
                     break;
             }
@@ -525,9 +541,12 @@ public partial class MainWindow : Window
         }
 
         UpdateManualEditButtons();
-        SetStatus(ManualEditCheckBox.IsChecked == true
-            ? string.Format(CultureInfo.CurrentCulture, T("ManualEditEnabled"), T(GetManualEditModeResourceKey(ReadManualEditMode())))
-            : T("ManualEditDisabled"));
+        SetStatus(ManualEditCheckBox.IsChecked == true && MultiSelectCheckBox.IsChecked == true
+            && string.Equals(ReadManualEditMode(), "station", StringComparison.Ordinal)
+                ? T("MultiSelectHelp")
+                : ManualEditCheckBox.IsChecked == true
+                    ? string.Format(CultureInfo.CurrentCulture, T("ManualEditEnabled"), T(GetManualEditModeResourceKey(ReadManualEditMode())))
+                    : T("ManualEditDisabled"));
     }
 
     private void SizeTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1010,7 +1029,116 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (string.Equals(_selectedOverrideKind, "icon", StringComparison.Ordinal))
+        {
+            DeleteSelectedIcon();
+            return;
+        }
+
         ResetManualEditOverride(_selectedOverrideKind, _selectedOverrideStationId!);
+    }
+
+    private void AddIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (_document is null || string.IsNullOrWhiteSpace(_jsonPath))
+        {
+            return;
+        }
+
+        try
+        {
+            PushUndoSnapshot();
+            _layoutOverrides ??= new LayoutOverrideDocument();
+            _layoutOverridePath ??= LayoutOverrideLoader.GetDefaultSidecarPath(_jsonPath);
+            SvgPixelSize size = string.IsNullOrWhiteSpace(_currentSvg)
+                ? new SvgPixelSize(1200, 800)
+                : ReadSvgPixelSize(_currentSvg);
+            string type = ReadSelectedIconType();
+            string id = $"icon-{Guid.NewGuid():N}";
+            string title = MapElementTitleTextBox.Text.Trim();
+            string text = MapElementTextTextBox.Text.Trim();
+            bool informationBox = string.Equals(type, "information-box", StringComparison.Ordinal);
+            _layoutOverrides.Icons[id] = new MapIconLayoutOverride
+            {
+                Type = type,
+                X = size.Width * 0.5,
+                Y = size.Height * 0.5,
+                Size = 34,
+                Label = informationBox || title.Length == 0 ? null : title,
+                Title = title.Length == 0 ? null : title,
+                Text = text.Length == 0 ? null : text,
+                Width = informationBox ? 280 : null,
+                Height = informationBox ? 132 : null
+            };
+
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditIcon(id, showStatus: false);
+            MarkPreviewDirty();
+            RenderPreview();
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("MapIconAdded"), T(GetIconTypeResourceKey(type))));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("OverridesSaveFailed"), ex.Message));
+        }
+    }
+
+    private void DeleteIcon_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteSelectedIcon();
+    }
+
+    private void DeleteSelectedIcon()
+    {
+        if (_layoutOverrides is null
+            || string.IsNullOrWhiteSpace(_selectedOverrideStationId)
+            || !_layoutOverrides.Icons.ContainsKey(_selectedOverrideStationId))
+        {
+            SetStatus(T("ManualEditNoSelection"));
+            return;
+        }
+
+        try
+        {
+            PushUndoSnapshot();
+            _layoutOverrides.Icons.Remove(_selectedOverrideStationId);
+            SaveOrDeleteLayoutOverrides();
+            ClearManualEditSelection();
+            MarkPreviewDirty();
+            RenderPreview();
+            SetStatus(T("MapIconDeleted"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("OverridesSaveFailed"), ex.Message));
+        }
+    }
+
+    private void ApplyIconDragOverride(string iconId, double deltaX, double deltaY)
+    {
+        if (_document is null
+            || string.IsNullOrWhiteSpace(_jsonPath)
+            || _layoutOverrides?.Icons.TryGetValue(iconId, out MapIconLayoutOverride? icon) != true
+            || Math.Sqrt(deltaX * deltaX + deltaY * deltaY) < 0.5)
+        {
+            return;
+        }
+
+        try
+        {
+            PushUndoSnapshot();
+            icon!.X += deltaX;
+            icon.Y += deltaY;
+            SaveOrDeleteLayoutOverrides();
+            SelectManualEditIcon(iconId, showStatus: false);
+            MarkPreviewDirty();
+            ScheduleManualEditPreviewRefresh();
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("MapIconMoved"), _layoutOverridePath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetError(string.Format(CultureInfo.CurrentCulture, T("OverridesSaveFailed"), ex.Message));
+        }
     }
 
     private void AlignHorizontal_Click(object sender, RoutedEventArgs e)
@@ -1429,6 +1557,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SelectManualEditIcon(string iconId, bool showStatus = true)
+    {
+        if (string.IsNullOrWhiteSpace(iconId))
+        {
+            return;
+        }
+
+        _selectedOverrideKind = "icon";
+        _selectedOverrideStationId = iconId;
+        _selectedOverrideStationIds = [iconId];
+        PopulateMapElementEditor(iconId);
+        UpdateManualEditButtons();
+        if (showStatus)
+        {
+            string type = _layoutOverrides?.Icons.TryGetValue(iconId, out MapIconLayoutOverride? icon) == true
+                ? T(GetIconTypeResourceKey(icon.Type))
+                : iconId;
+            SetStatus(string.Format(CultureInfo.CurrentCulture, T("ManualEditIconSelected"), type));
+        }
+    }
+
     private void ClearManualEditSelection()
     {
         _selectedOverrideKind = null;
@@ -1447,6 +1596,8 @@ public partial class MainWindow : Window
             if (!enabled)
             {
                 ManualEditCheckBox.IsChecked = false;
+                MultiSelectCheckBox.IsChecked = false;
+                _mapElementsPanelOpen = false;
             }
         }
         finally
@@ -1462,9 +1613,12 @@ public partial class MainWindow : Window
         bool hasDocument = _document is not null;
         bool hasSelection = hasDocument && (_selectedOverrideStationIds.Count > 0 || !string.IsNullOrWhiteSpace(_selectedOverrideStationId));
         bool selectedSegment = string.Equals(_selectedOverrideKind, "segment", StringComparison.Ordinal);
+        bool selectedIcon = string.Equals(_selectedOverrideKind, "icon", StringComparison.Ordinal);
+        bool stationMode = string.Equals(ReadManualEditMode(), "station", StringComparison.Ordinal);
         bool hasOverrides = _layoutOverrides?.IsEmpty == false;
         bool selectedLabelHidden = hasSelection
             && !selectedSegment
+            && !selectedIcon
             && _layoutOverrides?.Labels.TryGetValue(_selectedOverrideStationId!, out LabelLayoutOverride? labelOverride) == true
             && labelOverride.Hidden == true;
 
@@ -1472,20 +1626,37 @@ public partial class MainWindow : Window
             && _layoutOverrides is not null
             && (selectedSegment
                 ? _selectedOverrideStationIds.Any(stationId => _layoutOverrides.Stations.ContainsKey(stationId))
+                : selectedIcon
+                    ? _layoutOverrides.Icons.ContainsKey(_selectedOverrideStationId!)
                 : string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
                     ? _layoutOverrides.Labels.ContainsKey(_selectedOverrideStationId!)
                     : _layoutOverrides.Stations.ContainsKey(_selectedOverrideStationId!));
-        AlignHorizontalButton.IsEnabled = hasSelection && !string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal);
+        AlignHorizontalButton.IsEnabled = hasSelection
+            && !selectedIcon
+            && !string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal);
         AlignVerticalButton.IsEnabled = AlignHorizontalButton.IsEnabled;
-        ToggleSelectedLabelButton.IsEnabled = hasSelection && !selectedSegment;
+        ToggleSelectedLabelButton.IsEnabled = hasSelection && !selectedSegment && !selectedIcon;
         ToggleSelectedLabelButton.Content = selectedLabelHidden ? T("ShowSelectedLabel") : T("HideSelectedLabel");
-        LabelSideButton.IsEnabled = hasSelection && !selectedSegment;
+        LabelSideButton.IsEnabled = hasSelection && !selectedSegment && !selectedIcon;
+        MapElementsButton.IsEnabled = hasDocument;
+        IconTypeComboBox.IsEnabled = hasDocument && _mapElementsPanelOpen;
+        AddIconButton.IsEnabled = hasDocument && _mapElementsPanelOpen;
+        DeleteIconButton.IsEnabled = hasDocument && selectedIcon;
+        ApplyMapElementTextButton.IsEnabled = hasDocument && selectedIcon;
+        MapElementTitleTextBox.IsEnabled = hasDocument && _mapElementsPanelOpen;
+        MapElementTextTextBox.IsEnabled = hasDocument && _mapElementsPanelOpen;
+        MultiSelectCheckBox.IsEnabled = hasDocument
+            && ManualEditCheckBox.IsChecked == true
+            && stationMode;
         ClearOverridesButton.IsEnabled = hasOverrides || (!string.IsNullOrWhiteSpace(_layoutOverridePath) && File.Exists(_layoutOverridePath));
         OpenOverridesButton.IsEnabled = hasDocument;
         UndoButton.IsEnabled = hasDocument && _undoStack.Count > 0;
         RedoButton.IsEnabled = hasDocument && _redoStack.Count > 0;
         // The edit sub-toolbar occupies a full row, so it only exists while editing.
         ManualEditToolbarCard.Visibility = ManualEditCheckBox.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        MapElementsToolbarCard.Visibility = _mapElementsPanelOpen && hasDocument
             ? Visibility.Visible
             : Visibility.Collapsed;
     }
@@ -1614,6 +1785,7 @@ public partial class MainWindow : Window
             "label" => "label",
             "segment" => "segment",
             "bend" => "bend",
+            "icon" => "icon",
             _ => "station"
         };
     }
@@ -1625,7 +1797,38 @@ public partial class MainWindow : Window
             "label" => "ManualEditLabels",
             "segment" => "ManualEditSegments",
             "bend" => "ManualEditBends",
+            "icon" => "ManualEditIcons",
             _ => "ManualEditStations"
+        };
+    }
+
+    private string ReadSelectedIconType()
+    {
+        return (IconTypeComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
+        {
+            "railway" => "railway",
+            "intercity" => "intercity",
+            "bus" => "bus",
+            "ferry" => "ferry",
+            "landmark" => "landmark",
+            "information-box" => "information-box",
+            "information" => "information",
+            _ => "airport"
+        };
+    }
+
+    private static string GetIconTypeResourceKey(string? type)
+    {
+        return type?.Trim().ToLowerInvariant() switch
+        {
+            "railway" => "IconTypeRailway",
+            "intercity" => "IconTypeIntercity",
+            "bus" => "IconTypeBus",
+            "ferry" => "IconTypeFerry",
+            "landmark" => "IconTypeLandmark",
+            "information-box" => "IconTypeInformationBox",
+            "information" => "IconTypeInformation",
+            _ => "IconTypeAirport"
         };
     }
 
@@ -1830,7 +2033,15 @@ public partial class MainWindow : Window
             string.Equals(_selectedOverrideKind, "label", StringComparison.Ordinal)
                 ? []
                 : _selectedOverrideStationIds;
-        _pendingPreviewHtml = BuildPreviewHtml(svg, ReadSelectedPreviewZoom(), enableManualEditing, ReadManualEditMode(), selectedForHighlight, _lastPreviewScrollX, _lastPreviewScrollY);
+        _pendingPreviewHtml = BuildPreviewHtml(
+            svg,
+            ReadSelectedPreviewZoom(),
+            enableManualEditing,
+            ReadManualEditMode(),
+            MultiSelectCheckBox.IsChecked == true,
+            selectedForHighlight,
+            _lastPreviewScrollX,
+            _lastPreviewScrollY);
         if (_previewBrowserReady && PreviewBrowser.CoreWebView2 is not null)
         {
             PreviewBrowser.CoreWebView2.NavigateToString(_pendingPreviewHtml);
@@ -1853,7 +2064,15 @@ public partial class MainWindow : Window
 
     private readonly record struct ViewerSvgPoint(double X, double Y);
 
-    private static string BuildPreviewHtml(string svg, string previewZoom, bool enableManualEditing, string manualEditMode, IReadOnlyList<string> selectedStationIds, double restoreScrollX, double restoreScrollY)
+    private static string BuildPreviewHtml(
+        string svg,
+        string previewZoom,
+        bool enableManualEditing,
+        string manualEditMode,
+        bool multiSelectEnabled,
+        IReadOnlyList<string> selectedStationIds,
+        double restoreScrollX,
+        double restoreScrollY)
     {
         SvgPixelSize svgSize = ReadSvgPixelSize(svg);
         bool fitPage = string.Equals(previewZoom, "fit-page", StringComparison.Ordinal);
@@ -1873,15 +2092,17 @@ public partial class MainWindow : Window
         bool editLabels = enableManualEditing && string.Equals(manualEditMode, "label", StringComparison.Ordinal);
         bool editSegments = enableManualEditing && string.Equals(manualEditMode, "segment", StringComparison.Ordinal);
         bool editBends = enableManualEditing && string.Equals(manualEditMode, "bend", StringComparison.Ordinal);
+        bool editIcons = enableManualEditing && string.Equals(manualEditMode, "icon", StringComparison.Ordinal);
         string dragCss = enableManualEditing
             ? "    circle.station[data-station-id], text.station-label[data-station-id] { user-select: none; -ms-user-select: none; } circle.station-interchange-inner { pointer-events: none; }"
                 + (editStations ? " circle.station[data-station-id] { cursor: move; }" : string.Empty)
                 + (editLabels ? " text.station-label[data-station-id] { cursor: move; }" : string.Empty)
                 + (editSegments ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: move; }" : string.Empty)
                 + (editBends ? " polyline.route, polyline.schematic-v2-parallel-corridor, polyline.product-line { cursor: crosshair; }" : string.Empty)
+                + (editIcons ? " g.map-icon[data-map-icon-id], g.map-icon[data-map-icon-id] * { cursor: move; user-select: none; -ms-user-select: none; }" : string.Empty)
             : string.Empty;
         string previewScript = BuildPreviewFocusScript(fitPage, fitWidth, zoomPercent, svgWidthText, svgHeightText, restoreScrollX, restoreScrollY);
-        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, editBends, selectedStationIds);
+        string manualEditScript = BuildManualEditScript(editStations, editLabels, editSegments, editBends, editIcons, multiSelectEnabled, selectedStationIds);
 
         return string.Join(Environment.NewLine,
         [
@@ -2033,9 +2254,16 @@ public partial class MainWindow : Window
         ]);
     }
 
-    private static string BuildManualEditScript(bool editStations, bool editLabels, bool editSegments, bool editBends, IReadOnlyList<string> selectedStationIds)
+    private static string BuildManualEditScript(
+        bool editStations,
+        bool editLabels,
+        bool editSegments,
+        bool editBends,
+        bool editIcons,
+        bool multiSelectEnabled,
+        IReadOnlyList<string> selectedStationIds)
     {
-        if (!editStations && !editLabels && !editSegments && !editBends)
+        if (!editStations && !editLabels && !editSegments && !editBends && !editIcons)
         {
             return string.Empty;
         }
@@ -2044,6 +2272,8 @@ public partial class MainWindow : Window
         string editLabelsText = editLabels ? "true" : "false";
         string editSegmentsText = editSegments ? "true" : "false";
         string editBendsText = editBends ? "true" : "false";
+        string editIconsText = editIcons ? "true" : "false";
+        string multiSelectText = multiSelectEnabled ? "true" : "false";
         string selectedIdsJson = "[" + string.Join(",", (selectedStationIds ?? []).Select(id => JsonSerializer.Serialize(id))) + "]";
         return string.Join(Environment.NewLine,
         [
@@ -2053,6 +2283,8 @@ public partial class MainWindow : Window
             $"      var editLabels = {editLabelsText};",
             $"      var editSegments = {editSegmentsText};",
             $"      var editBends = {editBendsText};",
+            $"      var editIcons = {editIconsText};",
+            $"      var multiSelectEnabled = {multiSelectText};",
             $"      var selectedStationIds = {selectedIdsJson};",
             "      var drag = null;",
             "      var nudge = null;",
@@ -2075,6 +2307,50 @@ public partial class MainWindow : Window
             "        point.x = evt.clientX;",
             "        point.y = evt.clientY;",
             "        return point.matrixTransform(matrix.inverse());",
+            "      }",
+            "      function beginMarquee(svg, start, evt) {",
+            "        var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');",
+            "        rect.setAttribute('class', 'manual-edit-selection-marquee');",
+            "        rect.setAttribute('x', String(start.x));",
+            "        rect.setAttribute('y', String(start.y));",
+            "        rect.setAttribute('width', '0');",
+            "        rect.setAttribute('height', '0');",
+            "        rect.setAttribute('fill', '#2d7ff9');",
+            "        rect.setAttribute('fill-opacity', '0.12');",
+            "        rect.setAttribute('stroke', '#2d7ff9');",
+            "        rect.setAttribute('stroke-width', '2');",
+            "        rect.setAttribute('stroke-dasharray', '8 5');",
+            "        rect.setAttribute('pointer-events', 'none');",
+            "        svg.appendChild(rect);",
+            "        drag = { kind: 'marquee', svg: svg, element: rect, startX: start.x, startY: start.y, curX: start.x, curY: start.y, additive: !!(evt.ctrlKey || evt.metaKey), baseIds: selectedStationIds.slice() };",
+            "      }",
+            "      function updateMarquee(currentDrag, evt) {",
+            "        var point = svgPoint(currentDrag.svg, evt);",
+            "        if (!point) { return; }",
+            "        currentDrag.curX = point.x; currentDrag.curY = point.y;",
+            "        var left = Math.min(currentDrag.startX, point.x);",
+            "        var top = Math.min(currentDrag.startY, point.y);",
+            "        currentDrag.element.setAttribute('x', String(left));",
+            "        currentDrag.element.setAttribute('y', String(top));",
+            "        currentDrag.element.setAttribute('width', String(Math.abs(point.x - currentDrag.startX)));",
+            "        currentDrag.element.setAttribute('height', String(Math.abs(point.y - currentDrag.startY)));",
+            "      }",
+            "      function finishMarquee(currentDrag) {",
+            "        var left = Math.min(currentDrag.startX, currentDrag.curX);",
+            "        var right = Math.max(currentDrag.startX, currentDrag.curX);",
+            "        var top = Math.min(currentDrag.startY, currentDrag.curY);",
+            "        var bottom = Math.max(currentDrag.startY, currentDrag.curY);",
+            "        var ids = currentDrag.additive ? currentDrag.baseIds.slice() : [];",
+            "        var circles = document.getElementsByTagName('circle');",
+            "        for (var i = 0; i < circles.length; i++) {",
+            "          if (!hasClass(circles[i], 'station')) { continue; }",
+            "          var stationId = circles[i].getAttribute('data-station-id');",
+            "          var x = parseCoordinate(circles[i].getAttribute('cx'));",
+            "          var y = parseCoordinate(circles[i].getAttribute('cy'));",
+            "          if (stationId && x >= left && x <= right && y >= top && y <= bottom) { ids.push(stationId); }",
+            "        }",
+            "        if (currentDrag.element && currentDrag.element.parentNode) { currentDrag.element.parentNode.removeChild(currentDrag.element); }",
+            "        setSelection(ids);",
             "      }",
             "      function stationCircles(stationId) {",
             "        var circles = document.getElementsByTagName('circle');",
@@ -2258,6 +2534,14 @@ public partial class MainWindow : Window
             "        }",
             "      }",
             "      function moveDragPreview(currentDrag) {",
+            "        if (currentDrag.kind === 'icon') {",
+            "          var iconX = currentDrag.startIconX + currentDrag.deltaX;",
+            "          var iconY = currentDrag.startIconY + currentDrag.deltaY;",
+            "          currentDrag.element.setAttribute('transform', 'translate(' + iconX + ' ' + iconY + ')');",
+            "          currentDrag.element.setAttribute('data-icon-x', String(iconX));",
+            "          currentDrag.element.setAttribute('data-icon-y', String(iconY));",
+            "          return;",
+            "        }",
             "        movePreview(currentDrag.matches, currentDrag.names, currentDrag.deltaX, currentDrag.deltaY);",
             "        if (currentDrag.labelMatches && currentDrag.labelMatches.length) {",
             "          movePreview(currentDrag.labelMatches, { x: 'x', y: 'y' }, currentDrag.deltaX, currentDrag.deltaY);",
@@ -2327,6 +2611,16 @@ public partial class MainWindow : Window
             "        if (!stationIds || stationIds.length < 2) { return; }",
             "        postViewerMessage({ type: 'bendChanged', stationId: String(stationIds[0]), stationIds: stationIds.join('|'), bendX: String(Math.round(x * 1000) / 1000), bendY: String(Math.round(y * 1000) / 1000) });",
             "      }",
+            "      function externalIconSelect(iconId) {",
+            "        if (!iconId) { return; }",
+            "        postViewerMessage({ type: 'iconSelected', iconId: String(iconId) });",
+            "      }",
+            "      function externalIconDrag(iconId, deltaX, deltaY) {",
+            "        if (!iconId) { return; }",
+            "        var dx = String(Math.round(deltaX * 1000) / 1000);",
+            "        var dy = String(Math.round(deltaY * 1000) / 1000);",
+            "        postViewerMessage({ type: 'iconDragged', iconId: String(iconId), deltaX: dx, deltaY: dy });",
+            "      }",
             "      function selectTarget(kind, stationId) {",
             "        externalSelect(kind, stationId);",
             "      }",
@@ -2343,6 +2637,11 @@ public partial class MainWindow : Window
             "            circles[i].style.stroke = '';",
             "            circles[i].style.strokeWidth = '';",
             "          }",
+            "        }",
+            "        var iconGroups = document.querySelectorAll ? document.querySelectorAll('g.map-icon[data-map-icon-id]') : [];",
+            "        for (var j = 0; j < iconGroups.length; j++) {",
+            "          var iconId = iconGroups[j].getAttribute('data-map-icon-id');",
+            "          iconGroups[j].style.filter = selectedStationIds.indexOf(iconId) >= 0 ? 'drop-shadow(0 0 5px #ff2d95)' : '';",
             "        }",
             "      }",
             "      function broadcastSelection() {",
@@ -2417,17 +2716,36 @@ public partial class MainWindow : Window
             "        if (nudge) { commitNudge(); return; }",
             "        var target = evt.target || evt.srcElement;",
             "        if (!target) { return; }",
+            "        var iconTarget = target;",
+            "        while (iconTarget && iconTarget !== document && (!iconTarget.getAttribute || !iconTarget.getAttribute('data-map-icon-id'))) { iconTarget = iconTarget.parentNode; }",
             "        var tagName = target.tagName ? target.tagName.toLowerCase() : '';",
             "        var kind = null;",
+            "        if (editIcons && iconTarget && iconTarget !== document && iconTarget.getAttribute('data-map-icon-id')) { kind = 'icon'; target = iconTarget; tagName = 'g'; }",
             "        if (editStations && tagName === 'circle' && hasClass(target, 'station')) { kind = 'station'; }",
             "        if (editLabels && tagName === 'text' && hasClass(target, 'station-label')) { kind = 'label'; }",
             "        if (editSegments && tagName === 'polyline' && isRoutePolyline(target)) { kind = 'segment'; }",
             "        if (editBends && tagName === 'polyline' && isRoutePolyline(target)) { kind = 'bend'; }",
-            "        if (!kind) { return; }",
             "        var svg = document.getElementsByTagName('svg')[0];",
             "        var start = svgPoint(svg, evt);",
             "        if (!start) { return; }",
+            "        if (!kind) {",
+            "          if (editStations && multiSelectEnabled && (tagName === 'svg' || tagName === 'rect')) {",
+            "            beginMarquee(svg, start, evt);",
+            "            if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          }",
+            "          return;",
+            "        }",
             "        var matrix = svg.getScreenCTM().inverse();",
+            "        if (kind === 'icon') {",
+            "          var iconId = target.getAttribute('data-map-icon-id');",
+            "          if (!iconId) { return; }",
+            "          selectedStationIds = [iconId];",
+            "          applySelectionHighlight();",
+            "          externalIconSelect(iconId);",
+            "          drag = { kind: 'icon', iconId: iconId, element: target, svg: svg, startIconX: parseCoordinate(target.getAttribute('data-icon-x')), startIconY: parseCoordinate(target.getAttribute('data-icon-y')), startX: start.x, startY: start.y, startClientX: evt.clientX, startClientY: evt.clientY, matrixA: matrix.a, matrixB: matrix.b, matrixC: matrix.c, matrixD: matrix.d, deltaX: 0, deltaY: 0, lastPreviewAt: 0, previewPending: false };",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
             "        if (kind === 'bend') {",
             "          var bendSegment = closestRouteSegment(svg, start, target);",
             "          if (!bendSegment) { return; }",
@@ -2460,6 +2778,11 @@ public partial class MainWindow : Window
             "        var stationId = target.getAttribute('data-station-id');",
             "        if (!stationId) { return; }",
             "        if (kind === 'station' && (evt.ctrlKey || evt.metaKey)) {",
+            "          toggleSelection(stationId);",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
+            "        if (kind === 'station' && multiSelectEnabled && selectedStationIds.indexOf(stationId) < 0) {",
             "          toggleSelection(stationId);",
             "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
             "          return;",
@@ -2501,6 +2824,11 @@ public partial class MainWindow : Window
             "      function updateDrag(evt) {",
             "        if (!drag) { return; }",
             "        evt = evt || window.event;",
+            "        if (drag.kind === 'marquee') {",
+            "          updateMarquee(drag, evt);",
+            "          if (evt.preventDefault) { evt.preventDefault(); } else { evt.returnValue = false; }",
+            "          return;",
+            "        }",
             "        if (drag.kind === 'bend') {",
             "          var bp = svgPoint(drag.svg, evt);",
             "          if (bp) { drag.curX = bp.x; drag.curY = bp.y; var bpts = drag.bendElement.points; if (drag.bendIndex < bpts.numberOfItems) { var bit = bpts.getItem(drag.bendIndex); bit.x = bp.x; bit.y = bp.y; } }",
@@ -2560,11 +2888,19 @@ public partial class MainWindow : Window
             "        if (!drag) { return; }",
             "        var completed = drag;",
             "        drag = null;",
+            "        if (completed.kind === 'marquee') {",
+            "          finishMarquee(completed);",
+            "          return;",
+            "        }",
             "        if (completed.kind === 'bend') {",
             "          externalBend(completed.stationIds, completed.curX, completed.curY);",
             "          return;",
             "        }",
             "        moveDragPreview(completed);",
+            "        if (completed.kind === 'icon') {",
+            "          if (Math.sqrt(completed.deltaX * completed.deltaX + completed.deltaY * completed.deltaY) >= 0.5) { externalIconDrag(completed.iconId, completed.deltaX, completed.deltaY); }",
+            "          return;",
+            "        }",
             "        if (completed.kind === 'station') {",
             "          var snappedDelta = octilinearSnapDelta(completed);",
             "          if (snappedDelta) { completed.deltaX = snappedDelta.x; completed.deltaY = snappedDelta.y; moveDragPreview(completed); }",
@@ -2908,10 +3244,28 @@ public partial class MainWindow : Window
         PreviewZoomFitPageItem.Content = T("PreviewZoomFitPage");
         PreviewZoomFitWidthItem.Content = T("PreviewZoomFitWidth");
         ManualEditCheckBox.Content = T("ManualEdit");
+        MapElementsButton.Content = T("MapElements");
         ManualEditStationsItem.Content = T("ManualEditStations");
         ManualEditLabelsItem.Content = T("ManualEditLabels");
         ManualEditSegmentsItem.Content = T("ManualEditSegments");
         ManualEditBendsItem.Content = T("ManualEditBends");
+        ManualEditIconsItem.Content = T("ManualEditIcons");
+        IconAirportItem.Content = T("IconTypeAirport");
+        IconRailwayItem.Content = T("IconTypeRailway");
+        IconIntercityItem.Content = T("IconTypeIntercity");
+        IconBusItem.Content = T("IconTypeBus");
+        IconFerryItem.Content = T("IconTypeFerry");
+        IconLandmarkItem.Content = T("IconTypeLandmark");
+        IconInformationItem.Content = T("IconTypeInformation");
+        IconInformationBoxItem.Content = T("IconTypeInformationBox");
+        AddIconButton.Content = T("AddMapElement");
+        DeleteIconButton.Content = T("DeleteMapElement");
+        MapElementsHeader.Text = T("MapElements");
+        CloseMapElementsButton.Content = T("CloseMapElements");
+        MapElementTitleLabel.Text = T("MapElementTitle");
+        MapElementTextLabel.Text = T("MapElementText");
+        ApplyMapElementTextButton.Content = T("ApplyMapElementText");
+        MultiSelectCheckBox.Content = T("MultiSelect");
         AlignHorizontalButton.Content = T("AlignHorizontal");
         AlignVerticalButton.Content = T("AlignVertical");
         ResetSelectedOverrideButton.Content = T("ResetSelectedOverride");

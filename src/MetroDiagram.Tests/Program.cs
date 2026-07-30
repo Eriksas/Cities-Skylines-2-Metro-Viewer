@@ -81,6 +81,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal renders deterministic valid svg", SchematicAnnealRendersDeterministicValidSvg),
     ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
+    ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
@@ -119,6 +120,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("layout overrides move station labels independently", LayoutOverridesMoveStationLabelsIndependently),
     ("layout overrides hide station labels", LayoutOverridesHideStationLabels),
     ("layout overrides ignore disabled station overrides", LayoutOverridesIgnoreDisabledStationOverrides),
+    ("layout override icons round-trip and render", LayoutOverrideIconsRoundTripAndRender),
+    ("disabled layout override icons stay hidden", DisabledLayoutOverrideIconsStayHidden),
     ("canonical schematic network selects service family route", CanonicalSchematicNetworkSelectsServiceFamilyRoute),
     ("canonical schematic network records exact shared edges", CanonicalSchematicNetworkRecordsExactSharedEdges),
     ("canonical schematic network records geometry corridor hints", CanonicalSchematicNetworkRecordsGeometryCorridorHints),
@@ -133,6 +136,24 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-v2 does not render parallel corridor for single crossing", SchematicV2DoesNotRenderParallelCorridorForSingleCrossing),
     ("schematic-v2 does not merge non-shared lines", SchematicV2DoesNotMergeNonSharedLines),
     ("schematic-v2 leaves geographic unaffected", SchematicV2LeavesGeographicUnaffected),
+    ("intercity geometry clips outside tails without changing city bounds", IntercityGeometryClipsOutsideTailsWithoutChangingCityBounds),
+    ("intercity geometry preserves route order and emits continuation", IntercityGeometryPreservesRouteOrderAndEmitsContinuation),
+    ("intercity geometry handles routes through both city boundaries", IntercityGeometryHandlesRoutesThroughBothCityBoundaries),
+    ("intercity projection uses one uniform scale", IntercityProjectionUsesOneUniformScale),
+    ("intercity outside tails do not change projected city geometry", IntercityOutsideTailsDoNotChangeProjectedCityGeometry),
+    ("intercity rail pattern emits equal explicit marks", IntercityRailPatternEmitsEqualExplicitMarks),
+    ("intercity railway stays visually subordinate to metro routes", IntercityRailwayStaysVisuallySubordinateToMetroRoutes),
+    ("passenger rail classifier accepts train line prefab evidence", PassengerRailClassifierAcceptsTrainLinePrefabEvidence),
+    ("passenger rail classifier accepts passenger vehicle evidence", PassengerRailClassifierAcceptsPassengerVehicleEvidence),
+    ("passenger rail classifier accepts TrainStop fallback evidence", PassengerRailClassifierAcceptsTrainStopFallbackEvidence),
+    ("passenger rail classifier gives cargo evidence exclusion priority", PassengerRailClassifierGivesCargoEvidenceExclusionPriority),
+    ("passenger intercity collector remains hidden and default off", PassengerIntercityCollectorRemainsHiddenAndDefaultOff),
+    ("intercity renderers keep rail hidden and geographic-only", IntercityRenderersKeepRailHiddenAndGeographicOnly),
+    ("desktop geographic renders clipped passenger railway style", DesktopGeographicRendersClippedPassengerRailwayStyle),
+    ("portable geographic matches passenger railway clipping semantics", PortableGeographicMatchesPassengerRailwayClippingSemantics),
+    ("intercity renderers share explicit rail pattern tokens", IntercityRenderersShareExplicitRailPatternTokens),
+    ("intercity legends use parallel transport-mode groups", IntercityLegendsUseParallelTransportModeGroups),
+    ("intercity renderers omit outside-city continuation arrows", IntercityRenderersOmitOutsideCityContinuationArrows),
     ("old JSON without pathPoints still renders", OldJsonWithoutPathPointsStillRenders),
     ("geographic uses pathPoints when enabled", GeographicUsesPathPointsWhenEnabled),
     ("pathPoints de-duplication normalizes consecutive duplicates", PathPointsDeduplicationNormalizesConsecutiveDuplicates),
@@ -1441,6 +1462,135 @@ static void LayoutOverridesIgnoreDisabledStationOverrides()
     AssertValidSvg(xml, "layout override disabled station SVG");
 }
 
+static void LayoutOverrideIconsRoundTripAndRender()
+{
+    string tempPath = Path.Combine(Path.GetTempPath(), $"metro-layout-icons-{Guid.NewGuid():N}.json");
+    try
+    {
+        LayoutOverrideDocument overrides = new()
+        {
+            Icons =
+            {
+                ["airport-main"] = new MapIconLayoutOverride
+                {
+                    Type = "airport",
+                    X = 320,
+                    Y = 180,
+                    Size = 40,
+                    Label = "Airport"
+                },
+                ["rail-hub"] = new MapIconLayoutOverride
+                {
+                    Type = "railway",
+                    X = 460,
+                    Y = 240,
+                    Size = 36
+                },
+                ["service-notice"] = new MapIconLayoutOverride
+                {
+                    Type = "information-box",
+                    X = 720,
+                    Y = 220,
+                    Title = "Service notice",
+                    Text = "Airport express trains skip Central Park after 22:00.",
+                    Width = 320,
+                    Height = 150
+                }
+            }
+        };
+        LayoutOverrideLoader.SaveToFile(tempPath, overrides);
+        LayoutOverrideDocument loaded = LayoutOverrideLoader.LoadFromFile(tempPath);
+
+        Assert(loaded.Icons.Count == 3, "Layout override icon sidecar did not round-trip all map elements.");
+        Assert(loaded.Icons["airport-main"].Label == "Airport", "Layout override icon label was not preserved.");
+        Assert(loaded.Icons["service-notice"].Title == "Service notice", "Information box title was not preserved.");
+        Assert(loaded.Icons["service-notice"].Text?.Contains("Airport express", StringComparison.Ordinal) == true, "Information box text was not preserved.");
+        Assert(loaded.Icons["service-notice"].Width == 320 && loaded.Icons["service-notice"].Height == 150, "Information box dimensions were not preserved.");
+
+        SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+            SvgLayoutMode.SchematicMap,
+            width: 1200,
+            height: 800,
+            legendWidth: 240,
+            layoutOverrides: loaded);
+        XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(CreateSchematicMapCurvedOrdinaryRunDocument(), options).Svg);
+        List<XElement> icons = xml.Descendants()
+            .Where(element => element.Name.LocalName == "g"
+                && element.Attribute("data-map-icon-id") is not null)
+            .ToList();
+
+        Assert(icons.Count == 3, $"Expected three rendered map elements, found {icons.Count}.");
+        XElement airport = icons.Single(element => (string?)element.Attribute("data-map-icon-id") == "airport-main");
+        Assert((string?)airport.Attribute("data-map-icon-type") == "airport", "Airport icon type metadata was missing.");
+        Assert((string?)airport.Attribute("transform") == "translate(320 180)", "Airport icon did not render at its sidecar coordinates.");
+        XElement airportBadge = airport.Descendants().Single(element =>
+            (string?)element.Attribute("data-map-icon-visual") == "transport-badge");
+        Assert((string?)airportBadge.Attribute("fill") == "#3D9FD3", "Airport icon should use the blue transport badge.");
+        Assert(airport.Descendants().Any(element =>
+            ((string?)element.Attribute("class"))?.Contains("map-icon-glyph-airport", StringComparison.Ordinal) == true
+            && (string?)element.Attribute("fill") == "#ffffff"), "Airport icon should render a white airplane glyph.");
+        XElement railway = icons.Single(element => (string?)element.Attribute("data-map-icon-id") == "rail-hub");
+        XElement railwayBadge = railway.Descendants().Single(element =>
+            (string?)element.Attribute("data-map-icon-visual") == "transport-badge");
+        Assert((string?)railwayBadge.Attribute("fill") == "#D9332C", "Railway icon should use the red transport badge.");
+        Assert(railway.Descendants().Any(element =>
+            ((string?)element.Attribute("class"))?.Contains("map-icon-glyph-railway", StringComparison.Ordinal) == true
+            && (string?)element.Attribute("stroke") == "#ffffff"), "Railway icon should render a white railway glyph.");
+        Assert(railway.Descendants().Any(element =>
+            (string?)element.Attribute("data-map-icon-symbol") == "china-railway-emblem"), "Railway icon should expose the China Railway-style emblem marker.");
+        XElement notice = icons.Single(element => (string?)element.Attribute("data-map-icon-id") == "service-notice");
+        Assert((string?)notice.Attribute("data-map-icon-type") == "information-box", "Information box type metadata was missing.");
+        Assert(notice.Descendants().Any(element =>
+            (string?)element.Attribute("class") == "map-information-box-title"
+            && element.Value == "Service notice"), "Information box title was not rendered.");
+        Assert(notice.Descendants().Any(element =>
+            (string?)element.Attribute("class") == "map-information-box-body"
+            && element.Value.Contains("Airport express", StringComparison.Ordinal)), "Information box body was not rendered.");
+        Assert(icons.All(element => element.Descendants().Any(child =>
+            (string?)child.Attribute("class") == "map-icon-hit-target"
+            && (string?)child.Attribute("pointer-events") == "all")), "Every map icon should expose an explicit drag hit target.");
+        Assert(xml.Descendants().Any(element => element.Name.LocalName == "text"
+            && (string?)element.Attribute("class") == "map-icon-label"
+            && element.Value == "Airport"), "Map icon label was not rendered.");
+        AssertValidSvg(xml, "layout override map icon SVG");
+    }
+    finally
+    {
+        if (File.Exists(tempPath))
+        {
+            File.Delete(tempPath);
+        }
+    }
+}
+
+static void DisabledLayoutOverrideIconsStayHidden()
+{
+    LayoutOverrideDocument overrides = new()
+    {
+        Icons =
+        {
+            ["hidden-icon"] = new MapIconLayoutOverride
+            {
+                Type = "information",
+                X = 200,
+                Y = 200,
+                Enabled = false
+            }
+        }
+    };
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(
+        SvgLayoutMode.SchematicMap,
+        width: 1200,
+        height: 800,
+        legendWidth: 240,
+        layoutOverrides: overrides);
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(CreateSchematicMapCurvedOrdinaryRunDocument(), options).Svg);
+
+    Assert(!xml.Descendants().Any(element => (string?)element.Attribute("data-map-icon-id") == "hidden-icon"),
+        "Disabled map icon should not be rendered.");
+    AssertValidSvg(xml, "disabled layout override map icon SVG");
+}
+
 static void CanonicalSchematicNetworkSelectsServiceFamilyRoute()
 {
     MetroExportDocument document = CreateSchematicV2ServiceVariantSimplificationDocument();
@@ -1669,6 +1819,674 @@ static void SchematicV2LeavesGeographicUnaffected()
     XElement routes = xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes");
     Assert((string?)routes.Attribute("data-layout") == "geographic", "Geographic layout was affected by schematic-v2.");
     Assert(GetRouteElements(xml).All(route => route.Attribute("data-schematic-station-adjusted") is null), "Geographic routes should not include schematic-v2 station adjustment attributes.");
+}
+
+static void IntercityGeometryClipsOutsideTailsWithoutChangingCityBounds()
+{
+    IntercityGeometryFixture fixture = LoadIntercityGeometryFixture("sample-intercity-outside-tail.json");
+    IntercityGeographicGeometryOptions options = new()
+    {
+        EnvelopeMarginRatio = 0,
+        MinimumMargin = 100
+    };
+
+    IntercityClippedGeometry geometry = IntercityGeographicGeometry.ClipToCityEnvelope(
+        fixture.RoutePoints,
+        fixture.CityAnchors,
+        options);
+
+    AssertAlmostEqual(geometry.Envelope.MinX, -100, "City envelope min X should be derived from station anchors.");
+    AssertAlmostEqual(geometry.Envelope.MaxX, 1100, "City envelope max X should ignore the outside route tail.");
+    AssertAlmostEqual(geometry.Envelope.MinZ, -100, "City envelope min Z should be derived from station anchors.");
+    AssertAlmostEqual(geometry.Envelope.MaxZ, 900, "City envelope max Z should ignore the outside route tail.");
+    Assert(geometry.ClippedSegmentCount == 1, "Expected the outside tail transition segment to be clipped exactly once.");
+}
+
+static void IntercityGeometryPreservesRouteOrderAndEmitsContinuation()
+{
+    IntercityGeometryFixture fixture = LoadIntercityGeometryFixture("sample-intercity-outside-tail.json");
+    IntercityClippedGeometry geometry = IntercityGeographicGeometry.ClipToCityEnvelope(
+        fixture.RoutePoints,
+        fixture.CityAnchors,
+        new IntercityGeographicGeometryOptions
+        {
+            EnvelopeMarginRatio = 0,
+            MinimumMargin = 100
+        });
+
+    Assert(geometry.Polylines.Count == fixture.Expected.PolylineCount, "Outside-tail fixture produced an unexpected polyline count.");
+    Assert(geometry.Continuations.Count == fixture.Expected.ContinuationCount, "Outside-tail fixture produced an unexpected continuation count.");
+
+    IReadOnlyList<GeographicPoint> route = geometry.Polylines.Single();
+    Assert(route.Count >= 4, "Clipped route should preserve all in-city points plus its boundary intersection.");
+    Assert(route[0] == fixture.RoutePoints[0], "Clipped route did not preserve its first in-city point.");
+    Assert(route[1] == fixture.RoutePoints[1], "Clipped route changed in-city point order.");
+    Assert(route[2] == fixture.RoutePoints[2], "Clipped route changed the last in-city source point.");
+    Assert(geometry.Envelope.Contains(route[^1], 0.0001), "Clipped route endpoint should lie on the city envelope.");
+
+    IntercityContinuationMarker continuation = geometry.Continuations.Single();
+    Assert(continuation.OutwardDirection.X > 0 && continuation.OutwardDirection.Z > 0, "Continuation arrow should point toward the removed outside tail.");
+}
+
+static void IntercityGeometryHandlesRoutesThroughBothCityBoundaries()
+{
+    IntercityGeometryFixture fixture = LoadIntercityGeometryFixture("sample-intercity-through-route.json");
+    IntercityClippedGeometry geometry = IntercityGeographicGeometry.ClipToCityEnvelope(
+        fixture.RoutePoints,
+        fixture.CityAnchors,
+        new IntercityGeographicGeometryOptions
+        {
+            EnvelopeMarginRatio = 0,
+            MinimumMargin = 80
+        });
+
+    Assert(geometry.Polylines.Count == fixture.Expected.PolylineCount, "Through-route fixture should remain one continuous in-city polyline.");
+    Assert(geometry.Continuations.Count == fixture.Expected.ContinuationCount, "Through-route fixture should have one continuation at each boundary.");
+    Assert(geometry.ClippedSegmentCount == 2, "Through-route fixture should clip one entering and one exiting segment.");
+    Assert(geometry.Polylines.Single().Any(point => point == new GeographicPoint(0, 0)), "Through-route fixture lost its central route point.");
+}
+
+static void IntercityProjectionUsesOneUniformScale()
+{
+    GeographicPoint[] anchors =
+    [
+        new GeographicPoint(0, 0),
+        new GeographicPoint(1000, 0),
+        new GeographicPoint(1000, 500),
+        new GeographicPoint(0, 500)
+    ];
+    GeographicPoint[] route =
+    [
+        new GeographicPoint(0, 0),
+        new GeographicPoint(1000, 0),
+        new GeographicPoint(1000, 500)
+    ];
+    IntercityClippedGeometry geometry = IntercityGeographicGeometry.ClipToCityEnvelope(
+        route,
+        anchors,
+        new IntercityGeographicGeometryOptions
+        {
+            EnvelopeMarginRatio = 0,
+            MinimumMargin = 0
+        });
+    IntercityProjectedGeometry projected = IntercityGeographicGeometry.Project(
+        geometry,
+        new IntercityCanvasViewport(1200, 800, 100, 100, 100, 100));
+
+    IReadOnlyList<IntercityCanvasPoint> points = projected.Polylines.Single();
+    double projectedHorizontal = CanvasDistance(points[0], points[1]);
+    double projectedVertical = CanvasDistance(points[1], points[2]);
+    AssertAlmostEqual(projectedHorizontal / projectedVertical, 2, "Projection should use one uniform scale for both axes.");
+    AssertAlmostEqual(projected.Scale, 1, "Expected the 1000-unit route to fit the 1000-pixel drawable width.");
+}
+
+static void IntercityOutsideTailsDoNotChangeProjectedCityGeometry()
+{
+    GeographicPoint[] anchors =
+    [
+        new GeographicPoint(0, 0),
+        new GeographicPoint(1000, 0),
+        new GeographicPoint(1000, 800),
+        new GeographicPoint(0, 800)
+    ];
+    GeographicPoint[] cityRoute =
+    [
+        new GeographicPoint(100, 100),
+        new GeographicPoint(500, 400),
+        new GeographicPoint(900, 700)
+    ];
+    GeographicPoint[] routeWithTail =
+    [
+        .. cityRoute,
+        new GeographicPoint(50000, 40000)
+    ];
+    IntercityGeographicGeometryOptions options = new()
+    {
+        EnvelopeMarginRatio = 0,
+        MinimumMargin = 100
+    };
+    IntercityCanvasViewport viewport = new(1600, 1000, 80, 80, 80, 80);
+
+    IntercityProjectedGeometry withoutTail = IntercityGeographicGeometry.Project(
+        IntercityGeographicGeometry.ClipToCityEnvelope(cityRoute, anchors, options),
+        viewport);
+    IntercityProjectedGeometry withTail = IntercityGeographicGeometry.Project(
+        IntercityGeographicGeometry.ClipToCityEnvelope(routeWithTail, anchors, options),
+        viewport);
+
+    IReadOnlyList<IntercityCanvasPoint> expected = withoutTail.Polylines.Single();
+    IReadOnlyList<IntercityCanvasPoint> actual = withTail.Polylines.Single();
+    for (int i = 0; i < expected.Count; i++)
+    {
+        AssertAlmostEqual(actual[i].X, expected[i].X, "Outside tail changed an in-city projected X coordinate.");
+        AssertAlmostEqual(actual[i].Y, expected[i].Y, "Outside tail changed an in-city projected Y coordinate.");
+    }
+}
+
+static void IntercityRailPatternEmitsEqualExplicitMarks()
+{
+    IntercityRailPatternOptions options = new()
+    {
+        MarkLength = 8,
+        GapLength = 12,
+        MarkWidth = 4
+    };
+    IReadOnlyList<IntercityRailMark> marks = IntercityRailPattern.BuildInlineMarks(
+        [
+            new IntercityCanvasPoint(0, 0),
+            new IntercityCanvasPoint(120, 0)
+        ],
+        options);
+
+    Assert(marks.Count == 6, $"Expected 6 centered railway marks, found {marks.Count}.");
+    for (int i = 0; i < marks.Count; i++)
+    {
+        AssertAlmostEqual(
+            CanvasDistance(marks[i].Start, marks[i].End),
+            options.MarkLength,
+            "An explicit railway mark did not preserve the configured length.");
+        if (i > 0)
+        {
+            AssertAlmostEqual(
+                marks[i].Start.X - marks[i - 1].End.X,
+                options.GapLength,
+                "Explicit railway marks did not preserve the configured gap.");
+        }
+    }
+
+    AssertAlmostEqual(marks[0].Start.X, 6, "Railway marks were not centered at the start of the route.");
+    AssertAlmostEqual(120 - marks[^1].End.X, 6, "Railway marks were not centered at the end of the route.");
+}
+
+static void IntercityRailwayStaysVisuallySubordinateToMetroRoutes()
+{
+    double desktopMetroWidth = 9;
+    double portableMetroWidth = 7;
+    double desktopRailWidth = IntercityRailPatternOptions.ResolveRouteBaseWidth(desktopMetroWidth);
+    double portableRailWidth = IntercityRailPatternOptions.ResolveRouteBaseWidth(portableMetroWidth);
+
+    Assert(desktopRailWidth < desktopMetroWidth,
+        "Desktop intercity railway should be thinner than the metro route.");
+    Assert(portableRailWidth < portableMetroWidth,
+        "Portable intercity railway should be thinner than the metro route.");
+    AssertAlmostEqual(desktopRailWidth, 6.48,
+        "Desktop intercity route width ratio changed unexpectedly.");
+    AssertAlmostEqual(portableRailWidth, 5.5,
+        "Portable intercity minimum route width changed unexpectedly.");
+
+    IntercityRailPatternOptions pattern = IntercityRailPatternOptions.FromBaseWidth(desktopRailWidth);
+    Assert(pattern.MarkWidth < desktopRailWidth * 0.4,
+        "White railway inserts became visually dominant after route thinning.");
+}
+
+static void PassengerRailClassifierAcceptsTrainLinePrefabEvidence()
+{
+    PassengerRailClassification classification = PassengerIntercityRailClassifier.Classify(
+        new PassengerRailEvidence
+        {
+            LinePrefabIsTrain = true
+        });
+
+    Assert(classification.Included, "TransportLineData Train evidence should include a passenger intercity candidate.");
+    Assert(classification.Evidence.Contains("line-prefab:train"), "Train line-prefab evidence was not retained for diagnostics.");
+}
+
+static void PassengerRailClassifierAcceptsPassengerVehicleEvidence()
+{
+    PassengerRailClassification classification = PassengerIntercityRailClassifier.Classify(
+        new PassengerRailEvidence
+        {
+            VehiclePrefabIsTrain = true
+        });
+
+    Assert(classification.Included, "Passenger train vehicle evidence should include an intercity candidate.");
+    Assert(classification.Evidence.Contains("vehicle-prefab:passenger-train"), "Passenger vehicle evidence was not retained for diagnostics.");
+}
+
+static void PassengerRailClassifierAcceptsTrainStopFallbackEvidence()
+{
+    PassengerRailClassification classification = PassengerIntercityRailClassifier.Classify(
+        new PassengerRailEvidence
+        {
+            WaypointHasTrainStop = true,
+            TrainStopCount = 3,
+            OutsideConnectionReferenceCount = 1
+        });
+
+    Assert(classification.Included, "A TrainStop waypoint should recover a passenger candidate when prefab evidence is unavailable.");
+    Assert(classification.Evidence.Contains("train-stop-count:3"), "TrainStop count was not retained for diagnostics.");
+    Assert(classification.Evidence.Contains("outside-connection-references:1"), "Outside-connection evidence was not retained for diagnostics.");
+}
+
+static void PassengerRailClassifierGivesCargoEvidenceExclusionPriority()
+{
+    PassengerRailClassification classification = PassengerIntercityRailClassifier.Classify(
+        new PassengerRailEvidence
+        {
+            LinePrefabIsTrain = true,
+            VehiclePrefabIsTrain = true,
+            WaypointHasTrainStop = true,
+            VehiclePrefabIsCargo = true
+        });
+
+    Assert(!classification.Included, "Explicit cargo vehicle evidence must override generic Train transport evidence.");
+    Assert(classification.Reason == "excluded-cargo-or-freight", "Cargo exclusion did not report its stable diagnostic reason.");
+}
+
+static void PassengerIntercityCollectorRemainsHiddenAndDefaultOff()
+{
+    string root = FindRepositoryRoot();
+    string setting = File.ReadAllText(Path.Combine(root, "CS2 Metro", "Setting.cs"));
+    string exporter = File.ReadAllText(Path.Combine(root, "CS2 Metro", "RealMetroJsonExporter.cs"));
+    string collector = File.ReadAllText(Path.Combine(root, "CS2 Metro", "PassengerIntercityRailCollector.cs"));
+
+    Assert(setting.Contains("[SettingsUIHidden]", StringComparison.Ordinal)
+        && setting.Contains("ExportPassengerIntercityRailDevelopment", StringComparison.Ordinal),
+        "Passenger intercity development setting is no longer hidden.");
+    Assert(setting.Contains("ExportPassengerIntercityRailDevelopment = false;", StringComparison.Ordinal),
+        "Passenger intercity development setting no longer resets to false.");
+    Assert(exporter.Contains("&& Mod.Settings.ExportPassengerIntercityRailDevelopment", StringComparison.Ordinal),
+        "Exporter no longer gates passenger intercity collection behind the hidden development setting.");
+    Assert(collector.Contains("CargoTransportVehicleData", StringComparison.Ordinal)
+        && collector.Contains("CargoTransportStationData", StringComparison.Ordinal),
+        "Passenger collector lost explicit cargo vehicle/station exclusion checks.");
+}
+
+static void IntercityRenderersKeepRailHiddenAndGeographicOnly()
+{
+    MetroExportDocument document = CreateIntercityRendererDocument();
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(document);
+
+    XDocument desktopDefault = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.Geographic,
+            UsePathPoints = true
+        }).Svg);
+    Assert(!desktopDefault.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail", StringComparison.Ordinal)),
+        "Desktop renderer exposed passenger rail while the development option was disabled.");
+
+    XDocument desktopSchematic = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.SchematicV2,
+            EnableIntercityRail = true
+        }).Svg);
+    Assert(!desktopSchematic.Descendants().Any(element =>
+        (string?)element.Attribute("data-line-id") == "train_1"),
+        "Desktop schematic mode rendered the development intercity route.");
+
+    XDocument portableDefault = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions
+        {
+            LayoutMode = PortableLayoutMode.Geographic
+        }).Svg);
+    Assert(!portableDefault.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail", StringComparison.Ordinal)),
+        "Portable renderer exposed passenger rail while the development option was disabled.");
+
+    XDocument portableSchematic = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions
+        {
+            LayoutMode = PortableLayoutMode.SchematicAnneal,
+            ShowIntercityRail = true
+        }).Svg);
+    Assert(!portableSchematic.Descendants().Any(element =>
+        (string?)element.Attribute("data-line-id") == "train_1"),
+        "Portable schematic mode rendered the development intercity route.");
+}
+
+static void DesktopGeographicRendersClippedPassengerRailwayStyle()
+{
+    MetroExportDocument document = CreateIntercityRendererDocument();
+    XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.Geographic,
+            UsePathPoints = true,
+            EnableIntercityRail = true,
+            EnableServiceFamilyMerge = false,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220
+        }).Svg);
+
+    Assert(xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-base", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Desktop geographic renderer did not emit the passenger railway base stroke.");
+    Assert(xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-sleepers", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Desktop geographic renderer did not emit the equal-spaced white railway marks.");
+    Assert(!xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-continuation", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Desktop geographic renderer should use a clean clipped endpoint without an arrow.");
+    Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-station-id") == "train_inside"),
+        "Desktop geographic renderer lost the in-city passenger station.");
+    Assert(!xml.Descendants().Any(element => (string?)element.Attribute("data-station-id") == "train_outside"),
+        "Desktop geographic renderer drew an outside-city passenger station.");
+    Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-legend-mode") == "train"),
+        "Desktop legend did not explain the passenger railway symbol.");
+    AssertValidSvg(xml, "desktop intercity geographic SVG");
+}
+
+static void PortableGeographicMatchesPassengerRailwayClippingSemantics()
+{
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(CreateIntercityRendererDocument());
+    XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions
+        {
+            LayoutMode = PortableLayoutMode.Geographic,
+            ShowIntercityRail = true,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220
+        }).Svg);
+
+    Assert(xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-base", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Portable geographic renderer did not emit the passenger railway base stroke.");
+    Assert(xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-sleepers", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Portable geographic renderer did not emit equal-spaced white railway marks.");
+    Assert(!xml.Descendants().Any(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-continuation", StringComparison.Ordinal)
+        && (string?)element.Attribute("data-line-id") == "train_1"),
+        "Portable geographic renderer should use a clean clipped endpoint without an arrow.");
+    Assert(xml.Descendants().Any(element => (string?)element.Attribute("data-station-id") == "train_inside"),
+        "Portable geographic renderer lost the in-city passenger station.");
+    Assert(!xml.Descendants().Any(element => (string?)element.Attribute("data-station-id") == "train_outside"),
+        "Portable geographic renderer drew an outside-city passenger station.");
+    AssertValidSvg(xml, "portable intercity geographic SVG");
+}
+
+static void IntercityRenderersShareExplicitRailPatternTokens()
+{
+    MetroExportDocument document = CreateIntercityRendererDocument();
+    XDocument desktop = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.Geographic,
+            UsePathPoints = true,
+            EnableIntercityRail = true,
+            EnableServiceFamilyMerge = false,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220,
+            LineWidth = 12
+        }).Svg);
+    XDocument portable = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        MetroNetworkSnapshotAdapter.FromDocument(document),
+        new PortableRenderOptions
+        {
+            LayoutMode = PortableLayoutMode.Geographic,
+            ShowIntercityRail = true,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220,
+            RouteWidth = 12
+        }).Svg);
+
+    XElement desktopMarks = desktop.Descendants().First(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-sleepers", StringComparison.Ordinal));
+    XElement desktopBase = desktop.Descendants().First(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-base", StringComparison.Ordinal));
+    XElement portableMarks = portable.Descendants().First(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-rail-sleepers", StringComparison.Ordinal));
+
+    Assert(desktopMarks.Name.LocalName == "path" && portableMarks.Name.LocalName == "path",
+        "Intercity renderers should emit explicit mark paths instead of browser-dependent dashed polylines.");
+    Assert(desktopMarks.Attribute("stroke-dasharray") is null
+        && portableMarks.Attribute("stroke-dasharray") is null,
+        "Intercity rail marks still depend on stroke-dasharray.");
+    Assert((string?)desktopMarks.Attribute("data-intercity-pattern") == "explicit-equal-spacing"
+        && (string?)portableMarks.Attribute("data-intercity-pattern") == "explicit-equal-spacing",
+        "Intercity renderers did not identify the explicit equal-spacing pattern.");
+    Assert((string?)desktopMarks.Attribute("data-intercity-mark-length")
+        == (string?)portableMarks.Attribute("data-intercity-mark-length"),
+        "Desktop and portable renderers use different railway mark lengths.");
+    Assert((string?)desktopMarks.Attribute("data-intercity-mark-gap")
+        == (string?)portableMarks.Attribute("data-intercity-mark-gap"),
+        "Desktop and portable renderers use different railway mark gaps.");
+    Assert(int.Parse((string?)desktopMarks.Attribute("data-intercity-mark-count") ?? "0", CultureInfo.InvariantCulture) > 0,
+        "Desktop railway pattern did not emit any explicit marks.");
+    Assert(int.Parse((string?)portableMarks.Attribute("data-intercity-mark-count") ?? "0", CultureInfo.InvariantCulture) > 0,
+        "Portable railway pattern did not emit any explicit marks.");
+    string[] desktopBaseClasses = ((string?)desktopBase.Attribute("class") ?? string.Empty)
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    string[] desktopMarkClasses = ((string?)desktopMarks.Attribute("class") ?? string.Empty)
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    Assert(!desktopBaseClasses.Contains("route", StringComparer.Ordinal)
+        && !desktopMarkClasses.Contains("route", StringComparer.Ordinal),
+        "Desktop intercity rail layers must not inherit the generic route CSS width.");
+}
+
+static void IntercityLegendsUseParallelTransportModeGroups()
+{
+    MetroExportDocument document = CreateIntercityRendererDocument();
+    XDocument desktop = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.Geographic,
+            UsePathPoints = true,
+            EnableIntercityRail = true,
+            EnableServiceFamilyMerge = false,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220
+        }).Svg);
+    XDocument portable = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        MetroNetworkSnapshotAdapter.FromDocument(document),
+        new PortableRenderOptions
+        {
+            LayoutMode = PortableLayoutMode.Geographic,
+            ShowIntercityRail = true,
+            Width = 1600,
+            Height = 1000,
+            LegendWidth = 220,
+            LegendHeader = "线路"
+        }).Svg);
+    XDocument transitMap = XDocument.Parse(new MetroSvgRenderer().Render(
+        document,
+        new SvgRenderOptions
+        {
+            LayoutMode = SvgLayoutMode.Geographic,
+            MapStyle = SvgMapStyle.TransitMap,
+            UsePathPoints = true,
+            EnableIntercityRail = true,
+            EnableServiceFamilyMerge = false,
+            Width = 2200,
+            Height = 1400,
+            LegendWidth = 240
+        }).Svg);
+
+    AssertParallelTransportModeLegend(desktop, "desktop");
+    AssertParallelTransportModeLegend(portable, "portable");
+    AssertParallelTransportModeLegend(transitMap, "transit-map");
+    AssertValidSvg(desktop, "desktop parallel transport-mode legend SVG");
+    AssertValidSvg(portable, "portable parallel transport-mode legend SVG");
+    AssertValidSvg(transitMap, "transit-map parallel transport-mode legend SVG");
+
+    static void AssertParallelTransportModeLegend(XDocument svg, string rendererName)
+    {
+        XElement legend = svg.Descendants().First(element =>
+            (string?)element.Attribute("data-legend-layout") == "parallel-mode-groups");
+        XElement metroGroup = legend.Descendants().First(element =>
+            (string?)element.Attribute("data-legend-group") == "metro");
+        XElement intercityGroup = legend.Descendants().First(element =>
+            (string?)element.Attribute("data-legend-group") == "intercity");
+        XElement metroTitle = metroGroup.Descendants().First(element =>
+            (string?)element.Attribute("data-legend-group-title") == "metro");
+        XElement intercityTitle = intercityGroup.Descendants().First(element =>
+            (string?)element.Attribute("data-legend-group-title") == "intercity");
+
+        double metroX = double.Parse((string?)metroTitle.Attribute("x") ?? "0", CultureInfo.InvariantCulture);
+        double intercityX = double.Parse((string?)intercityTitle.Attribute("x") ?? "0", CultureInfo.InvariantCulture);
+        Assert(intercityX > metroX,
+            $"{rendererName} intercity legend group was not placed beside the metro group.");
+        Assert(!metroGroup.Descendants().Any(element => (string?)element.Attribute("data-legend-mode") == "train"),
+            $"{rendererName} metro legend group still contains a passenger-rail sample.");
+        Assert(intercityGroup.Descendants().Any(element => (string?)element.Attribute("data-legend-mode") == "train"),
+            $"{rendererName} intercity legend group did not contain the passenger-rail sample.");
+    }
+}
+
+static void IntercityRenderersOmitOutsideCityContinuationArrows()
+{
+    MetroExportDocument document = CreateIntercityRendererDocument();
+    MetroNetwork network = document.Network!;
+    List<MetroLine> lines = network.Lines!;
+    MetroLine train = lines.Single(line => line.Id == "train_1");
+    lines.Add(new MetroLine
+    {
+        Id = "train_2",
+        Name = "Intercity Railway Express",
+        Color = train.Color,
+        Mode = train.Mode,
+        Stops = train.Stops!.ToList(),
+        PathPoints = train.PathPoints!.Select(point => new MetroPathPoint
+        {
+            X = point.X,
+            Z = point.Z,
+            Source = point.Source,
+            SegmentEntity = point.SegmentEntity
+        }).ToList()
+    });
+
+    SvgRenderOptions desktopOptions = new()
+    {
+        LayoutMode = SvgLayoutMode.Geographic,
+        UsePathPoints = true,
+        EnableIntercityRail = true,
+        EnableServiceFamilyMerge = false,
+        Width = 1600,
+        Height = 1000,
+        LegendWidth = 220
+    };
+    XDocument desktop = XDocument.Parse(new MetroSvgRenderer().Render(document, desktopOptions).Svg);
+
+    MetroNetworkSnapshot snapshot = MetroNetworkSnapshotAdapter.FromDocument(document);
+    PortableRenderOptions portableOptions = new()
+    {
+        LayoutMode = PortableLayoutMode.Geographic,
+        ShowIntercityRail = true,
+        Width = 1600,
+        Height = 1000,
+        LegendWidth = 220
+    };
+    XDocument portable = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, portableOptions).Svg);
+
+    int desktopContinuations = desktop.Descendants().Count(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-continuation", StringComparison.Ordinal));
+    int portableContinuations = portable.Descendants().Count(element =>
+        ((string?)element.Attribute("class") ?? string.Empty).Contains("intercity-continuation", StringComparison.Ordinal));
+
+    Assert(desktopContinuations == 0,
+        $"Desktop renderer emitted {desktopContinuations} continuation arrows after the arrow-free style change.");
+    Assert(portableContinuations == 0,
+        $"Portable renderer emitted {portableContinuations} continuation arrows after the arrow-free style change.");
+}
+
+static MetroExportDocument CreateIntercityRendererDocument()
+{
+    return new MetroExportDocument
+    {
+        City = new CityInfo { Name = "Passenger Rail Test City" },
+        Network = new MetroNetwork
+        {
+            Stations =
+            [
+                new MetroStation
+                {
+                    Id = "metro_a",
+                    Name = "Metro A",
+                    Position = new MetroPosition { X = 0, Z = 0 },
+                    Lines = ["metro_1"]
+                },
+                new MetroStation
+                {
+                    Id = "metro_b",
+                    Name = "Metro B",
+                    Position = new MetroPosition { X = 1000, Z = 0 },
+                    Lines = ["metro_1"]
+                },
+                new MetroStation
+                {
+                    Id = "metro_c",
+                    Name = "Metro C",
+                    Position = new MetroPosition { X = 1000, Z = 800 },
+                    Lines = ["metro_1"]
+                },
+                new MetroStation
+                {
+                    Id = "metro_d",
+                    Name = "Metro D",
+                    Position = new MetroPosition { X = 0, Z = 800 },
+                    Lines = ["metro_1"]
+                },
+                new MetroStation
+                {
+                    Id = "train_inside",
+                    Name = "Central Railway",
+                    Position = new MetroPosition { X = 500, Z = 400 },
+                    Lines = ["train_1"]
+                },
+                new MetroStation
+                {
+                    Id = "train_outside",
+                    Name = "Outside Connection",
+                    Position = new MetroPosition { X = 50000, Z = 40000 },
+                    Lines = ["train_1"]
+                }
+            ],
+            Lines =
+            [
+                new MetroLine
+                {
+                    Id = "metro_1",
+                    Name = "Metro 1",
+                    Color = "#2f80ed",
+                    Mode = "metro",
+                    Stops = ["metro_a", "metro_b", "metro_c", "metro_d"],
+                    PathPoints =
+                    [
+                        new MetroPathPoint { X = 0, Z = 0 },
+                        new MetroPathPoint { X = 1000, Z = 0 },
+                        new MetroPathPoint { X = 1000, Z = 800 },
+                        new MetroPathPoint { X = 0, Z = 800 }
+                    ]
+                },
+                new MetroLine
+                {
+                    Id = "train_1",
+                    Name = "Intercity Railway",
+                    Color = "#555b60",
+                    Mode = "train",
+                    Stops = ["train_inside", "train_outside"],
+                    PathPoints =
+                    [
+                        new MetroPathPoint { X = 100, Z = 400 },
+                        new MetroPathPoint { X = 500, Z = 400 },
+                        new MetroPathPoint { X = 900, Z = 400 },
+                        new MetroPathPoint { X = 50000, Z = 40000 }
+                    ]
+                }
+            ]
+        }
+    };
 }
 
 static void OldJsonWithoutPathPointsStillRenders()
@@ -2974,6 +3792,48 @@ static void SchematicAnnealEnforcesMinimumStationSpacing()
     Assert(Distance(b, c) >= 59.9, $"Schematic-anneal spacing violated between b and c: {Distance(b, c)}.");
     Assert(Distance(a, c) >= 59.9, $"Schematic-anneal spacing violated between a and c: {Distance(a, c)}.");
     AssertValidSvg(xml, "schematic-anneal spacing SVG");
+}
+
+static void SchematicAnnealRacesStartsAndChargesPerDirectionChange()
+{
+    // Two properties that were each worth a measured corpus-wide improvement and
+    // are easy to undo by accident.
+    //
+    // 1. Multi-start. The schedule is one stochastic trajectory whose outcome
+    //    swings far more than its input does, so a single run is a coin flip.
+    //    This fix was previously lost in an unrelated revert.
+    // 2. A flat charge per direction change. The angle-only bend cost is
+    //    quadratic, so two 45-degree turns cost 0.75 against 1.50 for the single
+    //    90-degree turn they replace — the cost function paid a line to become a
+    //    staircase. Corpus effect of the two together: mean direction changes
+    //    53.4 -> 34.2 over 28 networks.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+    SvgRenderOptions options = new() { LayoutMode = SvgLayoutMode.SchematicAnneal };
+
+    SvgRenderResult result = new MetroSvgRenderer().Render(document, options);
+    string audit = result.Warnings.First(w => w.StartsWith("Schematic-anneal audit: ", StringComparison.Ordinal));
+
+    System.Text.RegularExpressions.Match starts =
+        System.Text.RegularExpressions.Regex.Match(audit, @"starts (\d+) \(best #(\d+)\)");
+    Assert(starts.Success, $"Schematic-anneal no longer reports its start count: {audit}");
+    int startCount = int.Parse(starts.Groups[1].Value, CultureInfo.InvariantCulture);
+    Assert(startCount > 1, $"A {document.Network!.Stations!.Count}-station network should race several starts, got {startCount}.");
+
+    // The per-change charge is private, so pin it at the source: with the angle
+    // term alone (quadratic, weight Bend) two 45-degree turns cost
+    // 2*(0.5^2)*Bend = 0.5*Bend against 1.0*Bend for the 90-degree turn they
+    // replace, so a flat per-change charge is what stops the split being cheaper.
+    string metrics = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src",
+        "MetroDiagram.Rendering", "MetroSvgRenderer.LayoutMetrics.cs"));
+    Assert(metrics.Contains("public const double BendCount", StringComparison.Ordinal),
+        "The per-direction-change charge is gone; the cost function pays lines to become staircases again.");
+    Assert(metrics.Contains("changeCost", StringComparison.Ordinal),
+        "BendUnitCost no longer adds the per-direction-change charge.");
+
+    // Fixed seeds, fixed order, strict-improvement tie-break: still deterministic.
+    Assert(new MetroSvgRenderer().Render(document, options).Svg == result.Svg,
+        "Schematic-anneal multi-start was not deterministic across identical renders.");
 }
 
 static void SchematicAnnealAuditReportsNonIncreasingQualityCost()
@@ -5687,7 +6547,7 @@ static void DesktopViewerAndModUseIndependentVersionTrains()
     string viewerVersion = props.Descendants("MetroDiagramViewerInformationalVersion").Single().Value;
     string modVersion = props.Descendants("MetroDiagramModInformationalVersion").Single().Value;
 
-    Assert(viewerVersion == "v0.1.0", $"Viewer version source was '{viewerVersion}', expected v0.1.0.");
+    Assert(viewerVersion == "v0.1.1", $"Viewer version source was '{viewerVersion}', expected v0.1.1.");
     Assert(modVersion == "v0.1.0-beta.8", $"Mod version source was '{modVersion}', expected v0.1.0-beta.8.");
     Assert(MetroDiagram.Core.MetroDiagramAppInfo.Version == viewerVersion, "Viewer app version does not match the Viewer version source.");
 
@@ -6078,6 +6938,22 @@ static string FindRepositoryRoot()
     throw new InvalidOperationException("Could not locate repository root containing the samples folder.");
 }
 
+static IntercityGeometryFixture LoadIntercityGeometryFixture(string fileName)
+{
+    string path = Path.Combine(FindRepositoryRoot(), "samples", "intercity-geographic", fileName);
+    IntercityGeometryFixture? fixture = JsonSerializer.Deserialize<IntercityGeometryFixture>(
+        File.ReadAllText(path),
+        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    return fixture ?? throw new InvalidOperationException($"Could not load intercity geometry fixture '{fileName}'.");
+}
+
+static double CanvasDistance(IntercityCanvasPoint first, IntercityCanvasPoint second)
+{
+    double dx = first.X - second.X;
+    double dy = first.Y - second.Y;
+    return Math.Sqrt(dx * dx + dy * dy);
+}
+
 static double ReadDouble(XAttribute? attribute)
 {
     return double.Parse(attribute?.Value ?? "0", CultureInfo.InvariantCulture);
@@ -6219,3 +7095,19 @@ internal sealed record RenderedSample(
     MetroLoadResult LoadResult,
     string Svg,
     XDocument Xml);
+
+internal sealed class IntercityGeometryFixture
+{
+    public List<GeographicPoint> CityAnchors { get; set; } = [];
+
+    public List<GeographicPoint> RoutePoints { get; set; } = [];
+
+    public IntercityGeometryFixtureExpectation Expected { get; set; } = new();
+}
+
+internal sealed class IntercityGeometryFixtureExpectation
+{
+    public int PolylineCount { get; set; }
+
+    public int ContinuationCount { get; set; }
+}

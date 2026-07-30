@@ -224,12 +224,39 @@ namespace CS2_Metro
                     Entity lineEntity = lineEntities[i];
                     ProcessLine(context, export, lineEntity, i);
                 }
+
+                bool collectPassengerIntercity = Mod.Settings != null
+                    && Mod.Settings.ExportPassengerIntercityRailDevelopment;
+                if (collectPassengerIntercity)
+                {
+                    PassengerIntercityCollectionResult intercityResult =
+                        PassengerIntercityRailCollector.Collect(
+                            context.EntityManager,
+                            lineEntities,
+                            context.Diagnostics);
+
+                    for (int i = 0; i < intercityResult.Candidates.Count; i++)
+                    {
+                        ProcessPassengerIntercityLine(
+                            context,
+                            export,
+                            intercityResult.Candidates[i],
+                            i);
+                    }
+                }
+                else
+                {
+                    context.Diagnostics.AppendLine("Passenger Intercity Rail Collector");
+                    context.Diagnostics.AppendLine("- State: disabled (hidden development setting; metro-only output preserved)");
+                    context.Diagnostics.AppendLine();
+                }
             }
 
             RouteGeometryDiagnostics.AppendSummary(context.Diagnostics, context.RouteGeometrySummary);
 
             context.Diagnostics.AppendLine();
-            context.Diagnostics.AppendLine($"Subway lines exported: {export.Lines.Count}");
+            context.Diagnostics.AppendLine($"Subway lines exported: {export.Lines.Count(line => string.Equals(line.Mode, "metro", StringComparison.Ordinal))}");
+            context.Diagnostics.AppendLine($"Passenger intercity lines exported: {export.Lines.Count(line => string.Equals(line.Mode, "train", StringComparison.Ordinal))}");
             context.Diagnostics.AppendLine($"Stations exported: {export.Stations.Count}");
 
             return export;
@@ -398,6 +425,92 @@ namespace CS2_Metro
             context.Diagnostics.AppendLine();
         }
 
+        private static void ProcessPassengerIntercityLine(
+            ExportContext context,
+            MetroExport export,
+            PassengerIntercityLineCandidate candidate,
+            int intercityLineIndex)
+        {
+            Entity lineEntity = candidate.LineEntity;
+            string lineEntityId = FormatEntityId("line", lineEntity);
+            int routeNumber = ReadRouteNumber(context.EntityManager, lineEntity);
+            int waypointCount = GetWaypointCount(context.EntityManager, lineEntity);
+            string color = ReadLineColor(
+                context.EntityManager,
+                lineEntity,
+                export.Lines.Count,
+                context.Diagnostics,
+                lineEntityId);
+            string lineNameSource;
+            string lineName = ReadPassengerIntercityLineName(
+                context,
+                lineEntity,
+                routeNumber,
+                intercityLineIndex,
+                out lineNameSource);
+
+            context.Diagnostics.AppendLine($"Passenger intercity export {lineEntityId}");
+            context.Diagnostics.AppendLine($"- Classification: {candidate.Classification.Reason}");
+            context.Diagnostics.AppendLine($"- Evidence: {(candidate.Classification.Evidence.Count == 0 ? "none" : string.Join(", ", candidate.Classification.Evidence))}");
+            context.Diagnostics.AppendLine($"- RouteNumber: {(routeNumber > 0 ? routeNumber.ToString(CultureInfo.InvariantCulture) : "unavailable")}");
+            context.Diagnostics.AppendLine($"- Color: {color}");
+            context.Diagnostics.AppendLine($"- Waypoint count: {waypointCount}");
+            context.Diagnostics.AppendLine($"- Name: {lineName} (source: {lineNameSource})");
+            context.Diagnostics.AppendLine($"- Outside-connection references: {candidate.Evidence.OutsideConnectionReferenceCount}");
+
+            RouteGeometryDiagnostics.AppendLineDiagnostics(
+                context.EntityManager,
+                context.NameSystem,
+                lineEntity,
+                lineName,
+                routeNumber,
+                waypointCount,
+                context.Diagnostics,
+                context.RouteGeometrySummary);
+
+            MetroLineExport line = new MetroLineExport
+            {
+                Id = lineEntityId,
+                Name = lineName,
+                Color = color,
+                Mode = "train"
+            };
+
+            RoutePathPointExtractionResult pathPointResult =
+                RoutePathPointExtractor.Extract(context.EntityManager, lineEntity);
+            line.PathPoints.AddRange(pathPointResult.PathPoints);
+            AppendPathPointDiagnostics(context.Diagnostics, pathPointResult);
+
+            if (!context.EntityManager.HasBuffer<RouteWaypoint>(lineEntity))
+            {
+                context.Diagnostics.AppendLine("- Skipped passenger intercity line: no RouteWaypoint buffer.");
+                context.Diagnostics.AppendLine();
+                return;
+            }
+
+            DynamicBuffer<RouteWaypoint> waypoints =
+                context.EntityManager.GetBuffer<RouteWaypoint>(lineEntity, true);
+            for (int i = 0; i < waypoints.Length; i++)
+            {
+                ProcessPassengerIntercityWaypoint(
+                    context,
+                    export,
+                    line,
+                    lineEntityId,
+                    waypoints[i],
+                    i);
+            }
+
+            if (line.Stops.Count < 2)
+            {
+                context.Diagnostics.AppendLine($"- Warning: passenger intercity line has fewer than two in-city stations ({line.Stops.Count}); path geometry is retained for later boundary clipping.");
+            }
+
+            export.Lines.Add(line);
+            context.Diagnostics.AppendLine($"- Exported passenger stations: {line.Stops.Count}");
+            context.Diagnostics.AppendLine();
+        }
+
         private static void ProcessWaypoint(ExportContext context, MetroExport export, MetroLineExport line, string lineEntityId, RouteWaypoint routeWaypoint, int waypointIndex)
         {
             Entity waypointEntity = routeWaypoint.m_Waypoint;
@@ -456,6 +569,100 @@ namespace CS2_Metro
 
             station.IsInterchange = station.Lines.Count > 1;
 
+            line.Stops.Add(station.Id);
+        }
+
+        private static void ProcessPassengerIntercityWaypoint(
+            ExportContext context,
+            MetroExport export,
+            MetroLineExport line,
+            string lineEntityId,
+            RouteWaypoint routeWaypoint,
+            int waypointIndex)
+        {
+            Entity waypointEntity = routeWaypoint.m_Waypoint;
+            if (!IsValidEntity(context.EntityManager, waypointEntity))
+            {
+                context.Diagnostics.AppendLine($"  - Skipped passenger waypoint[{waypointIndex}]: waypoint entity is invalid.");
+                return;
+            }
+
+            float3 waypointPosition = float3.zero;
+            bool hasWaypointPosition =
+                TryReadPosition(context.EntityManager, waypointEntity, out waypointPosition);
+
+            Entity connectedStop =
+                ReadConnectedEntity(context.EntityManager, waypointEntity);
+            if (!IsValidEntity(context.EntityManager, connectedStop))
+            {
+                context.Diagnostics.AppendLine($"  - Skipped passenger waypoint[{waypointIndex}] {FormatEntity(waypointEntity)}: no valid Connected.m_Connected.");
+                return;
+            }
+
+            bool isTrainStop = context.EntityManager.HasComponent<TrainStop>(connectedStop);
+            bool isTransportStop =
+                context.EntityManager.HasComponent<RouteTransportStop>(connectedStop);
+            if (!isTrainStop && !isTransportStop)
+            {
+                context.Diagnostics.AppendLine($"  - Skipped passenger waypoint[{waypointIndex}] {FormatEntity(waypointEntity)}: connected entity {FormatEntity(connectedStop)} has no TrainStop or TransportStop.");
+                return;
+            }
+
+            if (PassengerIntercityRailCollector.IsOutsideConnectionWaypoint(
+                context.EntityManager,
+                waypointEntity,
+                connectedStop))
+            {
+                context.Diagnostics.AppendLine($"  - Skipped passenger waypoint[{waypointIndex}] {FormatEntity(waypointEntity)}: outside connection is route geometry, not a passenger station.");
+                return;
+            }
+
+            StationIdentity identity =
+                ResolveStationIdentity(context.EntityManager, connectedStop, waypointEntity);
+            StationPosition stationPosition = ResolveStationPosition(
+                context.EntityManager,
+                connectedStop,
+                waypointEntity,
+                identity.GroupEntity,
+                waypointPosition,
+                hasWaypointPosition);
+
+            MetroStationExport station;
+            if (!export.StationsById.TryGetValue(identity.StationId, out station))
+            {
+                bool usedFallbackName;
+                string stationName = ReadStationName(
+                    context,
+                    identity.GroupEntity,
+                    connectedStop,
+                    waypointEntity,
+                    export.Stations.Count + 1,
+                    out usedFallbackName);
+
+                station = new MetroStationExport
+                {
+                    Id = identity.StationId,
+                    Name = stationName,
+                    X = stationPosition.Position.x,
+                    Z = stationPosition.Position.z,
+                    IsInterchange = false
+                };
+                export.StationsById.Add(station.Id, station);
+                export.Stations.Add(station);
+
+                context.Diagnostics.AppendLine(
+                    $"  - Passenger station {station.Id}: source={identity.Source}, group={FormatEntity(identity.GroupEntity)}, name='{station.Name}'"
+                    + (usedFallbackName ? " (fallback name)" : string.Empty)
+                    + $", positionSource={stationPosition.Source}"
+                    + (stationPosition.UsedFallback ? " (fallback coordinate)" : string.Empty));
+            }
+
+            if (!station.Lines.Contains(line.Id))
+            {
+                station.Lines.Add(line.Id);
+            }
+
+            station.IsInterchange = station.Lines.Count > 1;
             line.Stops.Add(station.Id);
         }
 
@@ -891,6 +1098,45 @@ namespace CS2_Metro
             return BuildGeneratedLineName(lineIndex + 1);
         }
 
+        private static string ReadPassengerIntercityLineName(
+            ExportContext context,
+            Entity lineEntity,
+            int routeNumber,
+            int lineIndex,
+            out string source)
+        {
+            try
+            {
+                if (context.NameSystem != null
+                    && context.NameSystem.TryGetCustomName(lineEntity, out string customName)
+                    && !string.IsNullOrWhiteSpace(customName))
+                {
+                    source = "custom";
+                    return customName.Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Diagnostics.AppendLine($"- Passenger custom name lookup failed: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            if (routeNumber > 0)
+            {
+                source = "generated";
+                return BuildGeneratedPassengerIntercityLineName(routeNumber);
+            }
+
+            string rendered = ReadDisplayName(context, lineEntity);
+            if (!string.IsNullOrWhiteSpace(rendered))
+            {
+                source = "rendered";
+                return rendered;
+            }
+
+            source = "fallback";
+            return BuildGeneratedPassengerIntercityLineName(lineIndex + 1);
+        }
+
         private static string BuildGeneratedLineName(int number)
         {
             bool useChinese = false;
@@ -906,6 +1152,23 @@ namespace CS2_Metro
             return useChinese
                 ? string.Format(CultureInfo.InvariantCulture, "地铁 {0} 号线", number)
                 : string.Format(CultureInfo.InvariantCulture, "Metro Line {0}", number);
+        }
+
+        private static string BuildGeneratedPassengerIntercityLineName(int number)
+        {
+            bool useChinese = false;
+            try
+            {
+                string localeId = GameManager.instance?.localizationManager?.activeLocaleId;
+                useChinese = Mod.Settings != null && Mod.Settings.ShouldUseChinese(localeId);
+            }
+            catch
+            {
+            }
+
+            return useChinese
+                ? string.Format(CultureInfo.InvariantCulture, "城际铁路 {0} 号线", number)
+                : string.Format(CultureInfo.InvariantCulture, "Intercity Line {0}", number);
         }
 
         private static string ReadDisplayName(ExportContext context, Entity entity)

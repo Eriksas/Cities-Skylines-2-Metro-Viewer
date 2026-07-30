@@ -4,7 +4,7 @@ Turn your **Cities: Skylines II** metro network into a clean, readable metro map
 
 **English** · [中文](#cs2-地铁线路图)
 
-Desktop Viewer: `v0.1.0` · In-game Mod: `0.1.0-beta.8`. The Viewer is the first stable desktop release; the Mod remains beta, read-only, and does not change your city. Back up saves before testing any mod.
+Desktop Viewer: `v0.1.1` · In-game Mod: `0.1.0-beta.8`. The Viewer is stable; the Mod remains beta, read-only, and does not change your city. Back up saves before testing any mod.
 
 The project has three parts:
 
@@ -28,7 +28,10 @@ The project has three parts:
 
 If the Viewer does not start on a clean PC, install the [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 
-Manual edit mode lets you drag stations, labels, and segments; edits are saved to a sidecar file next to the JSON and never touch the export.
+Manual edit mode lets you drag stations, labels, and segments, and add or
+remove facility icons such as airports, railway stations, bus/ferry terminals,
+landmarks, and information points. Edits are saved to a sidecar file next to
+the JSON and never touch the export.
 
 ## Command line
 
@@ -66,7 +69,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 [English](#cs2-metro-diagram) · **中文**
 
-桌面 Viewer：`v0.1.0` · 游戏内 Mod：`0.1.0-beta.8`。Viewer 已进入首个正式桌面版本；Mod 仍处于 Beta，只读预览和导出，不会改动城市。测试任何 mod 前请先备份存档。
+桌面 Viewer：`v0.1.1` · 游戏内 Mod：`0.1.0-beta.8`。Viewer 已进入稳定版本；Mod 仍处于 Beta，只读预览和导出，不会改动城市。测试任何 mod 前请先备份存档。
 
 项目分三部分：
 

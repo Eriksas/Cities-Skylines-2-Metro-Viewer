@@ -6,6 +6,43 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Render Railway Texture As Explicit Arc-length Marks
+
+Decision: render passenger intercity rail as a continuous neutral bed plus
+explicit equal-length white inserts sampled along route arc length. Desktop,
+portable in-game rendering, and train legend samples share the same helper.
+Do not use route-level SVG `stroke-dasharray` for railway texture.
+
+Reason: dashed strokes looked regular in a small style study but became uneven
+on real CurveElement geometry, clipped fragments, tight bends, and scaled
+browser/Coherent surfaces. Separate desktop and portable dash constants also
+made the two product surfaces disagree. The defect was visual, not an exporter
+or path-order problem.
+
+Consequence: railway texture is deterministic and measurable in the SVG DOM.
+The three-city audit rejects legacy dashed intercity route layers and records
+explicit mark counts. Railway base width is centrally resolved at about 72% of
+metro route width, with a conservative portable minimum, so rail stays
+subordinate but readable. Intercity remains geographic-only, hidden, and
+default-off until the owner validates it in CS2.
+
+## Group Metro And Intercity Legends By Transport Mode
+
+Decision: when metro and passenger-intercity routes are visible together,
+render two adjacent legend groups rather than inserting train entries into the
+numeric metro list. Apply the same contract to standard desktop, transit-map,
+and portable in-game geographic legends.
+
+Reason: line-number ordering is useful within the metro family, but intercity
+rail uses a different visual grammar and should not interrupt that sequence.
+Side-by-side groups make the mode distinction scannable without changing route
+geometry, exporter data, or the JSON schema.
+
+Consequence: mixed outputs expose deterministic `data-legend-layout` and
+`data-legend-group` attributes that synthetic and three-city audits enforce.
+Metro-only/default-off output keeps the existing layout. This is a render-only
+development change and does not expose or enable intercity for players.
+
 ## Release The Viewer And Mod On Independent Version Trains
 
 Decision: promote the desktop Viewer/toolchain to stable `v0.1.0`, while the
@@ -886,3 +923,121 @@ Consequence: metro/subway remains the only supported exported and rendered
 mode. No player-facing tram/intercity control is shipped. A future multimodal
 phase must start from explicit product grammar, multiple real-city fixtures,
 and separate acceptance criteria rather than reviving the parked patch series.
+
+## Plan Passenger Intercity As A Geographic-only Overlay
+
+Decision: pursue any future passenger intercity support as an independent,
+default-off geographic overlay. Do not include tram, freight, or schematic rail
+layout in the same implementation track.
+
+Reason: the archived experiment proved that CS2 railway `CurveElement`
+geometry can support a useful geographic result, while the combined
+tram/train/schematic scope made framing, rendering parity, and visual acceptance
+unmanageable. Long outside-connection tails also distorted bounds when route
+geometry and symbolic terminals were not clipped by one shared rule.
+
+Consequence: `line.stops` remains the passenger stopping sequence and
+`line.pathPoints` remains physical route geometry. A shared render-time helper
+will preserve in-city geometry with uniform projection and clip only the
+off-map tail. Desktop and portable renderers must consume the same geometry
+result. Schematic modes omit intercity rail. The complete staged plan and
+release gates are in `docs\INTERCITY_GEOGRAPHIC_PLAN.md`.
+
+## Use A Continuous Dark Rail With White Sleeper Marks
+
+Decision: use a continuous dark-grey railway base with equally spaced short
+white sleeper marks as the leading Intercity Geographic v2 visual candidate.
+Retain double-outline and lighter sleeper treatments only as comparison
+alternatives until real-city audit.
+
+Reason: the supplied official-map reference represents conventional railway
+with a strong continuous dark route and repeated white marks. The same grammar
+remains recognizable through bends and at reduced scale, unlike an ordinary
+dashed line. It also avoids assigning a metro-style service color to the
+physical passenger-rail corridor.
+
+Consequence: the style study does not affect geometry, map bounds, station
+order, exporter data, or schema. Production integration waits for IG2.2 and
+three-city visual validation.
+
+## Isolate Passenger Intercity Collection Behind A Hidden Gate
+
+Decision: collect passenger intercity lines in a dedicated
+`PassengerIntercityRailCollector` after the unchanged metro collection pass.
+Require confirmed Train evidence, let cargo vehicle/station prefab evidence
+override it, and keep the setting hidden/default-off.
+
+Reason: CS2 represents passenger and cargo rail under overlapping Train
+transport evidence. Extending the metro loop in place would make a cargo
+classification error capable of changing stable metro export behavior.
+
+Consequence: when the gate is off, the output remains metro-only. When enabled
+for development, accepted rail lines reuse the existing line schema with
+`mode=train`, CurveElement-first path points, and separate diagnostics.
+Player-facing controls remain deferred until in-game validation.
+
+## Share One Clipped Passenger-rail Geometry Contract Across Renderers
+
+Decision: desktop and portable geographic renderers consume the same
+`IntercityGeographicGeometry` result. Outside stations and tails do not
+participate in bounds; clipped endpoints receive deduplicated continuation
+markers. Intercity is omitted from every schematic layout and remains disabled
+by default.
+
+Reason: the parked multimodal experiment allowed route bounds, symbolic
+stations, and the two renderers to disagree. That made long outside
+connections compress the city map and produced different visual evidence in
+Viewer versus the in-game panel. A shared geometry contract makes projection,
+clipping, and route order testable before any UI is exposed.
+
+Consequence: the selected dark railway bed and equal-spaced white marks can be
+rendered consistently without changing exporter schema or metro geometry. The
+three-city audit must show matching desktop/portable part and continuation
+counts. This is an offline acceptance gate only; a fresh CS2 passenger/cargo
+validation remains mandatory before IG2.3 controls or publication.
+
+## Use Clean Clipped Railway Endpoints Instead Of Continuation Arrows
+
+Decision: keep outside-connection metadata in the shared geometry result for
+diagnostics, but do not render continuation arrows in desktop or portable SVG.
+
+Reason: the arrow added a strong decorative shape at map boundaries and looked
+uneven when several services shared a curved exit. The black/white railway
+grammar and clipped endpoint already communicate that the physical track
+continues beyond the displayed city envelope.
+
+Consequence: the real-fixture audit now requires zero rendered arrows while
+preserving equal railway-part counts across desktop and portable renderers.
+Exporter data, projection, clipping, and schema remain unchanged.
+
+## Store Manual Facility Icons In Viewer Layout Sidecars
+
+Decision: add manual facility icons as renderer-time layout overrides, not as
+fields in `MetroExportDocument`.
+
+Reason: facilities are cartographic annotations and may be subjective or
+manually placed. Keeping them in the existing sidecar allows users to add,
+move, and delete symbols without changing the authoritative CS2 export or
+creating a schema migration.
+
+Consequence: the Viewer supports airport, railway station, intercity rail, bus
+terminal, ferry terminal, landmark/POI, and information icons. The taxonomy
+was informed by Rail Map Painter, while all glyphs and implementation are
+original because Rail Map Painter is GPL-3.0 and this project is MIT.
+# 2026-07-29 - Map elements remain sidecar objects
+
+**Decision:** expose icons and information boxes through a dedicated Viewer
+entry, but keep their data in `*.layout-overrides.json`.
+
+**Reason:** facilities, notices, and manual node placement are cartographic
+presentation state. They must not modify exported CS2 service data or expand
+the metro export schema.
+
+**Consequences:**
+
+- map elements can evolve independently of the exporter;
+- editable information boxes and future facility symbols remain safe to add;
+- node multi-select can adjust render anchors without changing topology;
+- Rail Map Painter is used only as a design reference because its GPL-3.0
+  implementation and assets are not compatible with copying into this MIT
+  repository.

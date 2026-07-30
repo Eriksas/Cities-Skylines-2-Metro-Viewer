@@ -1,5 +1,127 @@
 # Development Notes
 
+## 2026-07-29 Anneal: multi-start restored + per-direction-change charge
+
+Two contained changes to the schematic-anneal layout, from the layout study in
+`docs/SCHEMATIC_LAYOUT_STUDY.md`. Both live inside the shipping algorithm — no
+new architecture, and no port of the study's Python prototype.
+
+- **Multi-start restored.** The fix was lost in the 2026-07-26 revert of the
+  tram/intercity experiment, which it was independent of. The schedule is one
+  stochastic trajectory whose station index is drawn modulo the station count, so
+  its outcome swings far more than its input does. Eight fixed seeds, fixed
+  order, strict-improvement tie-break, flat total move budget.
+- **Flat charge per direction change** (`LayoutCostWeights.BendCount = 1.0`,
+  threshold 10 degrees). The angle-only bend cost is quadratic, so two 45-degree
+  turns cost `2*(0.5^2)*1.5 = 0.75` against `1.5` for the single 90-degree turn
+  they replace: **the cost function was paying lines to become staircases.** That
+  is the mechanism behind the study's finding that the schematic produced MORE
+  direction changes than the geography it came from.
+
+Corpus effect over 28 networks (samples plus real exports), single-start baseline
+to both changes together:
+
+```
+  turns   53.36 -> 34.21   (-36%)
+  octi%   90.96 -> 93.23
+  dev     23.00 -> 18.64
+  flip     6.41 ->  4.90
+  coinc    0.26 ->  0.18
+  cov      0.64 ->  0.56
+  tight    1.56 ->  1.86   (worse)
+```
+
+Weight chosen by sweep: `BendCount` 0.5 gives turns 39.5 at essentially no
+octilinearity cost, 1.0 gives 34.2 for -0.6pp, 1.5 gives 32.0 for -1.1pp and a
+worse flip rate. 1.0 is the balance, confirmed by rendering Sheffield and looking
+at it rather than by the numbers alone.
+
+**Correction to an earlier claim.** The multi-start fix was previously reported
+as "every network improved or tied, none regressed". That was true of the
+project's single `WeightedCost` and NOT of the six-metric view used in the study:
+there are per-network regressions, notably `sample-metro-large-network`
+(turns 5 -> 10, octilinearity 100% -> 91.3%) and `安岭市` (tight 43.8% -> 53.1%,
+on a map that was already badly crowded). Means improve on six of seven metrics;
+the exceptions are recorded rather than hidden.
+
+`tight%` improves as the per-change charge rises (2.12 -> 1.80 -> 1.08), which
+looks like it contradicts the study's finding that turns and clearance compete.
+It does not: the annealer keeps its hard minimum-spacing rejection, so it reduces
+turns strictly inside the clearance-feasible set. The study's prototype had no
+such guard and paid for long runs with unlabelable stations.
+
+**Ported to the in-game engine, at a different weight.** The portable renderer
+already had multi-start, but carried the identical angle-only bend cost, so the
+staircase incentive was still live on the surface players actually see. Porting
+the charge at the desktop's 1.0 cut in-game direction changes 57.1 -> 42.5 but
+cost 3.5 points of octilinearity (88.5% -> 85.0%), with individual maps losing 8-9
+points — and an almost-straight line reads worse than one that is either straight
+or clearly diagonal. This engine runs a smaller attempt budget for the panel, so
+the same charge bites harder. Swept separately:
+
+```
+in-game, 29 networks     turns    octi%   flip%
+baseline                 57.14    88.48    5.56
+WeightBendCount 0.35     47.00    88.05    3.80
+WeightBendCount 0.50     47.45    89.14    4.17   <- chosen
+WeightBendCount 1.00     42.52    84.99    4.68
+```
+
+At 0.5 the in-game map gets 17% fewer direction changes and 25% fewer position
+reversals while octilinearity *improves*. `tight%` moves 2.98 -> 4.00, which is
+the one metric that worsens; on this engine that difference is within the noise
+its smaller budget produces.
+
+**The two constants are deliberately different** (desktop 1.0, in-game 0.5) and
+must not be harmonised without re-running both corpora.
+
+Pinned by `schematic-anneal races starts and charges per direction change`.
+Touched only `MetroSvgRenderer.SchematicAnneal.cs`, `.LayoutMetrics.cs`,
+`PortableMetroSvgRenderer.cs` and the test file — deliberately not the in-flight
+IG2 intercity work in the same tree.
+
+This also closes the follow-up recorded in `DECISION_LOG.md` under "Spend
+Leftover Anneal Budget On Restarts": the desktop anneal now has multi-start too.
+
+## 2026-07-29 - Intercity railway pattern stabilization
+
+- Root cause: route-level SVG `stroke-dasharray` is rasterized independently
+  across curves, clipped fragments, and scaled browser/Coherent surfaces. The
+  portable renderer also used separate hardcoded dash and width values, making
+  the railway interior look irregular although collected geometry was correct.
+- Added `MetroDiagram.Engine.IntercityRailPattern`: one arc-length sampler for
+  equal-length, equal-gap white inserts. It preserves route geometry and does
+  not mutate exported points.
+- Desktop, portable in-game rendering, and train legend samples now use the
+  shared explicit-mark grammar. Intercity route textures no longer use
+  `stroke-dasharray`.
+- Intercity base width is resolved centrally at 72% of metro route width, with
+  a 5.5px portable legibility floor. Legend samples use the same ratio. This
+  fixes the first real-output pass where railway and metro had nearly equal
+  visual weight.
+- Mixed metro/intercity outputs use two adjacent legend groups. Standard
+  desktop legends reserve at least 420px and portable legends at least 430px
+  when both modes are visible; metro-only output keeps the existing dimensions.
+  The SVG contract is `data-legend-layout="parallel-mode-groups"` with one
+  `data-legend-group="metro"` and one `data-legend-group="intercity"`.
+- `generate-intercity-geographic-render-audit.ps1` records explicit pattern
+  layers, mark totals, and grouped-legend counts. It fails if a legacy dashed
+  intercity route returns or either mixed-mode legend group is missing.
+- Three-city evidence is in
+  `artifacts\intercity-geographic-v2\renderer-audit`. Desktop and portable
+  counts match: 奥斯特 6 parts/4 continuations, 肇庆 22/10, 谢菲尔德 7/2.
+- Validation passed:
+
+```text
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-intercity-geographic-render-audit.ps1 -NoBuild
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\CS2\CS2 Metro\artifacts\cs2-local-mods"
+```
+
+- The staged mod was not copied into the game and was not published. Intercity
+  remains hidden and default-off pending owner validation in CS2/Coherent.
+
 ## 2026-07-20 - Viewer v0.1.0 and independent release trains
 
 - Release source/tag commit: `ebbc1eb`.
@@ -1149,3 +1271,228 @@ dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPa
 Owner game validation remains required for fit-to-window, zoom sharpness, and
 drag behavior under the real CS2 Coherent runtime.
 
+## Intercity Geographic v2 Planning Note
+
+The parked tram/intercity branch is research evidence only. Do not cherry-pick
+the complete patch series. New passenger-rail work starts from
+`docs\INTERCITY_GEOGRAPHIC_PLAN.md` and the stable metro-only `master`.
+
+The key engineering constraint is that the outside-connection tail must be
+clipped together with route geometry before bounds are calculated. Moving only
+the symbolic terminal is insufficient and compresses the city network. The
+desktop and portable renderers must call one shared geographic geometry helper
+so this rule cannot drift between surfaces.
+
+## Intercity Geographic v2 IG2.0
+
+Code-side completed on 2026-07-28.
+
+The pure helper is:
+
+```text
+src\MetroDiagram.Engine\IntercityGeographicGeometry.cs
+```
+
+It clips route polylines against an envelope built only from finite city
+anchors, preserves route-point order, emits continuation markers, and projects
+with one uniform scale. It does not mutate the export document and is not yet
+connected to production renderers. It intentionally lives in the C# 9,
+`netstandard2.0` Engine assembly so both desktop and in-game rendering can call
+the same implementation without reversing the project-reference direction.
+
+Synthetic fixtures and the local real-city manifest are under:
+
+```text
+samples\intercity-geographic\
+```
+
+Rebuild the metro-only geographic baseline with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\initialize-intercity-geographic-baseline.ps1
+```
+
+This writes deterministic SVG hashes/DOM counts plus local real-fixture hashes
+to `artifacts\intercity-geographic-v2\baseline`. Player exports are not copied
+into the repository.
+
+Generate the railway grammar comparison with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-intercity-style-study.ps1
+```
+
+Candidate A, a dark continuous railway with equally spaced white sleeper marks,
+is the current recommendation. Exporter integration and real-city rendering are
+later gates.
+
+## Intercity Geographic v2 IG2.1 Workflow
+
+The isolated collector and classifier live at:
+
+```text
+CS2 Metro\PassengerIntercityRailCollector.cs
+src\MetroDiagram.Engine\PassengerIntercityRailClassifier.cs
+```
+
+The development export gate is
+`Setting.ExportPassengerIntercityRailDevelopment`. It is `[SettingsUIHidden]`
+and defaults to false. Do not add localization or a player-facing control until
+owner validation closes the in-game passenger/cargo classification gate.
+
+Run the archived real-fixture audit with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\audit-intercity-real-fixtures.ps1
+```
+
+Outputs:
+
+```text
+artifacts\intercity-geographic-v2\classification-audit\city-summary.csv
+artifacts\intercity-geographic-v2\classification-audit\passenger-train-lines.csv
+artifacts\intercity-geographic-v2\classification-audit\notes.md
+```
+
+The local archived exports contain 17 train lines and 46,830 CurveElement path
+points. Cargo-name warnings are diagnostic-only; authoritative exclusion uses
+ECS cargo prefab components and still requires a newly built mod to be checked
+in CS2.
+
+Verified commands:
+
+```powershell
+dotnet build CS2MetroDiagram.slnx --no-restore
+dotnet run --project src\MetroDiagram.Tests\MetroDiagram.Tests.csproj --no-restore
+dotnet build "CS2 Metro\CS2 Metro.csproj" -c Release --no-restore -p:LocalModsPath="E:\CS2\CS2 Metro\artifacts\cs2-local-mods"
+```
+
+## Intercity Geographic v2 IG2.2 Renderer Audit
+
+Both desktop and portable renderers now consume
+`IntercityGeographicGeometry` for passenger rail. The feature is geographic
+only and remains disabled unless an internal development option is explicitly
+set.
+
+Run the three-city renderer audit with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\generate-intercity-geographic-render-audit.ps1
+```
+
+Use `-NoBuild` after a successful solution build and `-SkipPng` for a fast
+DOM-only refresh. Outputs are written to:
+
+```text
+artifacts\intercity-geographic-v2\renderer-audit\
+```
+
+The audit reads local exports in place and records their SHA-256 values; it
+does not copy player exports. Final 2026-07-28 counts:
+
+| City | Desktop/portable railway parts | Desktop/portable continuations |
+| --- | ---: | ---: |
+| 奥斯特 | 6 / 6 | 4 / 4 |
+| 肇庆 | 22 / 22 | 10 / 10 |
+| 谢菲尔德 | 7 / 7 | 2 / 2 |
+
+The renderer no longer draws continuation arrows. The geometry helper retains
+continuation metadata for clipping diagnostics, but desktop and portable SVG
+output end at the clipped boundary without an extra marker. This keeps the
+physical railway legible while avoiding a decorative symbol that looked
+awkward on curved or closely spaced exits.
+
+The archived 肇庆 and 谢菲尔德 exports also contain legacy `mode=tram` lines.
+Those are fixture contamination from the parked experiment, not output from
+the new passenger-only collector. Judge the railway layers by
+`data-intercity-*` attributes and do not treat the legacy tram lines as an
+IG2.2 feature.
+
+Offline evidence does not close the cargo exclusion gate. Before IG2.3, build
+the mod and validate a fresh export in CS2 with both passenger and cargo rail.
+Do not expose the hidden setting or add Viewer/CLI controls before that check.
+
+### Desktop intercity CSS isolation
+
+Desktop SVG route CSS declares a generic `.route` width. Do not attach that
+class to `intercity-rail-base` or `intercity-rail-sleepers`: CSS rules override
+SVG presentation attributes, making both railway layers as wide as a metro
+route. The white layer then covers the grey bed and appears transparent.
+Intercity layers use their dedicated classes and explicit widths instead.
+
+## 2026-07-29 Viewer icon sidecar and arrow removal
+
+- `LayoutOverrideDocument.Icons` stores manual map symbols without changing the
+  export document.
+- Viewer `Manual edit > Icons` supports add, select, drag, reset, and delete.
+- Supported MVP types: airport, railway station, intercity rail, bus terminal,
+  ferry terminal, landmark/POI, and information.
+- SVG icons use project-owned inline paths in
+  `MetroSvgRenderer.MapIcons.cs`; no third-party icon assets are bundled.
+- Rail Map Painter (`railmapgen/rmp`) was reviewed only for facility taxonomy
+  and editor interaction ideas. Its GPL-3.0 code/assets are not copied into
+  this MIT repository.
+- A shallow external reference checkout is kept outside the repository at
+  `E:\CS2\references\railmapgen-rmp`; it is a knowledge source, not a build
+  dependency or vendored component.
+- The sidecar remains the source of truth:
+  `metro-export-*.layout-overrides.json`.
+- Three-city audit result: 奥斯特 6/6, 肇庆 22/22, 谢菲尔德 7/7
+  desktop/portable railway parts, with `0/0` rendered continuation arrows for
+  every city.
+- `dotnet build CS2MetroDiagram.slnx --no-restore`: passed, 0 warnings/errors.
+- Full test executable: passed.
+- `publish-viewer-self-contained.ps1`: passed.
+
+### Viewer icon drag hit-test repair
+
+The first icon-editor build disabled pointer events on every child of the SVG
+icon group. An SVG `<g>` has no painted hit area of its own, so this made the
+whole icon impossible to select or drag. The repair restores normal child event
+bubbling and adds an explicit transparent `map-icon-hit-target` rectangle with
+`pointer-events="all"` to every icon.
+
+Airport and railway-station symbols now use project-owned transport badges:
+blue with a white airplane and red with a white railway glyph. They follow the
+visual grammar of the supplied map references without copying third-party
+artwork.
+
+## 2026-07-29 map-elements workspace and station multi-select
+
+- `Map elements` is a visible top-level Viewer entry. Opening it enables manual
+  editing and selects icon mode, while keeping the element toolbar separate
+  from station/label/segment tools.
+- `MapIconLayoutOverride` has optional `Title`, `Text`, `Width`, and `Height`
+  fields. Existing sidecars remain compatible because the fields are optional
+  and sidecar version 1 is unchanged.
+- `information-box` renders an editable notice card with title/body wrapping
+  and a full transparent drag hit target.
+- The railway glyph is a project-owned China Railway-style emblem. It is not a
+  copied bitmap or third-party SVG.
+- Station multi-select supports Ctrl-click and empty-area marquee selection.
+  Existing group drag, arrow-key nudge, and horizontal/vertical alignment use
+  the resulting selection.
+- Manual elements and station movements remain in
+  `*.layout-overrides.json`; never write them into `metro-export.json`.
+- RMP review confirmed the value of separating path families from ordered
+  stroke layers and corner treatment. Treat this as design guidance only:
+  `railmapgen/rmp` is GPL-3.0 and is not a code or asset dependency.
+
+Visual smoke:
+
+```powershell
+dotnet run --project src\MetroDiagram.Cli\MetroDiagram.Cli.csproj --no-restore -- `
+  samples\sample-metro-small.json `
+  output\playwright\map-elements-smoke.png `
+  --layout schematic-map `
+  --size standard `
+  --overrides output\playwright\map-elements-smoke.layout-overrides.json
+```
+
+Validation completed:
+
+- solution build: 0 warnings, 0 errors;
+- full `MetroDiagram.Tests` catalog: passed;
+- schematic regression gate: 8/8 cases passed;
+- self-contained Viewer publish: passed;
+- packaged Viewer five-second launch smoke: passed.

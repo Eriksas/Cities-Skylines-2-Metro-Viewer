@@ -121,11 +121,40 @@ Use `Align H` or `Align V` after selecting a station or segment:
 These controls are intended for small cartographic corrections such as making a
 nearly horizontal or vertical route segment read cleanly.
 
+To add or edit a map element:
+
+1. Open a JSON export.
+2. Click the top-level `Map elements` button. It opens the element toolbar and
+   switches the preview to icon editing automatically.
+3. Choose an element type and click `Add element`.
+4. Drag the element to its final map position.
+5. Edit the selected element's title and text, then click `Apply text`.
+6. Use `Delete element` or `Reset Selected` to remove it.
+
+The element set includes airport, China Railway station, intercity rail, bus
+terminal, ferry terminal, landmark/POI, information, and an editable
+information box. Information boxes are useful for service notices, map notes,
+and explanatory text. All map elements are manual cartographic annotations
+stored in the layout sidecar; they are never added to exported game data.
+
+To move several station nodes together:
+
+1. Enable `Manual edit` and choose `Stations`.
+2. Enable `Multi-select`.
+3. Drag an empty area of the map to box-select stations, or Ctrl-click
+   individual stations.
+4. Drag any selected station to move the selected group.
+5. `Align H`, `Align V`, and arrow-key nudging also operate on the selected
+   group.
+
+Multi-select changes render anchors only. It does not add, delete, merge, or
+reorder stops in `metro-export.json`.
+
 Useful manual-edit buttons:
 
 - `Hide Label` / `Show Label`: hide or restore the selected station label.
-- `Reset Selected`: remove the saved edit for the selected station or label.
-- `Clear Edits`: remove all station and label edits for the current JSON.
+- `Reset Selected`: remove the selected station, label, or icon edit.
+- `Clear Edits`: remove all station, label, segment, and icon edits for the current JSON.
 - `Open Edit File`: open or create the sidecar file in the system editor.
 
 The Viewer saves these adjustments to the sibling layout override sidecar:

@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.1.1 - 2026-07-30
+
+Viewer-only map editing release. The in-game Mod remains on
+`0.1.0-beta.8`; no Paradox Mods binary is included in this release.
+
+### Viewer
+
+- Added a top-level **Map elements** entry so manual symbols are no longer
+  hidden inside the edit-mode selector.
+- Added project-owned airport, China Railway-style railway-station, intercity,
+  bus, ferry, landmark, and information symbols.
+- Added editable information boxes with title, body, width, and height.
+- Fixed dragging for newly added map elements with explicit SVG hit targets.
+- Added Ctrl-click and marquee multi-selection for station nodes, including
+  group drag, alignment, and keyboard nudging.
+- Kept all manual edits in sibling `*.layout-overrides.json` sidecars. Exported
+  JSON, route stops, and path geometry remain unchanged.
+
+### Validation
+
+- Offline solution build and full test catalog pass.
+- Schematic regression gate passes across all eight fixtures.
+- Self-contained Windows x64 Viewer publish and startup smoke pass.
+
 ## v0.1.0 - 2026-07-20
 
 First stable desktop Viewer release. This promotes the validated beta.9 Viewer

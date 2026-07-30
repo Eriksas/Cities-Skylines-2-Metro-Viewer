@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -1272,6 +1273,39 @@ public sealed partial class MetroSvgRenderer
         SvgRenderOptions options,
         List<string> warnings)
     {
+        if (options.LayoutMode == SvgLayoutMode.Geographic
+            && geometry.Projector is not null
+            && !string.IsNullOrWhiteSpace(line.Id)
+            && geometry.IntercityRoutes.TryGetValue(line.Id!, out IntercityClippedGeometry? intercity))
+        {
+            List<RoutePolyline> polylines = intercity.Polylines
+                .Select(polyline => new RoutePolyline(
+                    polyline.Select(point => geometry.Projector.Project(point.X, point.Z)).ToList()))
+                .Where(polyline => polyline.Points.Count >= 2)
+                .ToList();
+            int pointCount = polylines.Sum(polyline => polyline.Points.Count);
+            double maxSegmentLength = polylines
+                .SelectMany(polyline => polyline.Points.Zip(polyline.Points.Skip(1), Distance))
+                .DefaultIfEmpty(0)
+                .Max();
+            return new RoutePointSet(
+                polylines,
+                "intercity-pathPoints",
+                intercity.SourcePointCount,
+                pointCount,
+                intercity.SourcePointCount > 0
+                    ? Math.Max(0, 1 - pointCount / (double)intercity.SourcePointCount)
+                    : 0,
+                maxSegmentLength,
+                0,
+                0);
+        }
+
+        if (IsIntercityLine(line))
+        {
+            return new RoutePointSet([], "intercity-unavailable", 0, 0, 0, 0, 0, 0);
+        }
+
         if (options.LayoutMode == SvgLayoutMode.Geographic
             && options.UsePathPoints
             && geometry.Projector is not null

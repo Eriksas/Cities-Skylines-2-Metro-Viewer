@@ -3,9 +3,9 @@
     <!-- The desktop toolchain and the in-game Mod have independent release
          trains. Viewer-oriented projects inherit the stable desktop version;
          Mod-owned projects override Version from MetroDiagramModVersion. -->
-    <MetroDiagramViewerVersion>0.1.0</MetroDiagramViewerVersion>
-    <MetroDiagramViewerInformationalVersion>v0.1.0</MetroDiagramViewerInformationalVersion>
-    <MetroDiagramViewerFileVersion>0.1.0.14</MetroDiagramViewerFileVersion>
+    <MetroDiagramViewerVersion>0.1.1</MetroDiagramViewerVersion>
+    <MetroDiagramViewerInformationalVersion>v0.1.1</MetroDiagramViewerInformationalVersion>
+    <MetroDiagramViewerFileVersion>0.1.1.0</MetroDiagramViewerFileVersion>
     <MetroDiagramModVersion>0.1.0-beta.8</MetroDiagramModVersion>
     <MetroDiagramModInformationalVersion>v0.1.0-beta.8</MetroDiagramModInformationalVersion>
     <MetroDiagramModFileVersion>0.1.0.13</MetroDiagramModFileVersion>

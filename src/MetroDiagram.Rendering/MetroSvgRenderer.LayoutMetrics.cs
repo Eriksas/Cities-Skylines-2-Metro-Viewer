@@ -13,6 +13,14 @@ public sealed partial class MetroSvgRenderer
         public const double ShortEdge = 2.0;
         public const double LongEdge = 0.5;
         public const double Bend = 1.5;
+
+        // Flat charge per direction change, on top of the angle term. Without
+        // it the angle term is quadratic and nothing else, so two 45-degree
+        // turns cost 0.75 against 1.50 for the single 90-degree turn they
+        // replace — the cost function pays a line to become a staircase, which
+        // is how a schematic ends up with more direction changes than the
+        // geography it came from.
+        public const double BendCount = 1.0;
         public const double Crossing = 8.0;
         public const double Clearance = 4.0;
         public const double GeographicAnchor = 0.05;
@@ -211,10 +219,16 @@ public sealed partial class MetroSvgRenderer
         return Math.Acos(Math.Clamp(cosine, -1, 1)) * 180 / Math.PI;
     }
 
+    private const double BendCountThresholdDegrees = 10.0;
+
     private static double BendUnitCost(double turnDegrees)
     {
         double normalized = turnDegrees / 90;
-        return Math.Min(normalized * normalized, 4) * LayoutCostWeights.Bend;
+        double angleCost = Math.Min(normalized * normalized, 4) * LayoutCostWeights.Bend;
+        // Charged once per direction change, so splitting a turn can never be
+        // cheaper than taking it in one go. See LayoutCostWeights.BendCount.
+        double changeCost = turnDegrees > BendCountThresholdDegrees ? LayoutCostWeights.BendCount : 0;
+        return angleCost + changeCost;
     }
 
     /// <summary>True when the two edges properly cross away from any shared station endpoint.</summary>

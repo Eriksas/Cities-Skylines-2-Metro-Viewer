@@ -21,6 +21,7 @@ CS2 Metro/Library/
 .vscode/
 
 # Generated diagrams and exports
+output/
 output.svg
 *.tmp.svg
 samples/generated-svg/

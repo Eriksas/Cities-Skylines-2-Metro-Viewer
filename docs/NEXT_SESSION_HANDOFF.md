@@ -1,5 +1,16 @@
 # Next Session Handoff
 
+## Viewer v0.1.1 Release
+
+Viewer v0.1.1 is the current desktop release candidate. It adds a top-level
+Map elements workflow, project-owned transport symbols, editable information
+boxes, and Ctrl-click/marquee station-node multi-selection. Manual edits remain
+in sibling layout sidecars and never modify exported JSON.
+
+The in-game Mod remains `0.1.0-beta.8` on PDX ModId `146643`. Do not create a
+new PDX binary for this Viewer-only release. Hidden passenger-intercity
+development remains outside player-facing controls until separately approved.
+
 ## Start Here
 
 Read these first:
@@ -17,6 +28,30 @@ Use archived history only when you need phase detail:
 docs\archive\2026-06-18-doc-consolidation
 docs\archive\historical
 ```
+
+## Schematic Layout Study (2026-07-28)
+
+Measured why the geographic view still reads better than the schematic one, and
+prototyped an alternative. Read before changing anything in
+`MetroSvgRenderer.SchematicAnneal.cs` or `MetroSvgRenderer.LayoutMetrics.cs`:
+
+```text
+docs\SCHEMATIC_LAYOUT_STUDY.md
+```
+
+Headline: the shipped schematic produces slightly MORE direction changes than the
+geographic map, while paying 23 degrees of bearing distortion and reversing 6.4%
+of station pairs — it does not schematize. It is genuinely strong at octilinearity
+(91.5%) and station separation (0.68%). A line-first prototype cut direction
+changes by 29% at the same octilinearity and spacing, but has no separation
+constraint. The two are complementary; the next algorithm is their combination,
+not a replacement of one by the other. Parameter tuning is exhausted — the
+grid-size response is dominated by search noise.
+
+Also recorded there: the multi-start annealer fix was reverted as collateral of
+the tram/intercity revert. It was independent of that feature, corpus-validated
+(mean layout cost 68.89 to 63.64 over 23 networks, zero regressions), and is
+currently absent from HEAD.
 
 ## Current Version
 
@@ -68,6 +103,27 @@ The tram/intercity prototype is parked. It was archived on local branch
 `master` after its schematic output failed visual review. Continue from the
 stable metro-only behavior; do not reintroduce multimodal export or rendering
 as a small follow-up patch.
+
+The approved passenger-rail direction is
+`docs\INTERCITY_GEOGRAPHIC_PLAN.md`: a fresh, geographic-only, default-off track
+with real path geometry, cargo exclusion, outside-tail clipping, and one shared
+desktop/in-game geometry pipeline.
+
+IG2.0 through IG2.2 are code-side complete on the local feature branch.
+Passenger collection, CurveElement-first path extraction, shared geographic
+clipping/projection, desktop/portable rendering, clean clipped outside
+endpoints, and three-city audits are present. The approved visual grammar is a dark continuous
+rail bed with explicit equal-length white inserts. A shared arc-length sampler
+replaced unstable SVG dashed strokes on 2026-07-29; both route surfaces and
+their legends now use the same tokens. Mixed-mode legends are separated into
+adjacent metro and intercity groups on desktop, transit-map, and portable
+in-game output; the synthetic suite and three-city audit enforce that grouping.
+
+Next: owner-only CS2/Coherent validation. Build from the feature branch and
+deliberately enable the hidden development gate, then compare passenger and
+cargo lines and inspect curves at several zoom levels. Do not expose
+Viewer/CLI/game controls, do not render train lines in schematic layouts, do
+not copy/deploy automatically, and do not publish to PDX before that validation.
 
 The active long-line track is Phase 7, documented in
 `docs\INGAME_PREVIEW_PLAN.md`: build a polished game-native metro preview while
@@ -433,3 +489,48 @@ PDX: ModId 146643, version 0.1.0-beta.7, Public
 Tag `v0.1.0-beta.7` points to release source commit `69ef6f1`. The uploaded
 Viewer ZIP SHA-256 is
 `FA48990FF923698F0AAEE9F08B06FAC808C743547BB1A69DB21B2869EA4ADB2E`.
+
+## Current Intercity Geographic v2 Handoff
+
+IG2.0 through IG2.2 are code-side complete on
+`feature/intercity-geographic-v2`.
+
+Completed:
+
+- shared pure clipping/projection contract and synthetic fixtures;
+- three-city local real-fixture inventory;
+- isolated passenger Train collector and pure classifier;
+- explicit cargo vehicle/station exclusion;
+- CurveElement-first rail path extraction and per-line diagnostics;
+- shared city-envelope clipping/projection in desktop and portable renderers;
+- dark-grey railway bed plus equal-spaced white marks;
+- outside-city station/tail clipping with clean clipped endpoints;
+- hidden/default-off development gate;
+- archived fixture audit: 17 train lines, 46,830 path points;
+- three-city renderer parity audit:
+  - 奥斯特: 6 desktop/portable railway parts, 0 rendered arrows;
+  - 肇庆: 22 desktop/portable railway parts, 0 rendered arrows;
+  - 谢菲尔德: 7 desktop/portable railway parts, 0 rendered arrows;
+- Viewer manual icon editing through layout sidecars:
+  - add, drag, reset, and delete;
+  - airport, railway, intercity, bus, ferry, landmark, and information;
+  - no exporter or schema changes;
+- self-contained Viewer publish passed after the icon editor update;
+- solution build, full tests, and CS2 Release post-process.
+
+Next:
+
+1. Validate the newly built collector in CS2 with both passenger and cargo
+   rail. Old exported files cannot close that gate.
+2. Inspect the fresh export diagnostics for accepted passenger lines, rejected
+   cargo lines, path-point density, and outside connections.
+3. Only after owner acceptance, begin IG2.3 Viewer/CLI/in-game controls. Keep
+   every control default-off and geographic-only.
+
+Do not expose, deploy, publish, or enable intercity by default yet. Do not add
+train to any schematic layout. The archived real fixtures contain legacy tram
+lines from the parked experiment; those are not part of the new collector.
+
+For future icon work, use Rail Map Painter only as an external taxonomy and UX
+reference. Do not copy its GPL-3.0 code or bundled icon assets into this MIT
+repository.

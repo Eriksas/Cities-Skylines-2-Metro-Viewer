@@ -1,0 +1,20 @@
+{
+  "description": "Passenger rail enters the city from one outside connection and exits through another.",
+  "cityAnchors": [
+    { "x": -500, "z": -400 },
+    { "x": 500, "z": -400 },
+    { "x": 500, "z": 400 },
+    { "x": -500, "z": 400 }
+  ],
+  "routePoints": [
+    { "x": -3000, "z": -900 },
+    { "x": -350, "z": -180 },
+    { "x": 0, "z": 0 },
+    { "x": 360, "z": 170 },
+    { "x": 3200, "z": 1100 }
+  ],
+  "expected": {
+    "polylineCount": 1,
+    "continuationCount": 2
+  }
+}

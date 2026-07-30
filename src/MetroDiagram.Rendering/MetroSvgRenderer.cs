@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -26,21 +27,32 @@ public sealed partial class MetroSvgRenderer
         List<string> warnings = [];
 
         MetroNetwork network = document.Network ?? new MetroNetwork();
-        List<MetroStation> stations = network.Stations ?? [];
-        List<MetroLine> lines = network.Lines ?? [];
+        IntercityRenderContext intercityContext = PrepareIntercityRenderContext(network, options, warnings);
+        List<MetroStation> stations = intercityContext.Stations;
+        List<MetroLine> lines = intercityContext.Lines;
         Dictionary<string, MetroStation> stationsById = stations
             .Where(station => !string.IsNullOrWhiteSpace(station.Id))
             .GroupBy(station => station.Id!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         List<DisplayLineFamily> displayFamilies = DisplayLineFamilyResolver.Resolve(lines, stationsById, options.EnableServiceFamilyMerge);
         options = ApplyNetworkPresentationDefaults(options, displayFamilies, stations.Count);
+        options = ApplyMixedModeLegendDefaults(options, displayFamilies);
         if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
         {
             AdaptCanvasHeightToNetwork(options, stations);
         }
 
         bool hasLegend = displayFamilies.Count > 0;
-        RenderGeometry geometry = GetOrCreateRenderGeometry(document, stations, lines, displayFamilies, stationsById, options, hasLegend, warnings);
+        RenderGeometry geometry = GetOrCreateRenderGeometry(
+            document,
+            stations,
+            lines,
+            displayFamilies,
+            stationsById,
+            intercityContext.Routes,
+            options,
+            hasLegend,
+            warnings);
         geometry = ApplyLayoutOverridesToGeometry(geometry, options, warnings);
         StationRouteAnchorMap stationAnchors = ResolveStationRouteAnchors(stations, displayFamilies, stationsById, geometry, options, warnings);
         Dictionary<string, SvgPoint> stationPoints = stationAnchors.Points;
@@ -52,6 +64,7 @@ public sealed partial class MetroSvgRenderer
         AppendRoutes(svg, stations, displayFamilies, stationsById, stationPoints, terminalStationIds, geometry, options, hasLegend, warnings);
         AppendVirtualTransferHints(svg, stations, stationPoints, options);
         AppendStations(svg, stations, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, geometry.SchematicV2DenseStationPairs, terminalStationIds, options);
+        AppendMapIcons(svg, options);
         AppendLabels(svg, stations, displayFamilies, stationPoints, stationAnchors.Anchors, geometry.SchematicStationAdjustments, terminalStationIds, options, hasLegend);
         AppendLegend(svg, SortFamiliesForLegend(displayFamilies), options, hasLegend);
         AppendFooter(svg, options);
@@ -65,6 +78,7 @@ public sealed partial class MetroSvgRenderer
         List<MetroLine> lines,
         List<DisplayLineFamily> displayFamilies,
         Dictionary<string, MetroStation> stationsById,
+        Dictionary<string, IntercityClippedGeometry> intercityRoutes,
         SvgRenderOptions options,
         bool hasLegend,
         List<string> warnings)
@@ -84,7 +98,16 @@ public sealed partial class MetroSvgRenderer
             : null;
 
         List<string> layoutWarnings = [];
-        RenderGeometry geometry = CreateRenderGeometry(stations, lines, displayFamilies, canonicalNetwork, stationsById, options, hasLegend, layoutWarnings);
+        RenderGeometry geometry = CreateRenderGeometry(
+            stations,
+            lines,
+            displayFamilies,
+            canonicalNetwork,
+            stationsById,
+            intercityRoutes,
+            options,
+            hasLegend,
+            layoutWarnings);
         warnings.AddRange(layoutWarnings);
 
         _geometryCacheDocument = document;
@@ -132,6 +155,7 @@ public sealed partial class MetroSvgRenderer
             options.SchematicMapLocalClearanceDistance,
             options.EnableSchematicMapSyntheticBends,
             options.SchematicMapSyntheticBendMinimumLength,
+            options.EnableIntercityRail,
             hasLegend);
     }
 
@@ -141,6 +165,7 @@ public sealed partial class MetroSvgRenderer
         List<DisplayLineFamily> displayFamilies,
         CanonicalSchematicNetwork? canonicalNetwork,
         Dictionary<string, MetroStation> stationsById,
+        Dictionary<string, IntercityClippedGeometry> intercityRoutes,
         SvgRenderOptions options,
         bool reserveLegendSpace,
         List<string> warnings)
@@ -157,14 +182,20 @@ public sealed partial class MetroSvgRenderer
         if (options.LayoutMode == SvgLayoutMode.Geographic && options.UsePathPoints)
         {
             sourceCoordinates.AddRange(lines
+                .Where(line => !IsIntercityLine(line))
                 .SelectMany(line => GetRenderablePathPoints(line, options))
                 .Select(point => new SourceCoordinate(point.X, point.Z)));
         }
 
+        sourceCoordinates.AddRange(intercityRoutes.Values
+            .SelectMany(route => route.Polylines)
+            .SelectMany(polyline => polyline)
+            .Select(point => new SourceCoordinate(point.X, point.Z)));
+
         CoordinateProjector? projector = CoordinateProjector.Create(sourceCoordinates, options, reserveLegendSpace);
         if (projector is null)
         {
-            return new RenderGeometry([], null, [], [], null, null);
+            return new RenderGeometry([], null, [], [], null, null, intercityRoutes);
         }
 
         Dictionary<string, SvgPoint> points = new(StringComparer.Ordinal);
@@ -182,7 +213,7 @@ public sealed partial class MetroSvgRenderer
         {
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
             Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(annealLayout.Points, stations, options, reserveLegendSpace);
-            return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null);
+            return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null, intercityRoutes);
         }
 
         if (IsSchematicV2FamilyLayout(options.LayoutMode))
@@ -213,10 +244,17 @@ public sealed partial class MetroSvgRenderer
                 warnings);
             SchematicLayoutResult targetLayout = ScaleSchematicV2LayoutToTarget(canonicalLayout, canonicalOptions, options, reserveLegendSpace);
             Dictionary<string, SvgPoint> fittedV2Points = FitPointsToBounds(targetLayout.Points, stations, options, reserveLegendSpace);
-            return new RenderGeometry(fittedV2Points, projector, targetLayout.Adjustments, targetLayout.DenseStationPairs, targetLayout.RouteGuideByFamily, targetLayout.RouteGuideMetadataByFamily);
+            return new RenderGeometry(
+                fittedV2Points,
+                projector,
+                targetLayout.Adjustments,
+                targetLayout.DenseStationPairs,
+                targetLayout.RouteGuideByFamily,
+                targetLayout.RouteGuideMetadataByFamily,
+                intercityRoutes);
         }
 
-        return new RenderGeometry(points, projector, [], [], null, null);
+        return new RenderGeometry(points, projector, [], [], null, null, intercityRoutes);
     }
 
     // A fixed landscape canvas letterboxes a squarer network: the layout fills
@@ -500,6 +538,76 @@ public sealed partial class MetroSvgRenderer
 
         options.CompactTransitMapFrame = ShouldUseCompactTransitMapFrame(displayFamilies, stationCount);
         return options;
+    }
+
+    private static SvgRenderOptions ApplyMixedModeLegendDefaults(
+        SvgRenderOptions options,
+        IReadOnlyList<DisplayLineFamily> displayFamilies)
+    {
+        bool hasMetro = displayFamilies.Any(family => !IsIntercityFamily(family));
+        bool hasIntercity = displayFamilies.Any(IsIntercityFamily);
+        if (!hasMetro || !hasIntercity || IsTransitMapStyle(options))
+        {
+            return options;
+        }
+
+        int parallelLegendWidth = Math.Min(
+            Math.Max(options.LegendWidth, 420),
+            Math.Max(options.LegendWidth, options.Width / 2));
+        if (parallelLegendWidth == options.LegendWidth)
+        {
+            return options;
+        }
+
+        return new SvgRenderOptions
+        {
+            LayoutMode = options.LayoutMode,
+            MapStyle = options.MapStyle,
+            Width = options.Width,
+            Height = options.Height,
+            Padding = options.Padding,
+            Margin = options.Margin,
+            LegendWidth = parallelLegendWidth,
+            LegendGap = options.LegendGap,
+            LineWidth = options.LineWidth,
+            StationRadius = options.StationRadius,
+            InterchangeStationRadius = options.InterchangeStationRadius,
+            LabelFontSize = options.LabelFontSize,
+            LegendLabelFontSize = options.LegendLabelFontSize,
+            LabelGap = options.LabelGap,
+            EnableCenterExpansion = options.EnableCenterExpansion,
+            CenterExpansionStrength = options.CenterExpansionStrength,
+            GridSize = options.GridSize,
+            HideGenericStationLabels = options.HideGenericStationLabels,
+            EnableVirtualTransferHints = options.EnableVirtualTransferHints,
+            HideCrowdedLabels = options.HideCrowdedLabels,
+            AlwaysShowInterchanges = options.AlwaysShowInterchanges,
+            AlwaysShowTerminals = options.AlwaysShowTerminals,
+            UsePathPoints = options.UsePathPoints,
+            PathPointSimplificationEnabled = options.PathPointSimplificationEnabled,
+            PathPointSimplificationTolerance = options.PathPointSimplificationTolerance,
+            MinPathSegmentLength = options.MinPathSegmentLength,
+            AdaptivePathPointSimplificationEnabled = options.AdaptivePathPointSimplificationEnabled,
+            EnableParallelCorridorOffset = options.EnableParallelCorridorOffset,
+            EnableServiceFamilyMerge = options.EnableServiceFamilyMerge,
+            EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
+            EnableExpressCenterStripe = options.EnableExpressCenterStripe,
+            EnableIntercityRail = options.EnableIntercityRail,
+            LayoutOverrides = options.LayoutOverrides,
+            EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
+            StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
+            StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,
+            SchematicMinimumStationSpacing = options.SchematicMinimumStationSpacing,
+            CompactTransitMapFrame = options.CompactTransitMapFrame,
+            EnableSchematicMapOctilinearNormalization = options.EnableSchematicMapOctilinearNormalization,
+            SchematicMapOctilinearSnapAngleDegrees = options.SchematicMapOctilinearSnapAngleDegrees,
+            EnableSchematicMapSimpleRunLinearization = options.EnableSchematicMapSimpleRunLinearization,
+            SchematicMapPreferredStationSpacing = options.SchematicMapPreferredStationSpacing,
+            EnableSchematicMapLocalClearance = options.EnableSchematicMapLocalClearance,
+            SchematicMapLocalClearanceDistance = options.SchematicMapLocalClearanceDistance,
+            EnableSchematicMapSyntheticBends = options.EnableSchematicMapSyntheticBends,
+            SchematicMapSyntheticBendMinimumLength = options.SchematicMapSyntheticBendMinimumLength
+        };
     }
 
     private static bool ShouldUseCompactTransitMapFrame(IReadOnlyList<DisplayLineFamily> displayFamilies, int stationCount)

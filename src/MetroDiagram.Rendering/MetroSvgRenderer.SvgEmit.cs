@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -298,6 +299,13 @@ public sealed partial class MetroSvgRenderer
             renderRoutes.Add(new RenderRoute(family, line, routePointSet with { Polylines = routePolylines }));
         }
 
+        List<RenderRoute> intercityRoutes = renderRoutes
+            .Where(route => IsIntercityLine(route.Line))
+            .ToList();
+        renderRoutes = renderRoutes
+            .Where(route => !IsIntercityLine(route.Line))
+            .ToList();
+
         bool useCorridorRunPipeline = options.LayoutMode == SvgLayoutMode.Geographic
             && options.UsePathPoints
             && !options.EnableParallelCorridorOffset;
@@ -318,6 +326,7 @@ public sealed partial class MetroSvgRenderer
         }
 
         svg.AppendLine($"""<g id="routes" data-layout="{GetLayoutModeName(options.LayoutMode)}">""");
+        AppendIntercityRailRoutes(svg, intercityRoutes, geometry, options);
         if (useCorridorRunPipeline)
         {
             AppendCorridorRenderPlan(
@@ -1274,13 +1283,61 @@ public sealed partial class MetroSvgRenderer
         double variantRowHeight = Math.Max(23, options.LegendLabelFontSize * 1.25);
         double legendTitleGap = Math.Max(42, options.LegendLabelFontSize + 24);
 
-        svg.AppendLine("""<g id="legend">""");
+        List<DisplayLineFamily> metroFamilies = families.Where(family => !IsIntercityFamily(family)).ToList();
+        List<DisplayLineFamily> intercityFamilies = families.Where(IsIntercityFamily).ToList();
+        bool parallelModeGroups = metroFamilies.Count > 0 && intercityFamilies.Count > 0;
+
+        svg.AppendLine(parallelModeGroups
+            ? """<g id="legend" data-legend-layout="parallel-mode-groups">"""
+            : """<g id="legend">""");
         svg.AppendLine($"""<text class="legend-title" x="{Format(legendX)}" y="{Format(legendY)}">Legend</text>""");
+
+        if (parallelModeGroups)
+        {
+            double groupGap = Math.Clamp(options.LegendWidth * 0.06, 16, 28);
+            double groupWidth = Math.Max(120, (options.LegendWidth - groupGap) / 2);
+            double groupTitleY = legendY + legendTitleGap;
+            double firstRowY = groupTitleY + Math.Max(30, options.LegendLabelFontSize + 13);
+
+            AppendStandardLegendGroup(
+                svg,
+                metroFamilies,
+                options,
+                legendX,
+                groupTitleY,
+                firstRowY,
+                groupWidth,
+                "Metro",
+                "metro");
+            AppendStandardLegendGroup(
+                svg,
+                intercityFamilies,
+                options,
+                legendX + groupWidth + groupGap,
+                groupTitleY,
+                firstRowY,
+                groupWidth,
+                "Intercity rail",
+                "intercity");
+            svg.AppendLine("</g>");
+            return;
+        }
 
         double y = legendY + legendTitleGap;
         foreach (DisplayLineFamily family in families)
         {
-            svg.AppendLine($"""<line x1="{Format(legendX)}" y1="{Format(y)}" x2="{Format(legendX + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(Math.Max(5, options.LineWidth * 0.57))}" stroke-linecap="round" />""");
+            double sampleWidth = Math.Max(5, options.LineWidth * 0.57);
+            if (IsIntercityFamily(family))
+            {
+                double railSampleWidth = IntercityRailPatternOptions.ResolveLegendBaseWidth(sampleWidth);
+                svg.AppendLine($"""<line x1="{Format(legendX)}" y1="{Format(y)}" x2="{Format(legendX + sampleLength)}" y2="{Format(y)}" stroke="#555b60" stroke-width="{Format(railSampleWidth)}" stroke-linecap="round" data-legend-mode="train" />""");
+                svg.AppendLine($"""<path d="{BuildIntercityLegendMarkPath(legendX, y, legendX + sampleLength, railSampleWidth)}" fill="none" stroke="#ffffff" stroke-width="{Format(GetIntercityLegendMarkWidth(railSampleWidth))}" stroke-linecap="butt" data-legend-mode="train" data-intercity-pattern="explicit-equal-spacing" />""");
+            }
+            else
+            {
+                svg.AppendLine($"""<line x1="{Format(legendX)}" y1="{Format(y)}" x2="{Format(legendX + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(sampleWidth)}" stroke-linecap="round" />""");
+            }
+
             svg.AppendLine($"""<text class="legend-label" x="{Format(labelX)}" y="{Format(y + 5)}">{Escape(family.DisplayName)}</text>""");
 
             if (family.Variants.Count > 1)
@@ -1298,6 +1355,71 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine("</g>");
     }
 
+    private static void AppendStandardLegendGroup(
+        StringBuilder svg,
+        IReadOnlyList<DisplayLineFamily> families,
+        SvgRenderOptions options,
+        double groupX,
+        double groupTitleY,
+        double firstRowY,
+        double groupWidth,
+        string title,
+        string groupName)
+    {
+        double sampleLength = Math.Clamp(groupWidth * 0.22, 30, 46);
+        double labelX = groupX + sampleLength + 10;
+        double maxLabelWidth = Math.Max(48, groupWidth - sampleLength - 12);
+        double baseRowHeight = Math.Max(38, options.LegendLabelFontSize + 20);
+        double variantRowHeight = Math.Max(23, options.LegendLabelFontSize * 1.25);
+        double y = firstRowY;
+
+        svg.AppendLine($"""<g data-legend-group="{groupName}">""");
+        svg.AppendLine($"""<text class="legend-variant" x="{Format(groupX)}" y="{Format(groupTitleY)}" font-weight="700" data-legend-group-title="{groupName}">{Escape(title)}</text>""");
+        foreach (DisplayLineFamily family in families)
+        {
+            AppendLegendFamilySample(svg, family, options, groupX, y, sampleLength);
+            string label = TruncateLegendText(family.DisplayName, maxLabelWidth, options.LegendLabelFontSize);
+            svg.AppendLine($"""<text class="legend-label" x="{Format(labelX)}" y="{Format(y + 5)}">{Escape(label)}</text>""");
+
+            if (family.Variants.Count > 1)
+            {
+                foreach (DisplayServiceVariant variant in family.Variants)
+                {
+                    y += variantRowHeight;
+                    string variantLabel = TruncateLegendText(
+                        FormatServiceVariantLegendText(variant),
+                        maxLabelWidth,
+                        Math.Max(11, options.LegendLabelFontSize * 0.76));
+                    svg.AppendLine($"""<text class="legend-variant" x="{Format(labelX)}" y="{Format(y + 5)}">{Escape(variantLabel)}</text>""");
+                }
+            }
+
+            y += baseRowHeight;
+        }
+
+        svg.AppendLine("</g>");
+    }
+
+    private static void AppendLegendFamilySample(
+        StringBuilder svg,
+        DisplayLineFamily family,
+        SvgRenderOptions options,
+        double x,
+        double y,
+        double sampleLength)
+    {
+        double sampleWidth = Math.Max(5, options.LineWidth * 0.57);
+        if (IsIntercityFamily(family))
+        {
+            double railSampleWidth = IntercityRailPatternOptions.ResolveLegendBaseWidth(sampleWidth);
+            svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#555b60" stroke-width="{Format(railSampleWidth)}" stroke-linecap="round" data-legend-mode="train" />""");
+            svg.AppendLine($"""<path d="{BuildIntercityLegendMarkPath(x, y, x + sampleLength, railSampleWidth)}" fill="none" stroke="#ffffff" stroke-width="{Format(GetIntercityLegendMarkWidth(railSampleWidth))}" stroke-linecap="butt" data-legend-mode="train" data-intercity-pattern="explicit-equal-spacing" />""");
+            return;
+        }
+
+        svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(sampleWidth)}" stroke-linecap="round" />""");
+    }
+
     private static void AppendTransitMapLegend(StringBuilder svg, IReadOnlyList<DisplayLineFamily> families, SvgRenderOptions options)
     {
         double footerHeight = GetTransitMapFooterHeight(options);
@@ -1312,6 +1434,9 @@ public sealed partial class MetroSvgRenderer
             : Math.Min(140, panelWidth * 0.16);
         double itemAreaX = panelX + titleWidth + 18;
         double itemAreaWidth = Math.Max(160, panelWidth - titleWidth - 34);
+        List<DisplayLineFamily> metroFamilies = families.Where(family => !IsIntercityFamily(family)).ToList();
+        List<DisplayLineFamily> intercityFamilies = families.Where(IsIntercityFamily).ToList();
+        bool parallelModeGroups = metroFamilies.Count > 0 && intercityFamilies.Count > 0;
         int columns = Math.Clamp((int)Math.Floor(itemAreaWidth / 280), 2, 6);
         int rows = Math.Max(1, (int)Math.Ceiling(families.Count / (double)columns));
         double columnWidth = itemAreaWidth / columns;
@@ -1326,7 +1451,9 @@ public sealed partial class MetroSvgRenderer
             .Take(3)
             .ToList();
 
-        svg.AppendLine("""<g id="legend" data-legend-placement="bottom" data-map-style="transit-map">""");
+        svg.AppendLine(parallelModeGroups
+            ? """<g id="legend" data-legend-placement="bottom" data-map-style="transit-map" data-legend-layout="parallel-mode-groups">"""
+            : """<g id="legend" data-legend-placement="bottom" data-map-style="transit-map">""");
         svg.AppendLine($"""<rect x="{Format(panelX)}" y="{Format(panelY)}" width="{Format(panelWidth)}" height="{Format(panelHeight)}" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.2" />""");
         svg.AppendLine($"""<text class="legend-title" x="{Format(panelX + 18)}" y="{Format(panelY + 28)}">{"\u7ebf\u8def\u53ca\u8bf4\u660e"}</text>""");
         svg.AppendLine($"""<text class="transit-footer-note" x="{Format(panelX + 18)}" y="{Format(panelY + 48)}">Key to lines and symbols</text>""");
@@ -1338,19 +1465,77 @@ public sealed partial class MetroSvgRenderer
             svg.AppendLine($"""<text class="transit-footer-note" x="{Format(panelX + 18)}" y="{Format(panelY + 91)}">Express / skip-stop marker</text>""");
         }
 
-        for (int i = 0; i < families.Count; i++)
+        if (parallelModeGroups)
         {
-            DisplayLineFamily family = families[i];
-            int column = i / rows;
-            int row = i % rows;
-            double x = itemAreaX + column * columnWidth;
-            double y = panelY + 27 + row * rowHeight;
-            double textX = x + sampleLength + 12;
-            svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(lineWidth)}" stroke-linecap="round" />""");
-            svg.AppendLine($"""<text class="legend-label" x="{Format(textX)}" y="{Format(y + 5)}">{Escape(family.DisplayName)}</text>""");
-            if (HasExpressServiceVariant(family))
+            double groupGap = Math.Clamp(itemAreaWidth * 0.025, 18, 34);
+            double intercityWidth = Math.Clamp(itemAreaWidth * 0.3, 220, itemAreaWidth * 0.42);
+            double metroWidth = Math.Max(260, itemAreaWidth - intercityWidth - groupGap);
+            int metroColumns = Math.Clamp((int)Math.Floor(metroWidth / 250), 1, 4);
+            int intercityColumns = Math.Clamp((int)Math.Floor(intercityWidth / 220), 1, 2);
+            int metroRows = Math.Max(1, (int)Math.Ceiling(metroFamilies.Count / (double)metroColumns));
+            int intercityRows = Math.Max(1, (int)Math.Ceiling(intercityFamilies.Count / (double)intercityColumns));
+            rows = Math.Max(metroRows, intercityRows);
+            rowHeight = Math.Max(24, Math.Min(36, panelHeight / Math.Max(1, rows + 1.6)));
+            double groupTitleY = panelY + 24;
+            double firstRowY = panelY + 49;
+
+            AppendTransitMapLegendGroup(
+                svg,
+                metroFamilies,
+                options,
+                itemAreaX,
+                metroWidth,
+                metroColumns,
+                metroRows,
+                rowHeight,
+                groupTitleY,
+                firstRowY,
+                lineWidth,
+                "地铁",
+                "metro");
+            double intercityX = itemAreaX + metroWidth + groupGap;
+            svg.AppendLine($"""<line x1="{Format(intercityX - groupGap / 2)}" y1="{Format(panelY + 14)}" x2="{Format(intercityX - groupGap / 2)}" y2="{Format(panelY + panelHeight - 14)}" stroke="#e5e7eb" stroke-width="1" />""");
+            AppendTransitMapLegendGroup(
+                svg,
+                intercityFamilies,
+                options,
+                intercityX,
+                intercityWidth,
+                intercityColumns,
+                intercityRows,
+                rowHeight,
+                groupTitleY,
+                firstRowY,
+                lineWidth,
+                "城际铁路",
+                "intercity");
+        }
+        else
+        {
+            for (int i = 0; i < families.Count; i++)
             {
-                svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#ffffff" stroke-width="{Format(Math.Max(2, lineWidth * 0.38))}" stroke-linecap="round" data-legend-express-marker="white-center-stripe" />""");
+                DisplayLineFamily family = families[i];
+                int column = i / rows;
+                int row = i % rows;
+                double x = itemAreaX + column * columnWidth;
+                double y = panelY + 27 + row * rowHeight;
+                double textX = x + sampleLength + 12;
+                if (IsIntercityFamily(family))
+                {
+                    double railSampleWidth = IntercityRailPatternOptions.ResolveLegendBaseWidth(lineWidth);
+                    svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#555b60" stroke-width="{Format(railSampleWidth)}" stroke-linecap="round" data-legend-mode="train" />""");
+                    svg.AppendLine($"""<path d="{BuildIntercityLegendMarkPath(x, y, x + sampleLength, railSampleWidth)}" fill="none" stroke="#ffffff" stroke-width="{Format(GetIntercityLegendMarkWidth(railSampleWidth))}" stroke-linecap="butt" data-legend-mode="train" data-intercity-pattern="explicit-equal-spacing" />""");
+                }
+                else
+                {
+                    svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(lineWidth)}" stroke-linecap="round" />""");
+                }
+
+                svg.AppendLine($"""<text class="legend-label" x="{Format(textX)}" y="{Format(y + 5)}">{Escape(family.DisplayName)}</text>""");
+                if (HasExpressServiceVariant(family))
+                {
+                    svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#ffffff" stroke-width="{Format(Math.Max(2, lineWidth * 0.38))}" stroke-linecap="round" data-legend-express-marker="white-center-stripe" />""");
+                }
             }
         }
 
@@ -1380,6 +1565,57 @@ public sealed partial class MetroSvgRenderer
         svg.AppendLine($"""<circle class="station interchange" cx="{Format(symbolX + 196)}" cy="{Format(symbolY)}" r="{Format(visualStyle.InterchangeMarkerRadius)}" data-legend-symbol="transfer" />""");
         svg.AppendLine($"""<circle class="station-interchange-inner" cx="{Format(symbolX + 196)}" cy="{Format(symbolY)}" r="{Format(Math.Max(2.8, visualStyle.InterchangeMarkerRadius - 3.8))}" />""");
         svg.AppendLine($"""<text class="transit-footer-note" x="{Format(symbolX + 218)}" y="{Format(symbolY + 5)}">Transfer</text>""");
+        svg.AppendLine("</g>");
+    }
+
+    private static void AppendTransitMapLegendGroup(
+        StringBuilder svg,
+        IReadOnlyList<DisplayLineFamily> families,
+        SvgRenderOptions options,
+        double groupX,
+        double groupWidth,
+        int columns,
+        int rows,
+        double rowHeight,
+        double groupTitleY,
+        double firstRowY,
+        double lineWidth,
+        string title,
+        string groupName)
+    {
+        double columnWidth = groupWidth / Math.Max(1, columns);
+        double sampleLength = Math.Min(50, Math.Max(30, columnWidth * 0.2));
+        svg.AppendLine($"""<g data-legend-group="{groupName}">""");
+        svg.AppendLine($"""<text class="transit-footer-label" x="{Format(groupX)}" y="{Format(groupTitleY)}" data-legend-group-title="{groupName}">{Escape(title)}</text>""");
+        for (int i = 0; i < families.Count; i++)
+        {
+            DisplayLineFamily family = families[i];
+            int column = i / Math.Max(1, rows);
+            int row = i % Math.Max(1, rows);
+            double x = groupX + column * columnWidth;
+            double y = firstRowY + row * rowHeight;
+            double textX = x + sampleLength + 10;
+            double maxTextWidth = Math.Max(60, columnWidth - sampleLength - 14);
+
+            if (IsIntercityFamily(family))
+            {
+                double railSampleWidth = IntercityRailPatternOptions.ResolveLegendBaseWidth(lineWidth);
+                svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#555b60" stroke-width="{Format(railSampleWidth)}" stroke-linecap="round" data-legend-mode="train" />""");
+                svg.AppendLine($"""<path d="{BuildIntercityLegendMarkPath(x, y, x + sampleLength, railSampleWidth)}" fill="none" stroke="#ffffff" stroke-width="{Format(GetIntercityLegendMarkWidth(railSampleWidth))}" stroke-linecap="butt" data-legend-mode="train" data-intercity-pattern="explicit-equal-spacing" />""");
+            }
+            else
+            {
+                svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="{Escape(family.Color)}" stroke-width="{Format(lineWidth)}" stroke-linecap="round" />""");
+            }
+
+            string label = TruncateLegendText(family.DisplayName, maxTextWidth, options.LegendLabelFontSize);
+            svg.AppendLine($"""<text class="legend-label" x="{Format(textX)}" y="{Format(y + 5)}">{Escape(label)}</text>""");
+            if (HasExpressServiceVariant(family))
+            {
+                svg.AppendLine($"""<line x1="{Format(x)}" y1="{Format(y)}" x2="{Format(x + sampleLength)}" y2="{Format(y)}" stroke="#ffffff" stroke-width="{Format(Math.Max(2, lineWidth * 0.38))}" stroke-linecap="round" data-legend-express-marker="white-center-stripe" />""");
+            }
+        }
+
         svg.AppendLine("</g>");
     }
 

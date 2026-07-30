@@ -105,6 +105,12 @@ public sealed class SvgRenderOptions
 
     public bool EnableExpressCenterStripe { get; init; }
 
+    /// <summary>
+    /// Development-only geographic passenger-rail overlay. It is intentionally
+    /// not wired to the CLI or Viewer until real CS2 validation is complete.
+    /// </summary>
+    public bool EnableIntercityRail { get; init; }
+
     public LayoutOverrideDocument? LayoutOverrides { get; init; }
 
     public bool EnableStationRouteAnchoring { get; init; } = true;

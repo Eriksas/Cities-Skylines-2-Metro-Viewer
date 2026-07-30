@@ -17,8 +17,13 @@ public sealed class LayoutOverrideDocument
     // two stations is replaced with stationA -> bend -> stationB at render time.
     public Dictionary<string, BendLayoutOverride> Bends { get; set; } = new(StringComparer.Ordinal);
 
+    // User-authored map symbols are render-time annotations. They deliberately
+    // live in the layout sidecar instead of MetroExportDocument so game exports
+    // remain source data rather than presentation state.
+    public Dictionary<string, MapIconLayoutOverride> Icons { get; set; } = new(StringComparer.Ordinal);
+
     [JsonIgnore]
-    public bool IsEmpty => Stations.Count == 0 && Labels.Count == 0 && Bends.Count == 0;
+    public bool IsEmpty => Stations.Count == 0 && Labels.Count == 0 && Bends.Count == 0 && Icons.Count == 0;
 
     // Canonical, order-independent key for the edge between two stations.
     public static string BendEdgeKey(string stationIdA, string stationIdB)
@@ -72,6 +77,33 @@ public sealed class LabelLayoutOverride
     public string? Note { get; set; }
 }
 
+public sealed class MapIconLayoutOverride
+{
+    public string Type { get; set; } = "information";
+
+    public double X { get; set; }
+
+    public double Y { get; set; }
+
+    public double Size { get; set; } = 34;
+
+    public string? Label { get; set; }
+
+    public string? Title { get; set; }
+
+    public string? Text { get; set; }
+
+    public double? Width { get; set; }
+
+    public double? Height { get; set; }
+
+    public string? Color { get; set; }
+
+    public bool Enabled { get; set; } = true;
+
+    public string? Note { get; set; }
+}
+
 public static class LayoutOverrideLoader
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -89,6 +121,7 @@ public static class LayoutOverrideLoader
         document.Stations ??= new Dictionary<string, StationLayoutOverride>(StringComparer.Ordinal);
         document.Labels ??= new Dictionary<string, LabelLayoutOverride>(StringComparer.Ordinal);
         document.Bends ??= new Dictionary<string, BendLayoutOverride>(StringComparer.Ordinal);
+        document.Icons ??= new Dictionary<string, MapIconLayoutOverride>(StringComparer.Ordinal);
         return document;
     }
 

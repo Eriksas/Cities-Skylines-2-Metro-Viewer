@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MetroDiagram.Core.Models;
+using MetroDiagram.Engine;
 
 namespace MetroDiagram.Rendering;
 
@@ -40,6 +41,7 @@ public sealed partial class MetroSvgRenderer
         double SchematicMapLocalClearanceDistance,
         bool EnableSchematicMapSyntheticBends,
         double SchematicMapSyntheticBendMinimumLength,
+        bool EnableIntercityRail,
         bool HasLegend);
 
     private sealed class CoordinateProjector
@@ -198,7 +200,8 @@ public sealed partial class MetroSvgRenderer
         Dictionary<string, SchematicStationAdjustment> SchematicStationAdjustments,
         List<SchematicV2DenseStationPair> SchematicV2DenseStationPairs,
         Dictionary<string, List<string>>? SchematicV2RouteGuideByFamily,
-        Dictionary<string, SchematicV2RouteGuideMetadata>? SchematicV2RouteGuideMetadataByFamily);
+        Dictionary<string, SchematicV2RouteGuideMetadata>? SchematicV2RouteGuideMetadataByFamily,
+        Dictionary<string, IntercityClippedGeometry> IntercityRoutes);
 
     private readonly record struct SchematicLayoutResult(
         Dictionary<string, SvgPoint> Points,

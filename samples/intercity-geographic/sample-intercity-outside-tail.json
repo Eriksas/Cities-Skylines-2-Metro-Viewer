@@ -1,0 +1,20 @@
+{
+  "description": "Passenger rail leaves a compact city and continues to an outside connection.",
+  "cityAnchors": [
+    { "x": 0, "z": 0 },
+    { "x": 1000, "z": 0 },
+    { "x": 1000, "z": 800 },
+    { "x": 0, "z": 800 }
+  ],
+  "routePoints": [
+    { "x": 150, "z": 180 },
+    { "x": 460, "z": 390 },
+    { "x": 850, "z": 650 },
+    { "x": 2600, "z": 1700 },
+    { "x": 12000, "z": 6200 }
+  ],
+  "expected": {
+    "polylineCount": 1,
+    "continuationCount": 1
+  }
+}

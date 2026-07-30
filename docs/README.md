@@ -24,6 +24,10 @@ Read these in order:
 - `JSON_SCHEMA.md` - current export JSON format.
 - `INGAME_PREVIEW_PLAN.md` - Phase 7 architecture, phases, acceptance gates,
   and the no-PDX-before-owner-test rule.
+- `INTERCITY_GEOGRAPHIC_PLAN.md` - staged geographic-only passenger intercity
+  track; IG2.0-IG2.2 geometry, isolated export collection, and hidden renderer
+  integration are code-side complete, while fresh game validation and
+  player-facing integration remain gated.
 - `..\README.md` - public project README for GitHub.
 - `..\scripts\README.md` - script index and validation helpers.
 
