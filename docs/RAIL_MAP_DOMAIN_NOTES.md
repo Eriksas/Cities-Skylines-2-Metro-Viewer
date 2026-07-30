@@ -101,9 +101,42 @@ from the direct line and the edge visibly bulges — one cyan run gains a detour
 that does not exist in reality, and a blue run gains a narrow hairpin. A reader
 reads those as real geography.
 
-So the rule to test next is a **bounded** repair: apply the dogleg only when the
-edge's angular error is below a threshold, so the corner stays near the straight
-path, and leave larger errors to the layout. That threshold is unmeasured.
+The bounded repair was then measured. Threshold sweep over six networks
+(`scratchpad/lab/threshold.py`), where *bulge* is the inserted corner's
+perpendicular distance from the chord as a fraction of chord length:
+
+```
+ threshold   turns   octi%  repaired   bulge med  bulge p95  bulge max
+       off    55.5    93.0    0/696       0.000      0.000      0.000
+    <= 2 deg  55.5    93.0    0/696       0.000      0.000      0.000
+    <= 5 deg  57.5    93.1    9/696       0.058      0.076      0.076
+   <= 10 deg  64.8    98.8   52/696       0.120      0.135      0.135
+   <= 15 deg  65.7    99.4   58/696       0.120      0.154      0.176
+ <= 22.5 deg  66.2   100.0   64/696       0.120      0.200      0.204
+```
+
+Two things fall out. The error distribution is **bimodal** — nothing at all sits
+between 0 and 2 degrees, because the annealer snaps to a grid and quantises the
+residual — so a tight threshold repairs nothing. And `<= 5` is pointless by
+construction: the octilinearity metric already allows 5 degrees, so those nine
+repairs buy 0.1pp.
+
+`<= 10 deg` is the measurable knee: **93.0% -> 98.8% octilinear for +17%
+direction changes, with bulge bounded at 13.5% of the chord.** Going further buys
+1.2pp more and grows the worst bulge to 20%.
+
+**Rendered, it is still not shippable** (`scratchpad/lab/threshold-compare.png`).
+The win is real where a long shallow slant becomes horizontal-45-horizontal — the
+green line reads as deliberate instead of sloppy. But where two *consecutive*
+edges are both repaired the two corners land near each other and produce a thin
+near-parallel sliver, clearly visible on the blue line. The unbounded version has
+that defect plus the big bulges; bounding removes the bulges and leaves the
+slivers.
+
+So the next hypothesis, untested: suppress the repair on consecutive edges of the
+same line (repair at most every other edge), or add a sliver guard that rejects a
+corner landing within some distance of an adjacent stroke. Until one of those is
+measured, dogleg repair stays a research item, not a change.
 
 ---
 
