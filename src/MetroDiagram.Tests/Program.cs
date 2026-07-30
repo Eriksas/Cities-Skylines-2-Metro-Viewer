@@ -81,6 +81,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal renders deterministic valid svg", SchematicAnnealRendersDeterministicValidSvg),
     ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
+    ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
@@ -2974,6 +2975,48 @@ static void SchematicAnnealEnforcesMinimumStationSpacing()
     Assert(Distance(b, c) >= 59.9, $"Schematic-anneal spacing violated between b and c: {Distance(b, c)}.");
     Assert(Distance(a, c) >= 59.9, $"Schematic-anneal spacing violated between a and c: {Distance(a, c)}.");
     AssertValidSvg(xml, "schematic-anneal spacing SVG");
+}
+
+static void SchematicAnnealRacesStartsAndChargesPerDirectionChange()
+{
+    // Two properties that were each worth a measured corpus-wide improvement and
+    // are easy to undo by accident.
+    //
+    // 1. Multi-start. The schedule is one stochastic trajectory whose outcome
+    //    swings far more than its input does, so a single run is a coin flip.
+    //    This fix was previously lost in an unrelated revert.
+    // 2. A flat charge per direction change. The angle-only bend cost is
+    //    quadratic, so two 45-degree turns cost 0.75 against 1.50 for the single
+    //    90-degree turn they replace - the cost function paid a line to become a
+    //    staircase. Corpus effect of the two together: mean direction changes
+    //    53.4 -> 34.2 over 28 networks.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+    SvgRenderOptions options = new() { LayoutMode = SvgLayoutMode.SchematicAnneal };
+
+    SvgRenderResult result = new MetroSvgRenderer().Render(document, options);
+    string audit = result.Warnings.First(w => w.StartsWith("Schematic-anneal audit: ", StringComparison.Ordinal));
+
+    System.Text.RegularExpressions.Match starts =
+        System.Text.RegularExpressions.Regex.Match(audit, @"starts (\d+) \(best #(\d+)\)");
+    Assert(starts.Success, $"Schematic-anneal no longer reports its start count: {audit}");
+    int startCount = int.Parse(starts.Groups[1].Value, CultureInfo.InvariantCulture);
+    Assert(startCount > 1, $"A {document.Network!.Stations!.Count}-station network should race several starts, got {startCount}.");
+
+    // The per-change charge is private, so pin it at the source: with the angle
+    // term alone (quadratic, weight Bend) two 45-degree turns cost
+    // 2*(0.5^2)*Bend = 0.5*Bend against 1.0*Bend for the 90-degree turn they
+    // replace, so a flat per-change charge is what stops the split being cheaper.
+    string metrics = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "src",
+        "MetroDiagram.Rendering", "MetroSvgRenderer.LayoutMetrics.cs"));
+    Assert(metrics.Contains("public const double BendCount", StringComparison.Ordinal),
+        "The per-direction-change charge is gone; the cost function pays lines to become staircases again.");
+    Assert(metrics.Contains("changeCost", StringComparison.Ordinal),
+        "BendUnitCost no longer adds the per-direction-change charge.");
+
+    // Fixed seeds, fixed order, strict-improvement tie-break: still deterministic.
+    Assert(new MetroSvgRenderer().Render(document, options).Svg == result.Svg,
+        "Schematic-anneal multi-start was not deterministic across identical renders.");
 }
 
 static void SchematicAnnealAuditReportsNonIncreasingQualityCost()

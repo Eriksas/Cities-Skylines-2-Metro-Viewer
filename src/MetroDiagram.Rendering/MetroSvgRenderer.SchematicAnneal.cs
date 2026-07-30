@@ -10,7 +10,31 @@ public sealed partial class MetroSvgRenderer
     // plus a light geographic anchor) with grid-constrained simulated
     // annealing. Deterministic: fixed seed, fixed schedule, ordered topology.
     private const int AnnealMaxStations = 500;
-    private const ulong AnnealSeed = 0x20260706C52D1A2Bul;
+
+    // The schedule is one stochastic trajectory, and on a small network its
+    // outcome swings far more than the input does: the station index is drawn
+    // modulo the station count, so adding or removing a station anywhere
+    // re-permutes every one of the 30k move draws. Measured on a real export,
+    // jitter too small to see on screen moved the final cost between 63 and 100
+    // — the difference between a straight line and a line with a visible
+    // detour. Racing several fixed seeds and keeping the cheapest removes that
+    // luck without giving up determinism.
+    private static readonly ulong[] AnnealSeeds =
+    [
+        0x20260706C52D1A2Bul,
+        0x9E3779B97F4A7C15ul,
+        0xBF58476D1CE4E5B9ul,
+        0x94D049BB133111EBul,
+        0x2545F4914F6CDD1Dul,
+        0xD1B54A32D192ED03ul,
+        0xA24BAED4963EE407ul,
+        0xC2B2AE3D27D4EB4Ful,
+    ];
+
+    // Total move budget stays flat: small networks (the common case) buy extra
+    // restarts with the attempts they do not need, and large ones keep a single
+    // long run, so the slowest render does not get slower.
+    private const int AnnealTotalAttemptBudget = 240_000;
 
     private static SchematicLayoutResult ApplySchematicAnnealLayout(
         Dictionary<string, SvgPoint> geographicPoints,
@@ -50,14 +74,47 @@ public sealed partial class MetroSvgRenderer
         double initialCost = ComputeLayoutQualityCost(topology, positions, preferredSpacing, clearance);
         int initialCrossings = CountLayoutCrossings(positions, topology.Edges);
 
-        AnnealState state = new(topology, positions, anchors, preferredSpacing, minimumSpacing, clearance, grid, bounds);
-        (int attempts, int accepted) = RunAnnealSchedule(state, initialCost);
-        int polishSweeps = RunGreedyPolish(state);
+        int starts = ResolveAnnealStartCount(topology.StationIds.Length);
+        SvgPoint[] bestPositions = positions;
+        double finalCost = initialCost;
+        int totalAttempts = 0;
+        int totalAccepted = 0;
+        int bestStart = 0;
+        int bestPolishSweeps = 0;
 
-        double finalCost = ComputeLayoutQualityCost(topology, state.BestPositions, preferredSpacing, clearance);
-        int finalCrossings = CountLayoutCrossings(state.BestPositions, topology.Edges);
+        for (int start = 0; start < starts; start++)
+        {
+            // Every restart begins from the same grid-snapped geographic anchors;
+            // only the move sequence differs, so the runs stay comparable.
+            AnnealState state = new(
+                topology,
+                (SvgPoint[])anchors.Clone(),
+                anchors,
+                preferredSpacing,
+                minimumSpacing,
+                clearance,
+                grid,
+                bounds);
+            (int attempts, int accepted) = RunAnnealSchedule(state, initialCost, AnnealSeeds[start]);
+            int polishSweeps = RunGreedyPolish(state);
+            totalAttempts += attempts;
+            totalAccepted += accepted;
+
+            double cost = ComputeLayoutQualityCost(topology, state.BestPositions, preferredSpacing, clearance);
+            // Strictly cheaper only, so the earliest seed wins ties and the
+            // result stays deterministic.
+            if (start == 0 || cost < finalCost - 0.000001)
+            {
+                finalCost = cost;
+                bestPositions = state.BestPositions;
+                bestStart = start;
+                bestPolishSweeps = polishSweeps;
+            }
+        }
+
+        int finalCrossings = CountLayoutCrossings(bestPositions, topology.Edges);
         warnings.Add(
-            $"Schematic-anneal audit: quality cost {Format(initialCost)} -> {Format(finalCost)}; crossings {initialCrossings} -> {finalCrossings}; accepted {accepted}/{attempts} moves; polish sweeps {polishSweeps}.");
+            $"Schematic-anneal audit: quality cost {Format(initialCost)} -> {Format(finalCost)}; crossings {initialCrossings} -> {finalCrossings}; accepted {totalAccepted}/{totalAttempts} moves; starts {starts} (best #{bestStart + 1}); polish sweeps {bestPolishSweeps}.");
 
         Dictionary<string, SvgPoint> result = new(StringComparer.Ordinal);
         foreach ((string stationId, SvgPoint point) in geographicPoints)
@@ -67,7 +124,7 @@ public sealed partial class MetroSvgRenderer
 
         for (int i = 0; i < topology.StationIds.Length; i++)
         {
-            result[topology.StationIds[i]] = state.BestPositions[i];
+            result[topology.StationIds[i]] = bestPositions[i];
         }
 
         return new SchematicLayoutResult(
@@ -150,15 +207,31 @@ public sealed partial class MetroSvgRenderer
         }
     }
 
-    private static (int Attempts, int Accepted) RunAnnealSchedule(AnnealState state, double initialCost)
+    /// <summary>
+    /// How many independent annealing runs to race. Chosen so the total move
+    /// budget is flat across network sizes: a small network spends its unused
+    /// attempts on restarts, a large one keeps a single long run.
+    /// </summary>
+    private static int ResolveAnnealStartCount(int stationCount)
+    {
+        int attempts = ResolveAnnealAttempts(stationCount);
+        return Math.Clamp(AnnealTotalAttemptBudget / Math.Max(1, attempts), 1, AnnealSeeds.Length);
+    }
+
+    private static int ResolveAnnealAttempts(int stationCount)
+    {
+        return Math.Clamp(stationCount * 600, 30_000, AnnealTotalAttemptBudget);
+    }
+
+    private static (int Attempts, int Accepted) RunAnnealSchedule(AnnealState state, double initialCost, ulong seed)
     {
         int stationCount = state.Topology.StationIds.Length;
-        int attempts = Math.Clamp(stationCount * 600, 30_000, 240_000);
+        int attempts = ResolveAnnealAttempts(stationCount);
         double startTemperature = Math.Max(0.5, initialCost / Math.Max(1, stationCount) * 0.6);
         double endTemperature = startTemperature / 200;
         double cooling = Math.Pow(endTemperature / startTemperature, 1.0 / attempts);
 
-        ulong rng = AnnealSeed;
+        ulong rng = seed;
         double temperature = startTemperature;
         double currentCost = initialCost;
         double bestCost = initialCost;
