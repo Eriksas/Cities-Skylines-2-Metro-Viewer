@@ -357,6 +357,7 @@ public sealed partial class MetroSvgRenderer
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = options.EnableExpressCenterStripe,
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
+            EnableOctilinearSnap = options.EnableOctilinearSnap,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
             StationRouteAnchorMultiFamilyMaxSpread = options.StationRouteAnchorMultiFamilyMaxSpread,

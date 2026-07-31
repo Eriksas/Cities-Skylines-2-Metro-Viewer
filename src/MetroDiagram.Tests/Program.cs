@@ -83,6 +83,8 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
     ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
+    ("octilinear snap puts runs exactly on a heading", OctilinearSnapPutsRunsExactlyOnAHeading),
+    ("corridor lanes stop lines drawing over each other", CorridorLanesStopLinesDrawingOverEachOther),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
@@ -6847,6 +6849,156 @@ static (double X, double Y) ParsePathPoint(string token)
     string[] parts = token.Split(',');
     Assert(parts.Length == 2, $"Malformed path coordinate '{token}'.");
     return (double.Parse(parts[0], CultureInfo.InvariantCulture), double.Parse(parts[1], CultureInfo.InvariantCulture));
+}
+
+static void OctilinearSnapPutsRunsExactlyOnAHeading()
+{
+    // The annealer optimises octilinearity as one term among several, so it lands
+    // near the eight headings rather than on them -- 65% of drawn segments within
+    // a degree, measured over 22 real networks. A reader does not see "65%
+    // aligned", they see a set of arbitrary angles, and corner rounding cannot fix
+    // it because rounding smooths the joint, not the direction.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    double snapped = MeasureExactlyOnHeading(new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal }));
+    double asAnnealed = MeasureExactlyOnHeading(new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableOctilinearSnap = false }));
+
+    Assert(asAnnealed < 99, $"The annealer already reaches {asAnnealed:F1}% on-heading; this test proves nothing.");
+    Assert(snapped > 95, $"Only {snapped:F1}% of segments are exactly on a heading after the snap.");
+    Assert(snapped > asAnnealed + 5,
+        $"On-heading share moved {asAnnealed:F1}% -> {snapped:F1}%; the snap is not doing its job.");
+}
+
+static void CorridorLanesStopLinesDrawingOverEachOther()
+{
+    // Snapping turns "nearly parallel" into "exactly collinear", so two lines that
+    // used to merely crowd each other end up one on top of the other -- 26% of
+    // stroke length on 肇庆 before lanes were assigned. The existing parallel pass
+    // cannot catch it: that one pairs lines edge by edge, and these lines share a
+    // grid line while calling at different stops.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    SvgRenderResult result = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+    XDocument xml = XDocument.Parse(result.Svg);
+
+    double stroke = ReadRouteStrokeWidth(result.Svg);
+    List<(string Family, (double X, double Y) A, (double X, double Y) B)> segments = [];
+    foreach (XElement route in GetRouteElements(xml))
+    {
+        string family = (string?)route.Attribute("data-display-family-key") ?? "?";
+        List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
+        for (int i = 1; i < points.Count; i++)
+        {
+            if (Distance(points[i - 1], points[i]) >= 4)
+            {
+                segments.Add((family, points[i - 1], points[i]));
+            }
+        }
+    }
+
+    double overlapping = 0;
+    double total = segments.Sum(segment => Distance(segment.A, segment.B));
+    foreach ((string family, (double X, double Y) a, (double X, double Y) b) in segments)
+    {
+        foreach ((string otherFamily, (double X, double Y) c, (double X, double Y) d) in segments)
+        {
+            if (family == otherFamily)
+            {
+                continue;
+            }
+
+            overlapping += CollinearOverlap(a, b, c, d, stroke * 0.95);
+        }
+    }
+
+    // Halved because every overlapping pair is counted from both sides.
+    double share = total > 0 ? 100 * overlapping / 2 / total : 0;
+    Assert(share < 8, $"{share:F1}% of stroke length has two different lines drawn on top of each other.");
+}
+
+/// <summary>Share of drawn segments whose bearing is within a degree of a 45-degree multiple.</summary>
+static double MeasureExactlyOnHeading(SvgRenderResult result)
+{
+    XDocument xml = XDocument.Parse(result.Svg);
+    int total = 0;
+    int aligned = 0;
+    foreach (XElement route in GetRouteElements(xml))
+    {
+        List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
+        for (int i = 1; i < points.Count; i++)
+        {
+            if (Distance(points[i - 1], points[i]) < 4)
+            {
+                continue;
+            }
+
+            double degrees = (Math.Atan2(points[i].Y - points[i - 1].Y, points[i].X - points[i - 1].X) * 180 / Math.PI) % 180;
+            if (degrees < 0)
+            {
+                degrees += 180;
+            }
+
+            total++;
+            double error = Enumerable.Range(0, 5).Min(k => Math.Abs(degrees - (k * 45)));
+            if (error <= 1.0)
+            {
+                aligned++;
+            }
+        }
+    }
+
+    return total == 0 ? 0 : 100.0 * aligned / total;
+}
+
+/// <summary>
+/// Length of cd that runs within <paramref name="tolerance"/> of the line through
+/// ab and inside ab's extent. Zero unless the two are near parallel -- two strokes
+/// of width w overlap on screen exactly when their centrelines are closer than w.
+/// </summary>
+static double CollinearOverlap(
+    (double X, double Y) a,
+    (double X, double Y) b,
+    (double X, double Y) c,
+    (double X, double Y) d,
+    double tolerance)
+{
+    double abx = b.X - a.X;
+    double aby = b.Y - a.Y;
+    double abLength = Math.Sqrt((abx * abx) + (aby * aby));
+    double cdx = d.X - c.X;
+    double cdy = d.Y - c.Y;
+    double cdLength = Math.Sqrt((cdx * cdx) + (cdy * cdy));
+    if (abLength < 1e-9 || cdLength < 1e-9)
+    {
+        return 0;
+    }
+
+    double ux = abx / abLength;
+    double uy = aby / abLength;
+    if (Math.Abs(((cdx / cdLength) * uy) - ((cdy / cdLength) * ux)) > 0.09)
+    {
+        return 0;
+    }
+
+    double nx = -uy;
+    double ny = ux;
+    double first = ((c.X - a.X) * nx) + ((c.Y - a.Y) * ny);
+    double second = ((d.X - a.X) * nx) + ((d.Y - a.Y) * ny);
+    if (Math.Abs(first) > tolerance || Math.Abs(second) > tolerance)
+    {
+        return 0;
+    }
+
+    double startAlong = ((c.X - a.X) * ux) + ((c.Y - a.Y) * uy);
+    double endAlong = ((d.X - a.X) * ux) + ((d.Y - a.Y) * uy);
+    double low = Math.Max(0, Math.Min(startAlong, endAlong));
+    double high = Math.Min(abLength, Math.Max(startAlong, endAlong));
+    return Math.Max(0, high - low);
 }
 
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)

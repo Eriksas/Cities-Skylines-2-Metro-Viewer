@@ -338,12 +338,23 @@ public sealed partial class MetroSvgRenderer
             return;
         }
 
-        Dictionary<ParallelEdgeKey, ParallelSharedEdge> parallelPlan = options.LayoutMode == SvgLayoutMode.SchematicAnneal
-            ? BuildParallelCorridorPlan(renderRoutes, options)
+        // With the octilinear snap on, lines share a corridor by lying on the
+        // same grid line while calling at different stops -- which the edge-keyed
+        // parallel plan cannot see, because it pairs lines only where they run
+        // station-for-station. The corridor plan keys on heading and intercept
+        // instead, which is exact once the layout is snapped.
+        bool useCorridorLanes = options.LayoutMode == SvgLayoutMode.SchematicAnneal && options.EnableOctilinearSnap;
+        Dictionary<(int Route, int Polyline, int Edge), double> corridorLanes = useCorridorLanes
+            ? BuildCorridorLanePlan(renderRoutes, options)
             : [];
+        Dictionary<ParallelEdgeKey, ParallelSharedEdge> parallelPlan =
+            options.LayoutMode == SvgLayoutMode.SchematicAnneal && !useCorridorLanes
+                ? BuildParallelCorridorPlan(renderRoutes, options)
+                : [];
 
-        foreach (RenderRoute renderRoute in renderRoutes)
+        for (int routeIndex = 0; routeIndex < renderRoutes.Count; routeIndex++)
         {
+            RenderRoute renderRoute = renderRoutes[routeIndex];
             MetroLine line = renderRoute.Line;
             DisplayLineFamily family = renderRoute.Family;
             RoutePointSet routePointSet = renderRoute.RoutePointSet;
@@ -352,9 +363,11 @@ public sealed partial class MetroSvgRenderer
             for (int i = 0; i < routePolylines.Count; i++)
             {
                 RoutePolyline polyline = routePolylines[i];
-                List<SvgPoint> drawnPoints = parallelPlan.Count > 0
-                    ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
-                    : polyline.Points;
+                List<SvgPoint> drawnPoints = useCorridorLanes
+                    ? OffsetRouteForCorridorLane(polyline.Points, routeIndex, i, corridorLanes)
+                    : parallelPlan.Count > 0
+                        ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
+                        : polyline.Points;
                 drawnPoints = InsertUserBends(drawnPoints, stationPoints, options.LayoutOverrides);
                 string geometryAttributes = BuildRouteGeometryAttributes(drawnPoints, GetRouteCornerRounding(options));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"

@@ -270,7 +270,139 @@ is deliberately a follow-up.
 
 ---
 
-## 5. What to do with this
+## 5. Why rmp looks smooth, and what we did about it
+
+**Status: implemented** (`MetroSvgRenderer.OctilinearSnap.cs`,
+`MetroSvgRenderer.CorridorLanes.cs`, branch `feature/octilinear-snap`, on top of
+`feature/corner-rounding`).
+
+### It was never about the corners
+
+rmp's lines read as smooth because **they only ever take eight directions**. Its
+path generators cannot emit anything else: `diagonal.tsx` solves
+
+```js
+x = x2b + Math.abs(y2b - y1b) * (x2b - x1b > 0 ? -1 : 1)
+y = y1b
+```
+
+so the first leg is exactly horizontal and the second has |dx| = |dy|, for any
+pair of endpoints. Off-grid geometry is only reachable by hand-placing a
+`Virtual` node.
+
+Measured against that, over 22 real networks, **65% of our drawn segments were
+within a degree of a 45-degree multiple**; on 肇庆 it was 43%, with the remainder
+scattered across some thirty distinct angles. That scatter is what reads as
+noise, and corner rounding cannot touch it -- rounding smooths the joint, not the
+direction. Secondary factor: rmp users place stations on a grid, so segment
+lengths are regular; ours had a length CoV of 0.44-0.99.
+
+### The formulation
+
+Once an edge has a heading, "this edge lies exactly on that heading" is a
+**linear** condition on the two station positions -- the component of (pj - pi)
+along the heading's normal vanishes. So:
+
+```
+minimise    sum |p - p0|^2          stations move as little as possible
+subject to  (pj - pi) . n_e = 0     every assigned edge is exact
+```
+
+Convex, one global optimum, and automatically consistent for a station shared by
+several lines. Solved as weighted least squares through the normal equations with
+a Cholesky factorisation; the unit-weight "stay put" rows keep it positive
+definite.
+
+The division of labour is the useful part: **the annealer decides which heading
+each run gets, the solve makes it exact.** Earlier attempts that tried to do both
+at once (`docs/SCHEMATIC_LAYOUT_STUDY.md`, rounds 3-6) ran into a three-way trade
+between octilinearity, clearance and simplification. That trade largely
+disappears when the assignment is already made.
+
+### Runs, not edges
+
+Headings are assigned per *run* -- consecutive edges that already agree within 22
+degrees. Snapping edge by edge was tried first and is wrong: doglegging an edge
+that is 5 degrees off horizontal does not remove the 5 degrees, it folds them into
+a corner, and a 200px edge gains a bulge of 200*sin(5) = 17px, wider than the
+stroke. Corpus effect of the per-edge version: direction changes +72% on 肇庆
+(32 -> 55) for the same 100% octilinearity the run version reaches with *fewer*
+corners (32 -> 25).
+
+### Crowding, and the weight ratio
+
+Snapping squeezes stations together, so crowded pairs are pushed apart and the
+system re-solved, up to six rounds. The interesting part is why that does not
+fight the heading constraints: those rows are *relative*, so translating a whole
+run sideways satisfies them exactly and costs only the anchor rows. With a large
+enough weight ratio the cheapest answer to a separation request is therefore to
+slide a run, not to bend an edge.
+
+The ratio is the design, not a knob:
+
+| constraint : anchor | 奥斯特-0728 crowding | octilinearity |
+|---|---|---|
+| 40 | 20.8% | broke (100% -> 84.9% on 肇庆) |
+| 800 | 13.2% | held |
+| 12000 | 7.5% | held |
+
+An earlier attempt restricted separation to each station's own run direction, on
+the theory that it had to stay orthogonal to the constraints. That made crowding
+*worse* (肇庆 3.9% -> 11.8%): it also blocked the whole-run translation, which is
+the degree of freedom that actually does the work.
+
+### Corridors, and rmp's offset model
+
+Snapping turns "nearly parallel" into "exactly collinear", so lines that used to
+merely crowd each other end up one on top of the other -- 26% of stroke length on
+肇庆. The existing parallel-corridor pass cannot catch it: that one keys on an
+*edge*, a pair of stations, and these lines share a grid line while calling at
+different stops.
+
+It is also what makes the fix exact -- sharing a corridor becomes a test on
+heading and intercept rather than a tolerance judgement. The mechanism is rmp's:
+an offset per edge *end*, applied along that end's own normal
+(`offsetFrom`/`offsetTo`), which is what lets a line ramp in and out. A lane
+change on a straight run is drawn as a 45-degree jog, so the ramp stays on the
+grid.
+
+Four things that had to be right, each of which was wrong first:
+
+1. **Parallel tolerance.** Every heading is a multiple of 45 degrees, so two
+   genuinely different ones give |det| >= 0.707. A 1e-9 threshold treated
+   collinear edges as intersecting and threw a vertex 42000px off canvas.
+2. **Lane sign.** The lane is chosen in the corridor's canonical direction but
+   applied along each edge's own normal, so two lines running the corridor in
+   opposite senses need the sign flipped or they land on the same side.
+3. **Heading quantisation.** Keying on the raw direction put an edge 0.08 degrees
+   off horizontal in a bucket of its own, where it never got a lane.
+4. **Lane order.** Ordering by line id let two lines swap sides -- 3号线 and 4号线
+   on 肇庆 went from 13.6px apart to 5.3px, closer than before they were laned.
+   Order by where the lines already sit across the corridor.
+
+Same-colour families share a lane: a line and its own branch run the same track,
+and giving them separate lanes draws one service as two (7号线 / 7号线支线 on
+谢菲尔德).
+
+Lane pitch is 1.35x the stroke width, and that is bounded above by the
+interchange symbol: a station served by every line in the corridor keeps one
+centred marker, which has to reach the outermost lanes. At radius 9.8 on a
+14-wide stroke, 1.35 is the widest pitch that still touches. Going wider needs
+the elongated interchange symbol -- which is exactly what `shmetro-int` is, a
+rounded rect with `ry = height/2`. Guangzhou's `gzmtr-int` takes the other route:
+a circle with per-line arcs and station codes, which needs a numbering system we
+do not have.
+
+### Ordering
+
+The snap runs **after the layout and before the canvas fit**. It changes the
+content bounding box, and fitting first leaves stations outside it -- measured on
+谢菲尔德, content grew 131px past where the legend starts, taking 1号线's terminus
+with it.
+
+---
+
+## 6. What to do with this
 
 Ordered by value, and none of it is urgent:
 
@@ -293,7 +425,7 @@ geometry would be cargo-culting. Take the distinctions, not the pixels.
 
 ---
 
-## 6. Viewer map elements and reusable line grammar
+## 7. Viewer map elements and reusable line grammar
 
 The Viewer now applies the same separation to manual cartographic content:
 

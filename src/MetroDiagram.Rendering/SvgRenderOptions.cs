@@ -112,6 +112,13 @@ public sealed class SvgRenderOptions
     public bool EnableRouteCornerRounding { get; init; } = true;
 
     /// <summary>
+    /// Pulls each annealed run exactly onto one of the eight compass headings.
+    /// Runs after the layout and before the canvas fit, so the fit sees the final
+    /// bounds.
+    /// </summary>
+    public bool EnableOctilinearSnap { get; init; } = true;
+
+    /// <summary>
     /// Development-only geographic passenger-rail overlay. It is intentionally
     /// not wired to the CLI or Viewer until real CS2 validation is complete.
     /// </summary>

@@ -212,7 +212,11 @@ public sealed partial class MetroSvgRenderer
         if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
         {
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
-            Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(annealLayout.Points, stations, options, reserveLegendSpace);
+            // Before the fit, so the fit sees the bounds the snap produces -- it
+            // grows the content box, and fitting first leaves stations outside it.
+            Dictionary<string, SvgPoint> snappedPoints =
+                ApplyOctilinearSnap(annealLayout.Points, displayFamilies, options, warnings);
+            Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(snappedPoints, stations, options, reserveLegendSpace);
             return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null, intercityRoutes);
         }
 
@@ -507,6 +511,7 @@ public sealed partial class MetroSvgRenderer
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = true,
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
+            EnableOctilinearSnap = options.EnableOctilinearSnap,
             LayoutOverrides = options.LayoutOverrides,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
@@ -594,6 +599,7 @@ public sealed partial class MetroSvgRenderer
             EnableSharedCorridorCompositeStroke = options.EnableSharedCorridorCompositeStroke,
             EnableExpressCenterStripe = options.EnableExpressCenterStripe,
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
+            EnableOctilinearSnap = options.EnableOctilinearSnap,
             EnableIntercityRail = options.EnableIntercityRail,
             LayoutOverrides = options.LayoutOverrides,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
