@@ -82,6 +82,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
     ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
+    ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
@@ -569,7 +570,7 @@ static void SchematicV2PreservesStopOrderAndAdjacency()
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, minStationSpacing: 64);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert((string?)xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes").Attribute("data-layout") == "schematic-v2", "Schematic-v2 did not record its layout mode.");
     Assert(routePoints.Count == 3, "Schematic-v2 route did not preserve stop count/order.");
@@ -591,7 +592,7 @@ static void SchematicV2PreservesInterchangeNode()
 
     foreach (XElement route in GetRouteElements(xml))
     {
-        Assert(SplitPoints((string?)route.Attribute("points")).Any(point => Distance(point, interchange) < 0.001), "Schematic-v2 route did not use the shared interchange node.");
+        Assert(SplitPoints((string?)route.RouteGeometryPoints()).Any(point => Distance(point, interchange) < 0.001), "Schematic-v2 route did not use the shared interchange node.");
     }
 }
 
@@ -601,7 +602,7 @@ static void SchematicV2SpacingDoesNotReverseCloseStations()
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 700, height: 460, legendWidth: 160, minStationSpacing: 40);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(Distance(routePoints[0], GetStationCenter(xml, "station_a")) < 0.001, "Schematic-v2 close station order was reversed at the first stop.");
     Assert(Distance(routePoints[1], GetStationCenter(xml, "station_b")) < 0.001, "Schematic-v2 close station order was reversed at the second stop.");
@@ -652,7 +653,7 @@ static void SchematicV2RelaxesSharpDetourStation()
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 760, height: 520, legendWidth: 180);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(routePoints.Count == 4, "Sharp detour route did not preserve the stop count.");
     double detourRatio = (Distance(routePoints[0], routePoints[1]) + Distance(routePoints[1], routePoints[2])) / Math.Max(1, Distance(routePoints[0], routePoints[2]));
@@ -668,7 +669,7 @@ static void SchematicV2UsesTopologyRichFamilyVariantForSharedCorridors()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement line10 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "10号线");
-    List<(double X, double Y)> points = SplitPoints((string?)line10.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)line10.RouteGeometryPoints()).ToList();
 
     Assert((string?)line10.Attribute("data-line-id") == "line_10_local", "Schematic-v2 did not render the topology-rich 10号线 service variant.");
     Assert(points.Any(point => Distance(point, GetStationCenter(xml, "station_shared_start")) < 0.001), "Schematic-v2 10号线 route skipped the shared corridor start station.");
@@ -686,8 +687,8 @@ static void SchematicV2PreservesSharedCorridorEdge()
     XElement line2 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "2号线");
     XElement line10 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "10号线");
 
-    Assert(ContainsAdjacentSegment(SplitPoints((string?)line2.Attribute("points")).ToList(), sharedStart, sharedEnd), "2号线 did not preserve the shared corridor adjacency.");
-    Assert(ContainsAdjacentSegment(SplitPoints((string?)line10.Attribute("points")).ToList(), sharedStart, sharedEnd), "10号线 did not preserve the shared corridor adjacency.");
+    Assert(ContainsAdjacentSegment(SplitPoints((string?)line2.RouteGeometryPoints()).ToList(), sharedStart, sharedEnd), "2号线 did not preserve the shared corridor adjacency.");
+    Assert(ContainsAdjacentSegment(SplitPoints((string?)line10.RouteGeometryPoints()).ToList(), sharedStart, sharedEnd), "10号线 did not preserve the shared corridor adjacency.");
     AssertValidSvg(xml, "schematic-v2 shared corridor SVG");
 }
 
@@ -698,7 +699,7 @@ static void SchematicV2SharedEdgeGuidesDoNotInjectNeighboringBranchStations()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement line3 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 3");
-    List<(double X, double Y)> line3Points = SplitPoints((string?)line3.Attribute("points")).ToList();
+    List<(double X, double Y)> line3Points = SplitPoints((string?)line3.RouteGeometryPoints()).ToList();
     (double X, double Y) sharedStart = GetStationCenter(xml, "station_shared_start");
     (double X, double Y) sharedEnd = GetStationCenter(xml, "station_shared_end");
     (double X, double Y) line4Before = GetStationCenter(xml, "station_line4_before");
@@ -813,7 +814,7 @@ static void SchematicV2CollapsesSameNumberBranchPlatformLanes()
     Assert(Math.Abs(line7Offset) < 0.001, $"Collapsed Line 7 platform lane should stay centered on the shared station platform, found offset {line7Offset}.");
     Assert(Math.Abs(line5Offset) > 0.001, $"Single-family Line 5 should be the adjacent visible lane, found offset {line5Offset}.");
     Assert((string?)line7Lane.Attribute("data-schematic-v2-parallel-offset-mode") == "dominant-visible-lane-centered", "Collapsed Line 7 branch platform did not record the dominant centered lane mode.");
-    List<(double X, double Y)> line7Points = SplitPoints((string?)line7Lane.Attribute("points")).ToList();
+    List<(double X, double Y)> line7Points = SplitPoints((string?)line7Lane.RouteGeometryPoints()).ToList();
     Assert(line7Points.Any(point => Distance(point, GetStationCenter(xml, "station_a")) < 0.001)
         && line7Points.Any(point => Distance(point, GetStationCenter(xml, "station_b")) < 0.001),
         "Collapsed Line 7 platform lane should remain anchored to the shared station centers.");
@@ -835,8 +836,8 @@ static void SchematicV2OrdersSharedPlatformLanesByContinuationSide()
     XElement line5 = platformCorridors.Single(element => (string?)element.Attribute("data-display-family-key") == "Line 5");
     double line7Offset = ReadDouble(line7.Attribute("data-schematic-v2-parallel-offset"));
     double line5Offset = ReadDouble(line5.Attribute("data-schematic-v2-parallel-offset"));
-    double line7AverageY = SplitPoints((string?)line7.Attribute("points")).Average(point => point.Y);
-    double line5AverageY = SplitPoints((string?)line5.Attribute("points")).Average(point => point.Y);
+    double line7AverageY = SplitPoints((string?)line7.RouteGeometryPoints()).Average(point => point.Y);
+    double line5AverageY = SplitPoints((string?)line5.RouteGeometryPoints()).Average(point => point.Y);
 
     Assert(Math.Sign(line7Offset) != Math.Sign(line5Offset), $"Line 7 and Line 5 should receive opposite platform offsets, found {line7Offset} and {line5Offset}.");
     Assert(line7AverageY < line5AverageY, $"Line 7 should stay visually above Line 5 on the shared platform, found average Y values {line7AverageY} and {line5AverageY}.");
@@ -855,8 +856,8 @@ static void SchematicV2DetectsGeometrySharedCorridorForSkipStopService()
     (double X, double Y) corridorMid2 = GetStationCenter(xml, "station_corridor_mid_2");
     (double X, double Y) corridorEnd = GetStationCenter(xml, "station_corridor_end");
 
-    List<(double X, double Y)> localPoints = SplitPoints((string?)local.Attribute("points")).ToList();
-    List<(double X, double Y)> expressPoints = SplitPoints((string?)express.Attribute("points")).ToList();
+    List<(double X, double Y)> localPoints = SplitPoints((string?)local.RouteGeometryPoints()).ToList();
+    List<(double X, double Y)> expressPoints = SplitPoints((string?)express.RouteGeometryPoints()).ToList();
 
     Assert(localPoints.Any(point => Distance(point, corridorMid) < 0.001), "Local corridor route did not include the corridor mid station.");
     Assert(expressPoints.Any(point => Distance(point, corridorMid) < 0.001), "Skip-stop express route did not reuse the shared corridor mid station.");
@@ -872,7 +873,7 @@ static void SchematicV2ChoosesCanonicalServiceRouteByStopCount()
         CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert((string?)route.Attribute("data-line-id") == "line_10_local", "Schematic-v2 did not choose the all-stop/local service as the canonical route.");
     Assert(routePoints.Count == 5, "Canonical schematic-v2 route should use the full all-stop service stop count.");
@@ -972,7 +973,7 @@ static void SchematicMapLinearizesSimpleOrdinaryRouteRuns()
     SvgRenderResult result = new MetroSvgRenderer().Render(document, options);
     XDocument xml = XDocument.Parse(result.Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 3");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(routePoints.Count >= 4, "Schematic-map linearization fixture should render the complete route.");
     double minY = routePoints.Min(point => point.Y);
@@ -1001,7 +1002,7 @@ static void SchematicMapStraightensAnchorBoundedOrdinaryCorridors()
     (double CX, double CY) = GetStationCenter(xml, "station_c");
     (double DX, double DY) = GetStationCenter(xml, "station_d");
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(Math.Abs(BY - AY) <= 0.001, $"First ordinary station was not projected onto the corridor spine; y delta={Math.Abs(BY - AY)}.");
     Assert(Math.Abs(CY - AY) <= 0.001, $"Second ordinary station was not projected onto the corridor spine; y delta={Math.Abs(CY - AY)}.");
@@ -1022,7 +1023,7 @@ static void SchematicMapPreservesGenuinelyLongStationGaps()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 9");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(routePoints.Count >= 4, "Schematic-map long-gap fixture should render the complete route.");
     IReadOnlyList<double> segmentLengths = routePoints.Zip(routePoints.Skip(1), (a, b) => Distance(a, b)).ToList();
@@ -1044,7 +1045,7 @@ static void SchematicMapNormalizesNearOctilinearRouteSegments()
     SvgRenderResult result = new MetroSvgRenderer().Render(document, options);
     XDocument xml = XDocument.Parse(result.Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(points.Count >= 3, "Schematic-map octilinear fixture should render at least three route points.");
     for (int i = 1; i < points.Count; i++)
@@ -1072,7 +1073,7 @@ static void SchematicMapStraightensShallowOrdinaryKinks()
     SvgRenderResult result = new MetroSvgRenderer().Render(document, options);
     XDocument xml = XDocument.Parse(result.Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(points.Count == 3, $"Shallow kink fixture should keep its station route chain without synthetic doglegs, found {points.Count} route points.");
     Assert(IsOctilinearSegment(points[0], points[1]), "First shallow-kink leg was not straightened to octilinear.");
@@ -1113,7 +1114,7 @@ static void SchematicMapPreservesOctilinearGrammarAcrossOutputSizes()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     foreach (XElement route in GetRouteElements(xml))
     {
-        List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+        List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
         for (int i = 1; i < points.Count; i++)
         {
             Assert(IsOctilinearSegment(points[i - 1], points[i]), $"Schematic-map route {(string?)route.Attribute("data-display-family-key")} segment {i - 1}->{i} lost octilinear grammar after output-size scaling.");
@@ -1134,7 +1135,7 @@ static void SchematicMapCollapsesMirroredOutAndBackServiceChains()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 8");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     (double X, double Y) start = GetStationCenter(xml, "station_a");
     (double X, double Y) turnback = GetStationCenter(xml, "station_d");
 
@@ -1155,7 +1156,7 @@ static void SchematicMapSeparatesNonAdjacentRouteStationOverlaps()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 8");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     (double X, double Y) first = GetStationCenter(xml, "station_a");
     (double X, double Y) returnArea = GetStationCenter(xml, "station_d");
 
@@ -1177,7 +1178,7 @@ static void SchematicMapInsertsSyntheticBendsForLockedNonOctilinearSegments()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     (double X, double Y) start = GetStationCenter(xml, "station_a");
     (double X, double Y) end = GetStationCenter(xml, "station_b");
 
@@ -1202,7 +1203,7 @@ static void SchematicMapSyntheticBendsProtectLongNonOctilinearSegmentsByDefault(
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert((string?)route.Attribute("data-schematic-map-synthetic-bends") == "1", "Schematic-map product defaults should protect long locked non-octilinear route segments.");
     Assert(points.Count == 3, $"Default schematic-map route should insert exactly one route grammar bend, found {points.Count} points.");
@@ -1222,7 +1223,7 @@ static void SchematicMapInsertsCompactBendsForShortNonOctilinearSegments()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     (double X, double Y) start = GetStationCenter(xml, "station_a");
     (double X, double Y) end = GetStationCenter(xml, "station_b");
 
@@ -1247,7 +1248,7 @@ static void SchematicMapSyntheticBendsLeaveGeographicUnchanged()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 1");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(route.Attribute("data-schematic-map-synthetic-bends") is null, "Geographic output unexpectedly received schematic-map synthetic bend metadata.");
     Assert(points.Count == 2, $"Geographic route should keep the raw two-stop segment, found {points.Count} points.");
@@ -1346,7 +1347,7 @@ static void LayoutOverridesMoveStationMarkersAndRoutes()
     XDocument xml = XDocument.Parse(result.Svg);
     (double X, double Y) after = GetStationCenter(xml, "station_b");
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 3");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     XElement station = GetStationCircle(xml, "station_b");
 
     Assert(Math.Abs(after.X - (before.X + 42)) < 0.001, $"Station override did not move x by dx; before={before.X}, after={after.X}.");
@@ -1645,7 +1646,7 @@ static void SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes()
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement express = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
-    List<(double X, double Y)> points = SplitPoints((string?)express.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)express.RouteGeometryPoints()).ToList();
 
     (double X, double Y) start = GetStationCenter(xml, "station_local_start");
     (double X, double Y) midA = GetStationCenter(xml, "station_corridor_mid");
@@ -1739,7 +1740,7 @@ static void SchematicV2NormalizesCanonicalBacktrackingRouteChains()
         CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert((string?)route.Attribute("data-line-id") == "line_10_local", "Backtracking fixture did not select the canonical local route.");
     Assert(points.Count == 4, $"Backtracking canonical route should be normalized to one visible direction, but rendered {points.Count} points.");
@@ -1756,7 +1757,7 @@ static void SchematicV2StraightensZigzagTerminalTails()
         CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 1600, height: 1000, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Tail Line");
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     (double X, double Y) anchor = GetStationCenter(xml, "station_anchor");
     (double X, double Y) terminal = GetStationCenter(xml, "station_terminal");
@@ -1778,7 +1779,7 @@ static void SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement vertical = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
-    List<(double X, double Y)> points = SplitPoints((string?)vertical.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)vertical.RouteGeometryPoints()).ToList();
 
     Assert(points.Count == 2, "Single-point crossing was incorrectly expanded into a shared corridor guide.");
 }
@@ -1804,7 +1805,7 @@ static void SchematicV2DoesNotMergeNonSharedLines()
 
     Assert(routes.Count == 2, "Non-shared schematic-v2 lines should remain separate display routes.");
     Assert(!ContainsAdjacentSegment(
-        SplitPoints((string?)routes.Single(route => (string?)route.Attribute("data-display-family-key") == "2号线").Attribute("points")).ToList(),
+        SplitPoints((string?)routes.Single(route => (string?)route.Attribute("data-display-family-key") == "2号线").RouteGeometryPoints()).ToList(),
         GetStationCenter(xml, "station_b"),
         GetStationCenter(xml, "station_c")),
         "2号线 was incorrectly merged onto the 10号线-only edge.");
@@ -2545,13 +2546,13 @@ static void GeographicUsesPathPointsWhenEnabled()
     XDocument stopsXml = XDocument.Parse(new MetroSvgRenderer().Render(document).Svg);
     XElement stopsRoute = GetRouteElements(stopsXml).Single();
     Assert((string?)stopsRoute.Attribute("data-route-source") == "stops", "Path points were used even though UsePathPoints was not enabled.");
-    Assert(SplitPoints((string?)stopsRoute.Attribute("points")).Count() == 2, "Stops route did not contain two station points.");
+    Assert(SplitPoints((string?)stopsRoute.RouteGeometryPoints()).Count() == 2, "Stops route did not contain two station points.");
 
     SvgRenderOptions pathOptions = new() { UsePathPoints = true };
     XDocument pathXml = XDocument.Parse(new MetroSvgRenderer().Render(document, pathOptions).Svg);
     XElement pathRoute = GetRouteElements(pathXml).Single();
     Assert((string?)pathRoute.Attribute("data-route-source") == "pathPoints", "Geographic route did not use pathPoints when enabled.");
-    Assert(SplitPoints((string?)pathRoute.Attribute("points")).Count() == 3, "Path route did not preserve the three path points.");
+    Assert(SplitPoints((string?)pathRoute.RouteGeometryPoints()).Count() == 3, "Path route did not preserve the three path points.");
 }
 
 static void PathPointsDeduplicationNormalizesConsecutiveDuplicates()
@@ -2567,7 +2568,7 @@ static void PathPointsDeduplicationNormalizesConsecutiveDuplicates()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(loadResult.Document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
     Assert((string?)route.Attribute("data-route-source") == "pathPoints", "Path point sample did not render from pathPoints when enabled.");
-    Assert(SplitPoints((string?)route.Attribute("points")).Count() == 4, "Rendered path point route did not use the normalized path point count.");
+    Assert(SplitPoints((string?)route.RouteGeometryPoints()).Count() == 4, "Rendered path point route did not use the normalized path point count.");
 }
 
 static void RendererRemovesDuplicatePathPoints()
@@ -2622,7 +2623,7 @@ static void RendererSimplifiesNearlyCollinearPathPoints()
 
     Assert(ReadInt(route.Attribute("data-path-point-count")) == 5, "Original nearly-collinear path point count was not recorded.");
     Assert(ReadInt(route.Attribute("data-cleaned-path-point-count")) == 2, "Nearly-collinear path points were not simplified.");
-    Assert(SplitPoints((string?)route.Attribute("points")).Count() == 2, "Simplified path did not render with two points.");
+    Assert(SplitPoints((string?)route.RouteGeometryPoints()).Count() == 2, "Simplified path did not render with two points.");
 }
 
 static void RendererPreservesFirstAndLastPathPoints()
@@ -2649,7 +2650,7 @@ static void RendererPreservesFirstAndLastPathPoints()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> points = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
     Assert(points.Count == 2, "First/last preservation test expected the cleaned path to contain two rendered points.");
     Assert(points[0].X < points[^1].X, "Cleaned path did not keep the original first point before the last point.");
@@ -2696,7 +2697,7 @@ static void RendererSplitsSuspiciousPathPointJumps()
         Assert(ReadDouble(route.Attribute("data-path-reduction-ratio")) > 0, "Reduction ratio diagnostic was not emitted.");
         Assert(ReadDouble(route.Attribute("data-max-path-segment-length")) > 0, "Max segment length diagnostic was not emitted.");
         Assert((string?)route.Attribute("data-route-part-count") == "2", "Split route did not record route part count.");
-        Assert(MaxSegmentLength(SplitPoints((string?)route.Attribute("points")).ToList()) < 300, "A split route still contains the suspicious long jump.");
+        Assert(MaxSegmentLength(SplitPoints((string?)route.RouteGeometryPoints()).ToList()) < 300, "A split route still contains the suspicious long jump.");
     }
 
     AssertValidSvg(xml, "suspicious path point jump SVG");
@@ -2714,7 +2715,7 @@ static void ParallelCorridorOffsetIsOffByDefault()
 
     Assert(routes.Count == 2, $"Default corridor rendering should keep two route polylines, but found {routes.Count}.");
     Assert(routes.All(route => route.Attribute("data-parallel-corridor-offset") is null), "Parallel corridor debug attributes appeared while the option was disabled.");
-    Assert((string?)routes[0].Attribute("points") == (string?)routes[1].Attribute("points"), "Overlapping routes changed while parallel corridor offset was disabled.");
+    Assert((string?)routes[0].RouteGeometryPoints() == (string?)routes[1].RouteGeometryPoints(), "Overlapping routes changed while parallel corridor offset was disabled.");
 }
 
 static void ParallelCorridorOffsetSeparatesOverlappingLines()
@@ -2733,7 +2734,7 @@ static void ParallelCorridorOffsetSeparatesOverlappingLines()
     Assert(offsetRoutes.Count == 4, $"Expected four offset segment fragments for two overlapping two-segment routes, but found {offsetRoutes.Count}.");
     Assert(offsetRoutes.All(route => !string.IsNullOrWhiteSpace((string?)route.Attribute("data-corridor-id"))), "Offset routes did not include corridor ids.");
     Assert(offsetRoutes.All(route => ReadInt(route.Attribute("data-corridor-member-count")) == 2), "Two-line corridor did not record member count 2.");
-    Assert(offsetRoutes.Select(route => (string?)route.Attribute("points")).Distinct(StringComparer.Ordinal).Count() > 2, "Offset routes did not separate overlapping geometry.");
+    Assert(offsetRoutes.Select(route => (string?)route.RouteGeometryPoints()).Distinct(StringComparer.Ordinal).Count() > 2, "Offset routes did not separate overlapping geometry.");
     AssertValidSvg(xml, "parallel two-line corridor SVG");
 }
 
@@ -2798,14 +2799,14 @@ static void ParallelCorridorOffsetTapersAtStations()
     XDocument noOffsetXml = XDocument.Parse(new MetroSvgRenderer().Render(document, noOffsetOptions).Svg);
     List<(double X, double Y)> originalLinePoints = SplitPoints((string?)GetRouteElements(noOffsetXml)
         .First(route => (string?)route.Attribute("data-line-id") == "line_1")
-        .Attribute("points")).ToList();
+        .RouteGeometryPoints()).ToList();
 
     SvgRenderOptions offsetOptions = CreateCorridorTestOptions(enableOffset: true);
     XDocument offsetXml = XDocument.Parse(new MetroSvgRenderer().Render(document, offsetOptions).Svg);
     XElement firstOffsetFragment = GetRouteElements(offsetXml)
         .First(route => (string?)route.Attribute("data-line-id") == "line_1"
             && (string?)route.Attribute("data-parallel-corridor-offset") == "true");
-    List<(double X, double Y)> offsetFragmentPoints = SplitPoints((string?)firstOffsetFragment.Attribute("points")).ToList();
+    List<(double X, double Y)> offsetFragmentPoints = SplitPoints((string?)firstOffsetFragment.RouteGeometryPoints()).ToList();
 
     AssertAlmostEqual(offsetFragmentPoints[0].X, originalLinePoints[0].X, "Corridor offset did not taper to the station X.");
     AssertAlmostEqual(offsetFragmentPoints[0].Y, originalLinePoints[0].Y, "Corridor offset did not taper to the station Y.");
@@ -2997,7 +2998,7 @@ static void GeographicCorridorPipelineKeepsSingleFamilyContinuous()
         .ToList();
 
     Assert(normalRoutes.Count == 1, $"Single-family continuous path should render as one normal run, but found {normalRoutes.Count}.");
-    Assert(SplitPoints((string?)normalRoutes.Single().Attribute("points")).Count() == 24, "Single-family continuous run did not preserve the path points.");
+    Assert(SplitPoints((string?)normalRoutes.Single().RouteGeometryPoints()).Count() == 24, "Single-family continuous run did not preserve the path points.");
 }
 
 static void GeographicCorridorPipelineKeepsNormalStrokeWidthConsistent()
@@ -3107,7 +3108,7 @@ static void StationRouteAnchoringPrefersSegmentProjectionOverPathPoint()
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, CreateAnchorTestOptions()).Svg);
     XElement station = GetStationCircle(xml, "station_a");
     XElement route = GetRouteElements(xml).Single();
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     double stationX = ReadDouble(station.Attribute("cx"));
 
     Assert(Math.Abs(stationX - routePoints[0].X) > 20, "Station anchor incorrectly snapped to the first path point.");
@@ -3959,7 +3960,7 @@ static void PortableSchematicCollapsesMirroredOutAndBackRouteChains()
         snapshot,
         new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal }).Svg);
     XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
-    string[] renderedPoints = ((string?)route.Attribute("points") ?? string.Empty)
+    string[] renderedPoints = ((string?)route.RouteGeometryPoints() ?? string.Empty)
         .Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     Assert((string?)route.Attribute("data-route-chain-normalized") == "true", "Portable renderer did not report out-and-back normalization.");
@@ -4178,7 +4179,7 @@ static void PortableSchematicKeepsSingleFamilyNetworksOnStablePreviewCanvas()
     Assert((string?)root.Attribute("overflow") == "hidden", "Portable SVG no longer contains the overflow safety boundary.");
 
     XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.Attribute("points")).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
     Assert(routePoints.Count == stops.Count, "Single-family schematic lost route stations.");
     Assert(routePoints.All(point => point.X >= 0 && point.X <= options.Width && point.Y >= 0 && point.Y <= options.Height),
         "Single-family schematic route escaped the SVG canvas.");
@@ -4214,7 +4215,7 @@ static void InGamePreviewProfilesContainExtremeAspectNetworks()
 
             foreach (XElement route in xml.Descendants().Where(element => (string?)element.Attribute("class") == "route"))
             {
-                Assert(SplitPoints((string?)route.Attribute("points")).All(point =>
+                Assert(SplitPoints((string?)route.RouteGeometryPoints()).All(point =>
                         point.X >= -0.001 && point.X <= options.Width + 0.001
                         && point.Y >= -0.001 && point.Y <= options.Height + 0.001),
                     $"{snapshot.CityName} {options.LayoutMode} route escaped the in-game canvas.");
@@ -6726,7 +6727,7 @@ static void AssertLegendDoesNotCoverRoutes(XDocument xml, IReadOnlyList<XElement
         .FirstOrDefault(element => element.Name.LocalName == "text" && element.Value == "Legend");
     double legendX = ReadDouble(legendTitle?.Attribute("x"));
     double maxRouteX = routes
-        .SelectMany(route => SplitPoints((string?)route.Attribute("points")))
+        .SelectMany(route => SplitPoints((string?)route.RouteGeometryPoints()))
         .Select(point => point.X)
         .DefaultIfEmpty(0)
         .Max();
@@ -6734,11 +6735,125 @@ static void AssertLegendDoesNotCoverRoutes(XDocument xml, IReadOnlyList<XElement
     Assert(maxRouteX <= legendX - 20, $"{context}: route geometry reached x={maxRouteX:0.###}, too close to legend at x={legendX:0.###}.");
 }
 
+static void RouteCornersRoundWithoutDetachingStationMarkers()
+{
+    // Route strokes are <path> with geometric corner rounding, not <polyline>
+    // leaning on stroke-linejoin (whose radius is only half the stroke width).
+    //
+    // The constraint that makes this safe for us is the deviation bound. rmp can
+    // cut a corner as deeply as it likes because its corners usually sit on
+    // invisible Virtual nodes; ours sit on stations, and a corner cut too deep
+    // leaves the station marker hanging off the side of the line. So the curve is
+    // never allowed to fall further from the original vertex than half the stroke
+    // width -- that, not the radius, is what this test pins.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    SvgRenderResult rounded = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+    XDocument xml = XDocument.Parse(rounded.Svg);
+
+    IReadOnlyList<XElement> routes = GetRouteElements(xml);
+    Assert(routes.Count > 0, "No route strokes were rendered.");
+    foreach (XElement route in routes)
+    {
+        Assert(route.Name.LocalName == "path", "Route strokes must be <path> to carry rounded corners.");
+        Assert(!string.IsNullOrWhiteSpace((string?)route.Attribute("d")), "Route path has no d attribute.");
+        Assert(!string.IsNullOrWhiteSpace((string?)route.Attribute("data-points")),
+            "Route path dropped data-points; the Viewer's bend editing reads it.");
+    }
+
+    double strokeWidth = ReadRouteStrokeWidth(rounded.Svg);
+    int corners = 0;
+    foreach (XElement route in routes)
+    {
+        foreach ((double X, double Y)[] corner in ReadPathCorners((string?)route.Attribute("d")))
+        {
+            corners++;
+
+            // Quadratic bridge: the midpoint sits at (start + 2*vertex + end)/4,
+            // so its offset from the vertex is |(start - vertex) + (end - vertex)|/4.
+            (double X, double Y) start = corner[0];
+            (double X, double Y) vertex = corner[1];
+            (double X, double Y) end = corner[2];
+            double offsetX = ((start.X - vertex.X) + (end.X - vertex.X)) / 4;
+            double offsetY = ((start.Y - vertex.Y) + (end.Y - vertex.Y)) / 4;
+            double deviation = Math.Sqrt((offsetX * offsetX) + (offsetY * offsetY));
+            Assert(deviation <= strokeWidth / 2,
+                $"A rounded corner falls {deviation:F2} from its vertex, past the {strokeWidth / 2:F2} stroke half-width, so a station marker there would come off the line.");
+        }
+    }
+
+    Assert(corners > 0, "No corner was rounded; the routes are still drawn as straight two-point joins.");
+
+    // Every layer drawn along one route -- base stroke, express stripe, shared
+    // corridor bands -- has to reuse one curve, or they separate at the corners.
+    foreach (IGrouping<string, XElement> family in xml
+        .Descendants()
+        .Where(element => element.Name.LocalName == "path" && element.Attribute("data-line-id") is not null)
+        .GroupBy(element => (string?)element.Attribute("data-line-id") + "|" + (string?)element.Attribute("data-route-part-index")))
+    {
+        Assert(family.Select(element => (string?)element.Attribute("d")).Distinct(StringComparer.Ordinal).Count() == 1,
+            $"Layers of route '{family.Key}' were drawn along different curves.");
+    }
+
+    // With rounding off the path is the polyline it replaced.
+    SvgRenderResult straight = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableRouteCornerRounding = false });
+    Assert(!straight.Svg.Contains(" Q ", StringComparison.Ordinal),
+        "EnableRouteCornerRounding = false still emitted curve commands.");
+}
+
+static double ReadRouteStrokeWidth(string svg)
+{
+    System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(svg, @"\.route\s*\{[^}]*stroke-width:\s*([0-9.]+)");
+    Assert(match.Success, "Could not read the route stroke width from the stylesheet.");
+    return double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// Yields (curve start, corner vertex, curve end) for every "L x,y Q vx,vy ex,ey"
+/// bridge in a route path.
+/// </summary>
+static IEnumerable<(double X, double Y)[]> ReadPathCorners(string? pathData)
+{
+    if (string.IsNullOrWhiteSpace(pathData))
+    {
+        yield break;
+    }
+
+    string[] tokens = pathData.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    (double X, double Y) previous = default;
+    for (int i = 0; i < tokens.Length; i++)
+    {
+        if (tokens[i] is "M" or "L")
+        {
+            previous = ParsePathPoint(tokens[i + 1]);
+            i++;
+        }
+        else if (tokens[i] == "Q")
+        {
+            (double X, double Y) vertex = ParsePathPoint(tokens[i + 1]);
+            (double X, double Y) end = ParsePathPoint(tokens[i + 2]);
+            yield return [previous, vertex, end];
+            previous = end;
+            i += 2;
+        }
+    }
+}
+
+static (double X, double Y) ParsePathPoint(string token)
+{
+    string[] parts = token.Split(',');
+    Assert(parts.Length == 2, $"Malformed path coordinate '{token}'.");
+    return (double.Parse(parts[0], CultureInfo.InvariantCulture), double.Parse(parts[1], CultureInfo.InvariantCulture));
+}
+
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)
 {
     return xml
         .Descendants()
-        .Where(element => element.Name.LocalName == "polyline" && (string?)element.Attribute("class") == "route")
+        .Where(element => element.Name.LocalName == "path" && (string?)element.Attribute("class") == "route")
         .ToList();
 }
 
@@ -6793,7 +6908,7 @@ static IReadOnlyList<XElement> GetSharedCorridorRouteElements(XDocument xml)
 {
     return xml
         .Descendants()
-        .Where(element => element.Name.LocalName == "polyline"
+        .Where(element => element.Name.LocalName == "path"
             && (string?)element.Attribute("data-shared-corridor") == "true")
         .ToList();
 }
@@ -6826,7 +6941,7 @@ static IReadOnlyList<XElement> GetExpressMarkerElements(XDocument xml)
 {
     return xml
         .Descendants()
-        .Where(element => element.Name.LocalName == "polyline"
+        .Where(element => (element.Name.LocalName == "path" || element.Name.LocalName == "polyline")
             && (string?)element.Attribute("data-express-marker") == "white-center-stripe")
         .ToList();
 }
@@ -7110,4 +7225,17 @@ internal sealed class IntercityGeometryFixtureExpectation
     public int PolylineCount { get; set; }
 
     public int ContinuationCount { get; set; }
+}
+
+static class RouteGeometryXmlExtensions
+{
+    /// <summary>
+    /// Route strokes are drawn as rounded &lt;path&gt; elements and carry their
+    /// underlying polyline in <c>data-points</c>; everything else still uses the
+    /// SVG <c>points</c> attribute.
+    /// </summary>
+    public static XAttribute? RouteGeometryPoints(this XElement element)
+    {
+        return element.Attribute("data-points") ?? element.Attribute("points");
+    }
 }

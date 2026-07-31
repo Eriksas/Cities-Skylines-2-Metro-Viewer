@@ -356,7 +356,7 @@ public sealed partial class MetroSvgRenderer
                     ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
                     : polyline.Points;
                 drawnPoints = InsertUserBends(drawnPoints, stationPoints, options.LayoutOverrides);
-                string pointList = string.Join(" ", drawnPoints.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
+                string geometryAttributes = BuildRouteGeometryAttributes(drawnPoints, GetRouteCornerRounding(options));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"
                     ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""
                     : string.Empty;
@@ -378,7 +378,7 @@ public sealed partial class MetroSvgRenderer
                     : string.Empty;
                 string schematicV2GuideAttributes = BuildSchematicV2RouteGuideAttributes(family, geometry);
                 string schematicV2ServiceAttributes = BuildSchematicV2ServiceFamilyAttributes(family, line, options);
-                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicMapBendAttributes}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} points=\"{pointList}\"";
+                string commonAttributes = $"class=\"route\" data-line-id=\"{Escape(line.Id)}\" data-route-source=\"{routePointSet.Source}\"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{corridorAttributes}{sharedSkipAttribute}{schematicMapBendAttributes}{schematicV2GuideAttributes}{schematicV2ServiceAttributes} {geometryAttributes}";
                 if (polyline.SharedCorridorStroke is not null)
                 {
                     AppendSharedCorridorRoutePolylines(svg, commonAttributes, polyline.SharedCorridorStroke, options);

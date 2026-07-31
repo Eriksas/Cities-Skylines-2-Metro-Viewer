@@ -106,6 +106,12 @@ public sealed class SvgRenderOptions
     public bool EnableExpressCenterStripe { get; init; }
 
     /// <summary>
+    /// Draws route corners as geometric arcs instead of relying on
+    /// <c>stroke-linejoin: round</c>, whose radius is only half the stroke width.
+    /// </summary>
+    public bool EnableRouteCornerRounding { get; init; } = true;
+
+    /// <summary>
     /// Development-only geographic passenger-rail overlay. It is intentionally
     /// not wired to the CLI or Viewer until real CS2 validation is complete.
     /// </summary>

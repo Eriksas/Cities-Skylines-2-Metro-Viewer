@@ -251,7 +251,7 @@ public sealed partial class MetroSvgRenderer
         DisplayLineFamily family = renderRoute.Family;
         MetroLine line = renderRoute.Line;
         RoutePointSet routePointSet = renderRoute.RoutePointSet;
-        string pointList = string.Join(" ", command.Points.Select(point => $"{Format(point.X)},{Format(point.Y)}"));
+        string geometryAttributes = BuildRouteGeometryAttributes(command.Points, GetRouteCornerRounding(options));
         string pathPointAttributes = routePointSet.Source == "pathPoints"
             ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""
             : string.Empty;
@@ -263,7 +263,7 @@ public sealed partial class MetroSvgRenderer
             ? " data-display-family-color-mismatch=\"true\""
             : string.Empty;
         string layerAttributes = $" data-corridor-run-layer=\"{GetCorridorDrawLayerName(command.Layer)}\"";
-        svg.AppendLine($"""<polyline class="route" data-line-id="{Escape(line.Id)}" data-route-source="{routePointSet.Source}"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{layerAttributes}{command.ExtraAttributes} points="{pointList}" stroke="{Escape(command.Stroke)}" style="stroke-width: {Format(command.StrokeWidth)};" />""");
+        svg.AppendLine($"""<path class="route" data-line-id="{Escape(line.Id)}" data-route-source="{routePointSet.Source}"{familyAttributes}{colorMismatchAttribute}{pathPointAttributes}{routePartAttributes}{layerAttributes}{command.ExtraAttributes} {geometryAttributes} stroke="{Escape(command.Stroke)}" style="stroke-width: {Format(command.StrokeWidth)};" />""");
     }
 
     private static double GetNormalRouteStrokeWidth(SvgRenderOptions options)
@@ -314,7 +314,7 @@ public sealed partial class MetroSvgRenderer
         string styleAttribute = string.IsNullOrWhiteSpace(routeStyle)
             ? string.Empty
             : $" style=\"{Escape(routeStyle)}\"";
-        svg.AppendLine($"""<polyline {commonAttributes} stroke="{Escape(family.Color)}"{styleAttribute} />""");
+        svg.AppendLine($"""<path {commonAttributes} stroke="{Escape(family.Color)}"{styleAttribute} />""");
         if (!ShouldRenderExpressCenterStripe(options, family))
         {
             return;
@@ -331,7 +331,7 @@ public sealed partial class MetroSvgRenderer
             ? " data-schematic-v2-express-marker=\"white-center-stripe\""
             : string.Empty;
         string stripeAttributes = commonAttributes.Replace("class=\"route\"", "class=\"express-decoration\"", StringComparison.Ordinal);
-        svg.AppendLine($"""<polyline {stripeAttributes} data-express-marker="white-center-stripe" data-express-family="{Escape(family.FamilyKey)}"{schematicV2MarkerAttribute} stroke="#ffffff" style="{Escape(stripeStyle)}" />""");
+        svg.AppendLine($"""<path {stripeAttributes} data-express-marker="white-center-stripe" data-express-family="{Escape(family.FamilyKey)}"{schematicV2MarkerAttribute} stroke="#ffffff" style="{Escape(stripeStyle)}" />""");
     }
 
     private static void AppendSharedCorridorRoutePolylines(
@@ -344,8 +344,8 @@ public sealed partial class MetroSvgRenderer
         double corridorWidth = GetSharedCorridorStrokeWidth(options);
         double bandWidth = GetSharedCorridorInnerStrokeWidth(options);
 
-        svg.AppendLine($"""<polyline {commonAttributes}{sharedAttributes} data-shared-corridor-layer="corridor-base" stroke="{Escape(sharedStroke.OuterColor)}" style="stroke-width: {Format(corridorWidth)};" />""");
-        svg.AppendLine($"""<polyline {commonAttributes}{sharedAttributes} data-shared-corridor-layer="inner-band" stroke="{Escape(sharedStroke.InnerColor)}" style="stroke-width: {Format(bandWidth)};" />""");
+        svg.AppendLine($"""<path {commonAttributes}{sharedAttributes} data-shared-corridor-layer="corridor-base" stroke="{Escape(sharedStroke.OuterColor)}" style="stroke-width: {Format(corridorWidth)};" />""");
+        svg.AppendLine($"""<path {commonAttributes}{sharedAttributes} data-shared-corridor-layer="inner-band" stroke="{Escape(sharedStroke.InnerColor)}" style="stroke-width: {Format(bandWidth)};" />""");
     }
 
     private static List<RenderRoute> ApplyParallelCorridorOffset(

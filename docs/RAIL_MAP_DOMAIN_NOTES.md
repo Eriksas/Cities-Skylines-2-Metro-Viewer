@@ -172,7 +172,105 @@ Grouped by what they encode:
 
 ---
 
-## 4. What to do with this
+## 4. Corner rounding, and why ours cannot copy theirs
+
+**Status: implemented** (`MetroSvgRenderer.RoundedCorners.cs`, branch
+`feature/corner-rounding`). This is the second rmp idea we tested and the first we
+shipped.
+
+### What we had
+
+A route was a `<polyline>`. Its only softening was `stroke-linejoin: round`, whose
+radius is fixed at half the stroke width — 7 on our 14px routes. There was not one
+curve command anywhere in the output. rmp's corners are 4–7x more rounded than
+that, which is most of why their lines read as *drawn* and ours read as *plotted*.
+
+### What rmp actually does — the exact construction
+
+Not an arc, and not the obvious quadratic. Each corner is a single **cubic** Bézier
+that replaces the vertex. For vertex `P` between `A` and `N`, with factor `r`:
+
+```
+ds = min(r, |A-P|)      de = min(r, |N-P|)
+S  = P + (A-P)/|A-P| * ds        E = P + (N-P)/|N-P| * de
+C1 = midpoint(S, P)              C2 = midpoint(P, E)
+emit:  ... L S ; C C1 C2 E ; L N ...
+```
+
+The vertex never appears in the output. The code is Yona Appletree's Apache-2.0
+path-rounding snippet vendored as `src/util/pathRounding.js`, applied to the `d`
+string, always with `useFractionalRadius = false`.
+
+Two things about it that are easy to get wrong:
+
+- **`roundCornerFactor` is a trim length, not a radius.** The fillet radius it
+  produces is `R = d * tan(interior/2)`, so the same factor gives a very different
+  radius at different angles. Their 10 on a 45-degree corner is `R = 24.1`
+  (4.8x their 5px stroke); their 18.33 on a 90-degree corner is `R = 18.33`
+  (3.7x). Porting the number as a radius gets both cases wrong.
+- **Clamping is per-leg and independent** (`min(1, r/legLength)` on each side), so
+  short legs give asymmetric curves, and a segment shorter than the factor keeps a
+  hard kink.
+
+### Why we could not use it as-is
+
+rmp bends mostly at `MiscNodeType.Virtual` nodes — invisible points carrying no
+marker (§1). It can cut a corner arbitrarily deep because there is nothing at the
+corner to leave behind.
+
+**Almost every corner we draw is a station.** Rendered at rmp's proportions the
+result was unusable: the curve cuts inside the corner, the vertex ends up outside
+the stroke, and the station marker visibly floats off the line. This was measured,
+not guessed — it is the failure the first render of this feature produced.
+
+### What we do instead: bound the deviation, not the radius
+
+The binding constraint is *how far the curve falls from the vertex*, because that
+distance is what detaches the marker. For a quadratic bridge with trim `d` and turn
+angle `t`, the curve's furthest point from the vertex is `d * sin(t/2) / 2`, so we
+solve for the trim instead of picking it:
+
+```
+trim = min( 2 * maxDeviation / sin(turn/2),   // marker stays on the stroke
+            2.0 * strokeWidth,                // rmp-ish upper bound
+            0.45 * shorter leg )              // adjacent corners cannot overrun
+maxDeviation = 0.22 * strokeWidth
+```
+
+This has a property worth naming: **the trim is largest exactly at shallow turns**.
+A 45-degree direction change — the 135-degree corner — gets the longest, most
+sweeping curve, and a hairpin gets almost none. That is the behaviour a metro map
+wants, and here it falls out of the safety constraint rather than being tuned in.
+
+We also kept the **quadratic** rather than porting rmp's cubic, and the reason is
+this same constraint. For an identical trim the two deviate from the vertex by
+`0.5 * d * sin(t/2)` (quadratic) against `0.625 * d * sin(t/2)` (rmp's cubic). Under
+a fixed deviation budget the quadratic therefore permits a **25% longer trim** —
+a longer visible curve for the same marker safety. The shapes are otherwise within
+~3% of a true circular fillet, which is invisible under a 14px stroke.
+
+### Structural consequence: display geometry is not edit geometry
+
+Routes are emitted as `<path>` with the rounded `d`, and carry the original point
+list in `data-points`. The Viewer's bend handles, segment dragging and hit-testing
+read `data-points` through a small SVGPointList shim; the tests read it too. This
+is the same split rmp makes between its path generators and its node model, and it
+is what let the change land without touching the layout solver or the editor's
+logic.
+
+`EnableRouteCornerRounding` (CLI: `--no-route-corner-rounding`) turns it off and
+restores the exact previous geometry, which is also how the before/after renders
+in this note were produced.
+
+### Not done yet
+
+The in-game renderer (`PortableMetroSvgRenderer`) still emits polylines. It is the
+same ~60 lines of geometry but a separate corpus and a separate risk surface, so it
+is deliberately a follow-up.
+
+---
+
+## 5. What to do with this
 
 Ordered by value, and none of it is urgent:
 
@@ -195,7 +293,7 @@ geometry would be cargo-culting. Take the distinctions, not the pixels.
 
 ---
 
-## 5. Viewer map elements and reusable line grammar
+## 6. Viewer map elements and reusable line grammar
 
 The Viewer now applies the same separation to manual cartographic content:
 
