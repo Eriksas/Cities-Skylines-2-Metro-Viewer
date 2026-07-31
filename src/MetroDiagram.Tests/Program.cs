@@ -84,6 +84,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
     ("octilinear snap puts runs exactly on a heading", OctilinearSnapPutsRunsExactlyOnAHeading),
+    ("snapped layout stays clear of the header banner", SnappedLayoutStaysClearOfTheHeaderBanner),
     ("corridor lanes stop lines drawing over each other", CorridorLanesStopLinesDrawingOverEachOther),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
     ("portable snapshot JSON preserves the exporter schema", PortableSnapshotJsonPreservesExporterSchema),
@@ -6999,6 +7000,54 @@ static double CollinearOverlap(
     double low = Math.Max(0, Math.Min(startAlong, endAlong));
     double high = Math.Min(abLength, Math.Max(startAlong, endAlong));
     return Math.Max(0, high - low);
+}
+
+static void SnappedLayoutStaysClearOfTheHeaderBanner()
+{
+    // The snap changes the content bounding box, so it has to run before the fit
+    // -- and the fit has to be allowed to shrink. It was not: growth was clamped
+    // at 1.0 on the theory that shrinking wastes space, which is true only while
+    // the content is smaller than the canvas. A ratio below one means it is
+    // larger, and refusing to act on that put a station label over the header
+    // banner on two corpus networks (谢菲尔德-0725 overlapped it by 18px).
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    SvgRenderResult result = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, MapStyle = SvgMapStyle.TransitMap });
+    XDocument xml = XDocument.Parse(result.Svg);
+
+    double width = ReadDouble(xml.Root!.Attribute("width"));
+    double height = ReadDouble(xml.Root!.Attribute("height"));
+
+    // The banner is the full-width bar at the top; the page background is not it.
+    double banner = 0;
+    foreach (XElement rect in xml.Descendants().Where(element => element.Name.LocalName == "rect"))
+    {
+        double rectWidth = ReadDouble(rect.Attribute("width"));
+        double rectTop = ReadDouble(rect.Attribute("y"));
+        double rectHeight = ReadDouble(rect.Attribute("height"));
+        if (rectWidth > width * 0.85 && rectTop < height * 0.1 && rectHeight < height * 0.15)
+        {
+            banner = Math.Max(banner, rectTop + rectHeight);
+        }
+    }
+
+    Assert(banner > 0, "Could not find the header banner; this test is not checking anything.");
+
+    foreach (XElement circle in xml.Descendants()
+        .Where(element => element.Name.LocalName == "circle" && element.Attribute("data-station-id") is not null))
+    {
+        double top = ReadDouble(circle.Attribute("cy")) - ReadDouble(circle.Attribute("r"));
+        Assert(top >= banner, $"A station marker sits {banner - top:F0}px into the header banner.");
+    }
+
+    foreach (XElement label in xml.Descendants()
+        .Where(element => element.Name.LocalName == "text" && ((string?)element.Attribute("class"))?.Contains("station-label") == true))
+    {
+        double top = ReadDouble(label.Attribute("y")) - 14;
+        Assert(top >= banner, $"A station label sits {banner - top:F0}px into the header banner.");
+    }
 }
 
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)

@@ -216,7 +216,11 @@ public sealed partial class MetroSvgRenderer
             // grows the content box, and fitting first leaves stations outside it.
             Dictionary<string, SvgPoint> snappedPoints =
                 ApplyOctilinearSnap(annealLayout.Points, displayFamilies, options, warnings);
-            Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(snappedPoints, stations, options, reserveLegendSpace);
+            // Shrink-to-fit here: the snap changes the content box, and refusing
+            // to shrink put a station label over the header banner on two corpus
+            // networks.
+            Dictionary<string, SvgPoint> fittedPoints =
+                FitPointsToBounds(snappedPoints, stations, options, reserveLegendSpace, allowShrink: true);
             return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null, intercityRoutes);
         }
 
@@ -319,7 +323,8 @@ public sealed partial class MetroSvgRenderer
         Dictionary<string, SvgPoint> points,
         List<MetroStation> stations,
         SvgRenderOptions options,
-        bool reserveLegendSpace)
+        bool reserveLegendSpace,
+        bool allowShrink = false)
     {
         if (points.Count == 0)
         {
@@ -360,7 +365,12 @@ public sealed partial class MetroSvgRenderer
         // modest reserve keeps outer names readable without wasting fill.
         SvgVisualStyle visualStyle = SvgVisualStyle.From(options);
         double horizontalReserve = maxLabelWidth * 0.35 + options.LabelGap + visualStyle.InterchangeMarkerRadius;
-        double verticalReserve = options.LabelFontSize * 0.9 + visualStyle.InterchangeMarkerRadius;
+        // A label sitting above the topmost station needs the marker radius, the
+        // gap, and a line of type -- 0.9 of the font size and a radius was short
+        // by about a third, which left the corpus with as little as 23px of
+        // headroom under the banner even before the octilinear snap. The snap
+        // then pushed two networks past it, one of them into an actual overlap.
+        double verticalReserve = visualStyle.InterchangeMarkerRadius + options.LabelGap + options.LabelFontSize;
 
         double availableWidth = bounds.Right - bounds.Left - 2 * horizontalReserve;
         double availableHeight = bounds.Bottom - bounds.Top - 2 * verticalReserve;
@@ -368,9 +378,19 @@ public sealed partial class MetroSvgRenderer
         double scale = 1.0;
         if (bboxWidth > 0.001 && bboxHeight > 0.001 && availableWidth > 0 && availableHeight > 0)
         {
-            // Only ever grow the layout; shrinking would waste more space, and a
-            // hard cap avoids ballooning sparse networks past a natural size.
-            scale = Math.Clamp(Math.Min(availableWidth / bboxWidth, availableHeight / bboxHeight), 1.0, 2.5);
+            // Cap growth so a sparse network is not ballooned past a natural
+            // size. Shrinking used to be forbidden on the grounds that it wastes
+            // space -- true only while the content is smaller than the canvas. A
+            // ratio below one means it is *larger*, and refusing to shrink then
+            // does not save space, it pushes content off the page: it put a
+            // station label over the header banner on two corpus networks.
+            scale = Math.Min(availableWidth / bboxWidth, availableHeight / bboxHeight);
+            // Growth is capped so a sparse network is not ballooned past a natural
+            // size. Shrinking is only offered where it was shown to be needed:
+            // the other layout modes carry absolute thresholds of their own -- the
+            // synthetic-bend minimum length, for one -- and quietly rescaling
+            // under them changes what they produce.
+            scale = allowShrink ? Math.Min(scale, 2.5) : Math.Clamp(scale, 1.0, 2.5);
         }
 
         double sourceCenterX = (minX + maxX) / 2;
