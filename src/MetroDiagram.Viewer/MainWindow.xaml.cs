@@ -1981,6 +1981,7 @@ public partial class MainWindow : Window
         {
             "schematic-map" => SvgLayoutMode.SchematicMap,
             "schematic-anneal" => SvgLayoutMode.SchematicAnneal,
+            "schematic-beta" => SvgLayoutMode.SchematicBeta,
             "schematic-v2" => SvgLayoutMode.SchematicV2,
             _ => SvgLayoutMode.Geographic
         };
@@ -3120,6 +3121,7 @@ public partial class MainWindow : Window
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
             SvgLayoutMode.SchematicAnneal => "schematic-anneal",
+            SvgLayoutMode.SchematicBeta => "schematic-beta",
             _ => "geographic"
         };
     }

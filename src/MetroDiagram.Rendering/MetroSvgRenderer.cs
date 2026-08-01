@@ -37,7 +37,7 @@ public sealed partial class MetroSvgRenderer
         List<DisplayLineFamily> displayFamilies = DisplayLineFamilyResolver.Resolve(lines, stationsById, options.EnableServiceFamilyMerge);
         options = ApplyNetworkPresentationDefaults(options, displayFamilies, stations.Count);
         options = ApplyMixedModeLegendDefaults(options, displayFamilies);
-        if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
+        if (IsAnnealFamilyLayout(options))
         {
             AdaptCanvasHeightToNetwork(options, stations);
         }
@@ -209,23 +209,25 @@ public sealed partial class MetroSvgRenderer
             points[station.Id] = projector.Project(station.X, station.Z);
         }
 
-        if (options.LayoutMode == SvgLayoutMode.SchematicAnneal)
+        if (IsAnnealFamilyLayout(options))
         {
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
             // Before the fit, so the fit sees the bounds the snap produces -- it
             // grows the content box, and fitting first leaves stations outside it.
-            // Relief first: it moves stations off their headings by design, and
-            // the snap is what puts them back. The other order fights constraints
-            // that are already established.
-            Dictionary<string, SvgPoint> relievedPoints =
-                ApplyDensityRelief(annealLayout.Points, options, warnings);
-            Dictionary<string, SvgPoint> snappedPoints =
-                ApplyOctilinearSnap(relievedPoints, displayFamilies, options, warnings);
+            // Beta only. Relief first: it moves stations off their headings by
+            // design, and the snap is what puts them back. The other order fights
+            // constraints that are already established.
+            Dictionary<string, SvgPoint> relievedPoints = IsBetaLayout(options)
+                ? ApplyDensityRelief(annealLayout.Points, options, warnings)
+                : annealLayout.Points;
+            Dictionary<string, SvgPoint> snappedPoints = IsBetaLayout(options)
+                ? ApplyOctilinearSnap(relievedPoints, displayFamilies, options, warnings)
+                : relievedPoints;
             // Shrink-to-fit here: the snap changes the content box, and refusing
             // to shrink put a station label over the header banner on two corpus
             // networks.
-            Dictionary<string, SvgPoint> fittedPoints =
-                FitPointsToBounds(snappedPoints, stations, options, reserveLegendSpace, allowShrink: true);
+            Dictionary<string, SvgPoint> fittedPoints = FitPointsToBounds(
+                snappedPoints, stations, options, reserveLegendSpace, allowShrink: IsBetaLayout(options));
             return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null, intercityRoutes);
         }
 
@@ -324,6 +326,21 @@ public sealed partial class MetroSvgRenderer
     // crossings, and bend counts are all preserved because it is a uniform
     // similarity transform; station spacing only grows) and center it. A label
     // margin is reserved so scaled-out stations keep room for their names.
+    /// <summary>Both modes that run the annealer: the shipped one and the beta.</summary>
+    private static bool IsAnnealFamilyLayout(SvgRenderOptions options)
+    {
+        return options.LayoutMode is SvgLayoutMode.SchematicAnneal or SvgLayoutMode.SchematicBeta;
+    }
+
+    /// <summary>
+    /// The beta layout, which adds the octilinear snap, density relief, corridor
+    /// lanes and straight runs through plain stops on top of the annealed layout.
+    /// </summary>
+    private static bool IsBetaLayout(SvgRenderOptions options)
+    {
+        return options.LayoutMode == SvgLayoutMode.SchematicBeta;
+    }
+
     private static Dictionary<string, SvgPoint> FitPointsToBounds(
         Dictionary<string, SvgPoint> points,
         List<MetroStation> stations,
@@ -497,7 +514,7 @@ public sealed partial class MetroSvgRenderer
 
     private static SvgRenderOptions ApplyLayoutPresentationDefaults(SvgRenderOptions options)
     {
-        if (options.LayoutMode is not (SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal))
+        if (options.LayoutMode is not (SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal or SvgLayoutMode.SchematicBeta))
         {
             return options;
         }
@@ -555,7 +572,7 @@ public sealed partial class MetroSvgRenderer
             // Anneal output is already octilinear, so synthetic doglegs are not
             // needed; keeping route polylines as pure station-to-station segments
             // also makes parallel-corridor offsetting clean.
-            EnableSchematicMapSyntheticBends = options.LayoutMode != SvgLayoutMode.SchematicAnneal,
+            EnableSchematicMapSyntheticBends = !IsAnnealFamilyLayout(options),
             SchematicMapSyntheticBendMinimumLength = Math.Min(options.SchematicMapSyntheticBendMinimumLength, 140)
         };
     }

@@ -5,7 +5,19 @@ public enum SvgLayoutMode
     Geographic,
     SchematicV2,
     SchematicMap,
-    SchematicAnneal
+    SchematicAnneal,
+
+    /// <summary>
+    /// The annealed layout plus the passes that pull it onto the eight compass
+    /// headings, relieve its dense core, lane its shared corridors and carry
+    /// plain stops out of bends.
+    ///
+    /// Kept as its own mode rather than switched on inside
+    /// <see cref="SchematicAnneal"/> so that mode keeps producing exactly what it
+    /// produced before: these passes move station positions, and anyone with a
+    /// saved layout or a printed map should opt into that rather than find it.
+    /// </summary>
+    SchematicBeta
 }
 
 public enum SvgRenderSizePreset

@@ -7,7 +7,7 @@ using MetroDiagram.Rendering;
 
 if (args.Length < 2 || args.Contains("--help", StringComparer.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg|.png|.pdf> [--layout geographic|schematic-v2|schematic-map|schematic-anneal] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--no-route-corner-rounding] [--no-octilinear-snap] [--density-relief N] [--no-station-straight-runs] [--overrides path]");
+    Console.Error.WriteLine("Usage: MetroDiagram.Cli <input.json> <output.svg|.png|.pdf> [--layout geographic|schematic-v2|schematic-map|schematic-anneal|schematic-beta] [--emit-layout-score path.csv] [--style standard|transit-map] [--size compact|standard|poster|ultra] [--grid-size N] [--schematic-min-station-spacing N] [--width N] [--height N] [--legend-width N] [--padding N] [--line-width N] [--station-radius N] [--label-font-size N] [--center-expansion] [--hide-generic-labels] [--enable-virtual-transfer-hints] [--hide-crowded-labels] [--always-show-interchanges] [--always-show-terminals] [--use-path-points] [--simplify-path-points] [--no-simplify-path-points] [--path-simplification-tolerance N] [--min-path-segment-length N] [--enable-parallel-corridor-offset] [--disable-service-family-merge] [--enable-shared-corridor-composite-stroke] [--enable-express-center-stripe] [--no-route-corner-rounding] [--no-octilinear-snap] [--density-relief N] [--no-station-straight-runs] [--overrides path]");
     return args.Length < 2 ? 2 : 0;
 }
 
@@ -138,6 +138,7 @@ static string LayoutModeToText(SvgLayoutMode layoutMode)
         SvgLayoutMode.SchematicV2 => "schematic-v2",
         SvgLayoutMode.SchematicMap => "schematic-map",
         SvgLayoutMode.SchematicAnneal => "schematic-anneal",
+        SvgLayoutMode.SchematicBeta => "schematic-beta",
         _ => "geographic"
     };
 }
@@ -360,6 +361,7 @@ static SvgLayoutMode ReadLayoutMode(string[] args, ref int index, string option)
         "schematic-v2" => SvgLayoutMode.SchematicV2,
         "schematic-map" => SvgLayoutMode.SchematicMap,
         "schematic-anneal" => SvgLayoutMode.SchematicAnneal,
+        "schematic-beta" => SvgLayoutMode.SchematicBeta,
         _ => throw new ArgumentException($"{option} expects 'geographic', 'schematic-v2', 'schematic-map', or 'schematic-anneal'.")
     };
 }

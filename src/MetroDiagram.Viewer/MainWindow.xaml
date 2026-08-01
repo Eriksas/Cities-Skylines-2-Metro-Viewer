@@ -53,6 +53,7 @@
                             <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                             <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
                             <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" IsSelected="True" />
+                            <ComboBoxItem Content="schematic-beta" Tag="schematic-beta" />
                         </ComboBox>
                     </StackPanel>
 

@@ -84,6 +84,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
     ("octilinear snap puts runs exactly on a heading", OctilinearSnapPutsRunsExactlyOnAHeading),
+    ("schematic-anneal is untouched by the beta passes", SchematicAnnealIsUntouchedByTheBetaPasses),
     ("density relief only treats networks that are uneven", DensityReliefOnlyTreatsNetworksThatAreUneven),
     ("plain stops are lifted out of bends, interchanges are not", PlainStopsAreLiftedOutOfBendsInterchangesAreNot),
     ("snapped layout stays clear of the header banner", SnappedLayoutStaysClearOfTheHeaderBanner),
@@ -6865,9 +6866,9 @@ static void OctilinearSnapPutsRunsExactlyOnAHeading()
     MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
 
     double snapped = MeasureExactlyOnHeading(new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal }));
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta }));
     double asAnnealed = MeasureExactlyOnHeading(new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableOctilinearSnap = false }));
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta, EnableOctilinearSnap = false }));
 
     Assert(asAnnealed < 99, $"The annealer already reaches {asAnnealed:F1}% on-heading; this test proves nothing.");
     Assert(snapped > 95, $"Only {snapped:F1}% of segments are exactly on a heading after the snap.");
@@ -6886,7 +6887,7 @@ static void CorridorLanesStopLinesDrawingOverEachOther()
     MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
 
     SvgRenderResult result = new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta });
     XDocument xml = XDocument.Parse(result.Svg);
 
     double stroke = ReadRouteStrokeWidth(result.Svg);
@@ -7016,7 +7017,7 @@ static void SnappedLayoutStaysClearOfTheHeaderBanner()
     MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
 
     SvgRenderResult result = new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, MapStyle = SvgMapStyle.TransitMap });
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta, MapStyle = SvgMapStyle.TransitMap });
     XDocument xml = XDocument.Parse(result.Svg);
 
     double width = ReadDouble(xml.Root!.Attribute("width"));
@@ -7064,9 +7065,9 @@ static void DensityReliefOnlyTreatsNetworksThatAreUneven()
     MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
 
     SvgRenderResult relieved = new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta });
     SvgRenderResult plain = new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableDensityRelief = false });
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta, EnableDensityRelief = false });
 
     string audit = relieved.Warnings.FirstOrDefault(w => w.StartsWith("Density relief", StringComparison.Ordinal)) ?? string.Empty;
     Assert(audit.Length > 0, "The density relief pass reported nothing; it is not running.");
@@ -7138,9 +7139,9 @@ static void PlainStopsAreLiftedOutOfBendsInterchangesAreNot()
     MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
 
     (int Plain, int Interchange) lifted = MeasureStationCorners(new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal }));
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta }));
     (int Plain, int Interchange) asLaidOut = MeasureStationCorners(new MetroSvgRenderer().Render(
-        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableStationStraightRuns = false }));
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta, EnableStationStraightRuns = false }));
 
     Assert(asLaidOut.Plain > 0, "The sample has no plain stop in a bend; this test proves nothing.");
     Assert(lifted.Plain < asLaidOut.Plain,
@@ -7251,6 +7252,40 @@ static double TurnBetween((double X, double Y) from, (double X, double Y) vertex
 
     double dot = Math.Clamp(((ax * bx) + (ay * by)) / (la * lb), -1, 1);
     return 180 - (Math.Acos(dot) * 180 / Math.PI);
+}
+
+static void SchematicAnnealIsUntouchedByTheBetaPasses()
+{
+    // The beta passes move station positions. Anyone with a layout they have
+    // adjusted by hand, or a map they have already printed, should opt into that
+    // rather than find it, so schematic-anneal has to keep producing exactly what
+    // it produced before the passes existed.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    SvgRenderResult anneal = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+
+    foreach (string marker in new[] { "Octilinear snap", "Density relief" })
+    {
+        Assert(!anneal.Warnings.Any(w => w.StartsWith(marker, StringComparison.Ordinal)),
+            $"schematic-anneal ran the beta pass '{marker}'; it is supposed to be beta-only.");
+    }
+
+    // Turning the beta options off inside beta must land back on the annealed
+    // geometry, which is the same statement from the other side.
+    SvgRenderResult betaWithNothingOn = new MetroSvgRenderer().Render(document, new SvgRenderOptions
+    {
+        LayoutMode = SvgLayoutMode.SchematicBeta,
+        EnableOctilinearSnap = false,
+        EnableDensityRelief = false,
+        EnableStationStraightRuns = false,
+    });
+
+    Assert(
+        MeasureExactlyOnHeading(betaWithNothingOn) < MeasureExactlyOnHeading(new MetroSvgRenderer().Render(
+            document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicBeta })),
+        "Beta with every pass disabled still aligned as well as beta with them on; the switches do nothing.");
 }
 
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)

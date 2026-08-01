@@ -276,6 +276,14 @@ is deliberately a follow-up.
 `MetroSvgRenderer.CorridorLanes.cs`, branch `feature/octilinear-snap`, on top of
 `feature/corner-rounding`).
 
+> **Which mode.** This section and sections 6 and 7 describe passes that run only
+> in the `schematic-beta` layout. `schematic-anneal` is byte-for-byte what it was
+> before them -- verified against the branch point on seven networks -- because
+> these passes move station positions, and a layout someone has adjusted by hand
+> or already printed should not change under them without being asked. Corner
+> rounding (section 4) is the exception: it is a drawing change that does not move
+> anything, so it applies everywhere.
+
 ### It was never about the corners
 
 rmp's lines read as smooth because **they only ever take eight directions**. Its

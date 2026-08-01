@@ -343,12 +343,12 @@ public sealed partial class MetroSvgRenderer
         // parallel plan cannot see, because it pairs lines only where they run
         // station-for-station. The corridor plan keys on heading and intercept
         // instead, which is exact once the layout is snapped.
-        bool useCorridorLanes = options.LayoutMode == SvgLayoutMode.SchematicAnneal && options.EnableOctilinearSnap;
+        bool useCorridorLanes = IsBetaLayout(options) && options.EnableOctilinearSnap;
         Dictionary<(int Route, int Polyline, int Edge), double> corridorLanes = useCorridorLanes
             ? BuildCorridorLanePlan(renderRoutes, options)
             : [];
         Dictionary<ParallelEdgeKey, ParallelSharedEdge> parallelPlan =
-            options.LayoutMode == SvgLayoutMode.SchematicAnneal && !useCorridorLanes
+            IsAnnealFamilyLayout(options) && !useCorridorLanes
                 ? BuildParallelCorridorPlan(renderRoutes, options)
                 : [];
 
@@ -370,7 +370,9 @@ public sealed partial class MetroSvgRenderer
                         : polyline.Points;
                 drawnPoints = InsertUserBends(drawnPoints, stationPoints, options.LayoutOverrides);
                 string geometryAttributes = BuildRouteGeometryAttributes(
-                    BuildStationStraightRuns(drawnPoints, stationPoints, stationsById, options),
+                    IsBetaLayout(options)
+                        ? BuildStationStraightRuns(drawnPoints, stationPoints, stationsById, options)
+                        : drawnPoints,
                     drawnPoints,
                     GetRouteCornerRounding(options));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"
@@ -672,6 +674,7 @@ public sealed partial class MetroSvgRenderer
             SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
             SvgLayoutMode.SchematicAnneal => "schematic-anneal",
+            SvgLayoutMode.SchematicBeta => "schematic-beta",
             _ => "geographic"
         };
     }
@@ -1838,7 +1841,8 @@ public sealed partial class MetroSvgRenderer
 
     private static bool IsSchematicMapLayout(SvgRenderOptions options)
     {
-        return options.LayoutMode is SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal;
+        return options.LayoutMode is SvgLayoutMode.SchematicMap or SvgLayoutMode.SchematicAnneal
+            or SvgLayoutMode.SchematicBeta;
     }
 
     private static double GetRouteBadgeFontSize(SvgRenderOptions options)
