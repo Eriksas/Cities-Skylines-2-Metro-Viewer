@@ -119,6 +119,18 @@ public sealed class SvgRenderOptions
     public bool EnableOctilinearSnap { get; init; } = true;
 
     /// <summary>
+    /// Expands the dense core of the network at the sparse rim's expense, the way
+    /// a real transit map draws its city centre at a larger effective scale.
+    /// Runs before the octilinear snap, which puts the headings back.
+    /// </summary>
+    public bool EnableDensityRelief { get; init; } = true;
+
+    /// <summary>Radial exponent; 1 leaves the layout alone, lower expands the core more.</summary>
+    public double DensityReliefExponent { get; init; } = DensityReliefDefaultExponent;
+
+    public const double DensityReliefDefaultExponent = 0.8;
+
+    /// <summary>
     /// Development-only geographic passenger-rail overlay. It is intentionally
     /// not wired to the CLI or Viewer until real CS2 validation is complete.
     /// </summary>

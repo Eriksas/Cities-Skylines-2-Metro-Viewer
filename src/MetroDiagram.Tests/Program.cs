@@ -84,6 +84,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-anneal races starts and charges per direction change", SchematicAnnealRacesStartsAndChargesPerDirectionChange),
     ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
     ("octilinear snap puts runs exactly on a heading", OctilinearSnapPutsRunsExactlyOnAHeading),
+    ("density relief only treats networks that are uneven", DensityReliefOnlyTreatsNetworksThatAreUneven),
     ("snapped layout stays clear of the header banner", SnappedLayoutStaysClearOfTheHeaderBanner),
     ("corridor lanes stop lines drawing over each other", CorridorLanesStopLinesDrawingOverEachOther),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
@@ -7048,6 +7049,79 @@ static void SnappedLayoutStaysClearOfTheHeaderBanner()
         double top = ReadDouble(label.Attribute("y")) - 14;
         Assert(top >= banner, $"A station label sits {banner - top:F0}px into the header banner.");
     }
+}
+
+static void DensityReliefOnlyTreatsNetworksThatAreUneven()
+{
+    // Relief expands the dense core at the sparse rim's expense, the way a real
+    // transit map draws its centre at a larger effective scale. It is a treatment
+    // for uneven density, and applying it to a network that is already even buys
+    // nothing while costing the distortion anyway: the two corpus networks it hurt
+    // worst were the two with the least spread to begin with, 安岭市 going from 6%
+    // crowded to 47%. Hence the gate, and hence this test.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    SvgRenderResult relieved = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal });
+    SvgRenderResult plain = new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableDensityRelief = false });
+
+    string audit = relieved.Warnings.FirstOrDefault(w => w.StartsWith("Density relief", StringComparison.Ordinal)) ?? string.Empty;
+    Assert(audit.Length > 0, "The density relief pass reported nothing; it is not running.");
+
+    if (audit.Contains("skipped", StringComparison.Ordinal))
+    {
+        // The gate fired. Then the layout must be untouched, byte for byte.
+        Assert(relieved.Svg == plain.Svg,
+            "Density relief reported that it skipped an even network, but the output changed anyway.");
+        return;
+    }
+
+    Assert(MeasureSpacingSpread(relieved) <= MeasureSpacingSpread(plain) + 0.01,
+        $"Relief left the spacing spread worse: {MeasureSpacingSpread(plain):F2}x -> {MeasureSpacingSpread(relieved):F2}x.");
+
+    // The snap runs after the relief and is what restores the headings. If relief
+    // costs on-heading share, the two are in the wrong order.
+    Assert(MeasureExactlyOnHeading(relieved) >= MeasureExactlyOnHeading(plain) - 2,
+        "Density relief cost on-heading share; it must run before the octilinear snap, not after.");
+}
+
+/// <summary>
+/// Ratio of sparse to dense local station spacing -- the 90th against the 10th
+/// percentile of each station's distance to its third-nearest neighbour.
+/// </summary>
+static double MeasureSpacingSpread(SvgRenderResult result)
+{
+    XDocument xml = XDocument.Parse(result.Svg);
+    List<(double X, double Y)> stations = xml
+        .Descendants()
+        .Where(element => element.Name.LocalName == "circle" && element.Attribute("data-station-id") is not null)
+        .Select(element => (Id: (string?)element.Attribute("data-station-id"), Point: (ReadDouble(element.Attribute("cx")), ReadDouble(element.Attribute("cy")))))
+        .GroupBy(entry => entry.Id)
+        .Select(group => group.First().Point)
+        .ToList();
+
+    if (stations.Count < 8)
+    {
+        return 1;
+    }
+
+    List<double> spacing = [];
+    foreach ((double X, double Y) station in stations)
+    {
+        List<double> distances = stations
+            .Where(other => other != station)
+            .Select(other => Distance(station, other))
+            .OrderBy(distance => distance)
+            .ToList();
+        spacing.Add(distances[Math.Min(2, distances.Count - 1)]);
+    }
+
+    spacing.Sort();
+    double dense = spacing[(int)(spacing.Count * 0.10)];
+    double sparse = spacing[(int)(spacing.Count * 0.90)];
+    return dense <= 0 ? 1 : sparse / dense;
 }
 
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)

@@ -214,8 +214,13 @@ public sealed partial class MetroSvgRenderer
             SchematicLayoutResult annealLayout = ApplySchematicAnnealLayout(points, displayFamilies, options, reserveLegendSpace, warnings);
             // Before the fit, so the fit sees the bounds the snap produces -- it
             // grows the content box, and fitting first leaves stations outside it.
+            // Relief first: it moves stations off their headings by design, and
+            // the snap is what puts them back. The other order fights constraints
+            // that are already established.
+            Dictionary<string, SvgPoint> relievedPoints =
+                ApplyDensityRelief(annealLayout.Points, options, warnings);
             Dictionary<string, SvgPoint> snappedPoints =
-                ApplyOctilinearSnap(annealLayout.Points, displayFamilies, options, warnings);
+                ApplyOctilinearSnap(relievedPoints, displayFamilies, options, warnings);
             // Shrink-to-fit here: the snap changes the content box, and refusing
             // to shrink put a station label over the header banner on two corpus
             // networks.
@@ -532,6 +537,8 @@ public sealed partial class MetroSvgRenderer
             EnableExpressCenterStripe = true,
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
             EnableOctilinearSnap = options.EnableOctilinearSnap,
+            EnableDensityRelief = options.EnableDensityRelief,
+            DensityReliefExponent = options.DensityReliefExponent,
             LayoutOverrides = options.LayoutOverrides,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,
@@ -620,6 +627,8 @@ public sealed partial class MetroSvgRenderer
             EnableExpressCenterStripe = options.EnableExpressCenterStripe,
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
             EnableOctilinearSnap = options.EnableOctilinearSnap,
+            EnableDensityRelief = options.EnableDensityRelief,
+            DensityReliefExponent = options.DensityReliefExponent,
             EnableIntercityRail = options.EnableIntercityRail,
             LayoutOverrides = options.LayoutOverrides,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,

@@ -402,7 +402,69 @@ with it.
 
 ---
 
-## 6. What to do with this
+## 6. Density relief — drawing the centre at a larger scale
+
+**Status: implemented** (`MetroSvgRenderer.DensityRelief.cs`).
+
+A real network is not evenly dense. Downtown stations sit a couple of hundred
+metres apart, suburban ones kilometres apart, and drawing that faithfully makes
+the middle of the diagram unreadable while the rim is empty. Measured over 23
+networks: local station spacing at the sparse end is **4.4x** the spacing at the
+dense end, up to 6.9x.
+
+The answer is the one the London tube map has used since 1933 — draw the centre
+at a larger effective scale than the rim. Here that is a radial remap
+`r' = R * (r/R)^0.65` about the station centroid weighted by local crowding, so
+the dense part of the network locates the centre rather than the geometric middle
+of a lopsided map.
+
+Two properties matter beyond simplicity. It is monotone in radius, so it cannot
+turn the map inside out. And it is a *global* reshaping rather than a per-edge
+correction, so it does not re-open the trade the annealer already priced between
+edge length, crossings and clearance — which is exactly what sank the four
+per-edge attempts in round 7 of `SCHEMATIC_LAYOUT_STUDY.md`.
+
+It runs **before** the octilinear snap. The relief deliberately moves stations
+off their headings and the snap is what puts them back; the other order fights
+constraints that are already established. Measured: on-heading share is unchanged
+at 98.4%.
+
+### Only where it is needed
+
+A network whose spacing is already even gains nothing and pays the distortion
+anyway. Ungated, relief took 安岭市 from 6% crowded to 47% — and 安岭市 had the
+*least* spread in the corpus to begin with, 2.25x. So the pass measures the
+spread first and returns the layout untouched below 3.0x.
+
+That single gate is what turns the corpus result from a regression into a win:
+crowding went 9.64% -> 10.49% ungated, and 9.64% -> 8.72% gated.
+
+### Corpus, 23 networks, relief off -> on
+
+| | off | on |
+|---|---|---|
+| sparse/dense spacing ratio | 4.38x | **3.18x** |
+| crowded stations | 9.64% | **8.72%** |
+| edge-length spread (CoV) | 0.83 | **0.69** |
+| exactly on a heading | 98.38% | 98.45% |
+| overlapping stroke | 2.83% | 3.00% |
+
+Note the edge-length column. Round 7 failed to move it with a direct length term
+at any weight; reshaping density moves it 17% as a side effect. Uniform spacing
+is a *consequence* of even density, not a thing to optimise for on its own.
+
+### Costs, stated plainly
+
+- Relative position flips rise from 0.6-0.8% to 1.1-3.0%, and mean bearing shift
+  is 3.8-6.7 degrees. That is inherent: expanding the centre distorts the rim,
+  and the London map does the same.
+- Six of 23 networks come out more crowded, not fewer. The mean improves; not
+  every map does.
+- Stroke overlap edges up 2.83% -> 3.00%.
+
+---
+
+## 7. What to do with this
 
 Ordered by value, and none of it is urgent:
 
@@ -425,7 +487,7 @@ geometry would be cargo-culting. Take the distinctions, not the pixels.
 
 ---
 
-## 7. Viewer map elements and reusable line grammar
+## 8. Viewer map elements and reusable line grammar
 
 The Viewer now applies the same separation to manual cartographic content:
 
