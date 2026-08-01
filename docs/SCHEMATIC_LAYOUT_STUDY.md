@@ -742,3 +742,78 @@ coupling) would remove entirely.
 
 Still unaddressed from the Round 4 review, and still the honest blockers for
 shipping: cycle closure, loop lines, and crossing minimisation.
+
+---
+
+## Round 7 — edge-length uniformity: four attempts, all negative
+
+Context: the octilinear snap (`MetroSvgRenderer.OctilinearSnap.cs`) took the
+corpus from 65% to 98.4% of segments exactly on a compass heading. Direction
+regularity is finished. Looking at the results, the remaining visual defect is
+**density**: large empty areas beside packed clusters, and long straight runs
+carrying two stations. Edge-length spread was untouched by the snap — corpus mean
+CoV 0.82 -> 0.83.
+
+Length looked like the obvious next target, and in the same mathematical form:
+with an edge's heading already fixed, its signed length is `(pj - pi) . h`, a
+linear quantity, acting purely along the direction the heading rows leave free.
+No conflict with alignment, no new machinery.
+
+**It does not work.** Four variants, measured on 肇庆 / 安岭市 / 谢菲尔德 / 奥斯特:
+
+| variant | edge-length CoV | crowded stations |
+|---|---|---|
+| snap only (shipped) | 0.53 / 0.64 / 0.70 / 0.68 | 5.9 / 6.2 / 3.4 / 11.3 |
+| clamp both ends, weight 6 | 0.51 / 0.35 / 0.70 / 0.57 | **33.3 / 53.1** / 0.0 / 11.3 |
+| clamp both ends, weight 2 | 0.49 / 0.35 / 0.58 / 0.54 | **23.5 / 56.2** / 0.0 / 11.3 |
+| clamp short edges only | 0.59 / **0.93** / 0.71 / 0.67 | **23.5 / 34.4** / 0.0 / 7.5 |
+| raise the annealer's own ShortEdge/LongEdge weights (2.0/0.5 -> 5.0/1.5) | 0.37 / 0.37 / 0.74 / 0.70 | 7.8 / **43.8** / 0.0 / 18.9 |
+
+Every variant improves the spread on some networks and wrecks station spacing on
+安岭市 and 肇庆. Lowering the weight scales both effects down together; it does
+not change the sign. Clamping only from below — which cannot pull stations
+together, only push them apart — still made crowding worse, and made the spread
+worse too.
+
+### Why
+
+Two reasons, and the second is the one worth remembering.
+
+**The frame is rigid.** With headings fixed, changing one edge's length
+propagates along its whole run and across every station shared with another line.
+There is no local adjustment; the least-squares compromise displaces many
+stations at once and they land wherever the algebra puts them, including on top
+of each other.
+
+**The annealer already solved this trade, with more information than the
+post-pass has.** `LayoutCostWeights` carries `ShortEdge = 2.0` and
+`LongEdge = 0.5` alongside `Crossing = 8.0` and `Clearance = 4.0`. A post-hoc
+length pass re-opens a trade-off the annealer already balanced, while knowing
+nothing about crossings or clearance to non-incident edges. It cannot land on a
+better point; it can only find a worse one on a smaller subspace.
+
+### The distinction that generalises
+
+The snap works and this does not, and the difference is not effort:
+
+- **Octilinearity is a hard geometric property the annealer can only
+  approximate.** Stochastic search gets near a heading; it does not land on it.
+  Projecting onto it afterwards adds information the annealer never had.
+- **Edge-length uniformity is a soft trade the annealer already reasons about**,
+  against crossings, clearance and geographic fidelity. Moving it downstream
+  strictly discards the terms the annealer was weighing it against.
+
+So the rule: a post-layout pass should enforce properties the layout could not
+express, not re-litigate ones it already priced.
+
+### Do not repeat
+
+- Do not add an edge-length term to the octilinear solve, at any weight or with
+  any clamp direction. Four variants, all negative on the same two networks.
+- Do not raise `ShortEdge` / `LongEdge` in isolation. The spread improves and
+  安岭市 goes from 6% crowded to 44%. If length uniformity is ever revisited it
+  has to move together with `Clearance`, and be validated on the full corpus, not
+  on the networks where it happens to help.
+- 安岭市-20260716 is the sentinel: it is small and dense, its baseline spread is
+  already low (0.42), and every length intervention tried so far has cost it
+  30-50 points of crowding. Any future attempt should measure it first.
