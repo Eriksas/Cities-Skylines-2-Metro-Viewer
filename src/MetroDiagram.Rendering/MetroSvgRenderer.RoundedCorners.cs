@@ -79,9 +79,20 @@ public sealed partial class MetroSvgRenderer
     /// underlying polyline. All layers of a route must reuse the same string, or
     /// the base stroke and its overlays will diverge at the corners.
     /// </summary>
-    private static string BuildRouteGeometryAttributes(IReadOnlyList<SvgPoint> points, RouteCornerRounding cornerRounding)
+    /// <param name="displayPoints">
+    /// What gets drawn. May carry bends the layout never placed -- see
+    /// <see cref="BuildStationStraightRuns"/>.
+    /// </param>
+    /// <param name="editPoints">
+    /// The route as the layout produced it. This is what the Viewer's handles and
+    /// the tests read, so derived display geometry must never leak into it.
+    /// </param>
+    private static string BuildRouteGeometryAttributes(
+        IReadOnlyList<SvgPoint> displayPoints,
+        IReadOnlyList<SvgPoint> editPoints,
+        RouteCornerRounding cornerRounding)
     {
-        return $"d=\"{BuildRoundedPathData(points, cornerRounding)}\" data-points=\"{BuildPointList(points)}\"";
+        return $"d=\"{BuildRoundedPathData(displayPoints, cornerRounding)}\" data-points=\"{BuildPointList(editPoints)}\"";
     }
 
     private static string BuildPointList(IReadOnlyList<SvgPoint> points)

@@ -464,7 +464,59 @@ is a *consequence* of even density, not a thing to optimise for on its own.
 
 ---
 
-## 7. What to do with this
+## 7. Keeping plain stops out of the bends
+
+**Status: implemented** (`MetroSvgRenderer.StationStraightRuns.cs`).
+
+A line that changes direction *at* a station puts a small dot in the crook of the
+bend. rmp never does this -- it bends at invisible `Virtual` nodes -- and it is
+one of the things that separates a drawn map from a plotted one. After the
+octilinear snap, 56-68% of our drawn corners still sat on a station.
+
+### Only the plain stops
+
+Not every one is worth moving. A corner at an **interchange** is ordinary in real
+maps: the symbol is large enough to own the bend and it reads as deliberate. It is
+the plain stop, a small dot wedged in the angle, that reads as an accident.
+Splitting the corpus that way turned a 15-21 per map problem into a 3-10 per map
+one.
+
+### The construction, and a hard limit
+
+Moving a corner costs a corner. The layout is exactly octilinear, so the two runs
+meeting at a station intersect *at* that station; leaving it means leaving one of
+the two run lines, and one inserted point cannot rejoin the other without going
+off-grid. Two can: carry the arrival heading past the station, then close the
+offset with a 45-degree connector that lands back on the departure run.
+
+**A 45-degree turn has no clean version of this.** There is no heading between two
+adjacent ones, so the corner cannot be cut -- the line must overshoot and come
+back, leaving a bump of roughly 0.7x the stub length. Ninety-degree turns do have
+a clean cut, because the diagonal bisects them. Most of our station corners are
+45-degree turns, so most get the overshoot.
+
+That is why the stub is short. At 1.6x the stroke the bump was obvious on
+谢菲尔德's 东野火车站; at 0.9x it reads as a slight shoulder. This was reviewed on
+renders at full map scale before shipping, not only zoomed in.
+
+### Corpus, 23 networks
+
+| | off | on |
+|---|---|---|
+| corners on a plain stop | 111 | **22** (-80%) |
+| total corners | 511 | 600 (+17%) |
+| networks made worse | — | **0 / 23** |
+| exactly on a heading | 98.38% | 98.47% |
+| overlapping stroke | 2.96% | 2.95% |
+
+Station positions, crowding and density spread are untouched: this changes drawn
+geometry only. The one metric that moves the wrong way is drawn-segment length
+spread, 0.74 -> 0.84, and that is the metric counting the short connectors the
+pass inserts rather than a change in how the map is laid out.
+
+---
+
+## 8. What to do with this
 
 Ordered by value, and none of it is urgent:
 
@@ -487,7 +539,7 @@ geometry would be cargo-culting. Take the distinctions, not the pixels.
 
 ---
 
-## 8. Viewer map elements and reusable line grammar
+## 9. Viewer map elements and reusable line grammar
 
 The Viewer now applies the same separation to manual cartographic content:
 

@@ -359,6 +359,7 @@ public sealed partial class MetroSvgRenderer
             EnableRouteCornerRounding = options.EnableRouteCornerRounding,
             EnableOctilinearSnap = options.EnableOctilinearSnap,
             EnableDensityRelief = options.EnableDensityRelief,
+            EnableStationStraightRuns = options.EnableStationStraightRuns,
             DensityReliefExponent = options.DensityReliefExponent,
             EnableStationRouteAnchoring = options.EnableStationRouteAnchoring,
             StationRouteAnchorMaxDistance = options.StationRouteAnchorMaxDistance,

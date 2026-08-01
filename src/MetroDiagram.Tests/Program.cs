@@ -85,6 +85,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("route corners round without detaching station markers", RouteCornersRoundWithoutDetachingStationMarkers),
     ("octilinear snap puts runs exactly on a heading", OctilinearSnapPutsRunsExactlyOnAHeading),
     ("density relief only treats networks that are uneven", DensityReliefOnlyTreatsNetworksThatAreUneven),
+    ("plain stops are lifted out of bends, interchanges are not", PlainStopsAreLiftedOutOfBendsInterchangesAreNot),
     ("snapped layout stays clear of the header banner", SnappedLayoutStaysClearOfTheHeaderBanner),
     ("corridor lanes stop lines drawing over each other", CorridorLanesStopLinesDrawingOverEachOther),
     ("portable snapshot is immutable and revision ignores export time", PortableSnapshotIsImmutableAndRevisionIgnoresExportTime),
@@ -7122,6 +7123,134 @@ static double MeasureSpacingSpread(SvgRenderResult result)
     double dense = spacing[(int)(spacing.Count * 0.10)];
     double sparse = spacing[(int)(spacing.Count * 0.90)];
     return dense <= 0 ? 1 : sparse / dense;
+}
+
+static void PlainStopsAreLiftedOutOfBendsInterchangesAreNot()
+{
+    // A line that changes direction at a station puts a small dot in the crook of
+    // the bend. rmp never does this -- it bends at invisible Virtual nodes -- and
+    // it is one of the things that separates a drawn map from a plotted one.
+    //
+    // Interchanges are deliberately left alone: the interchange symbol is large
+    // enough to own a bend and reads as intentional, where a plain stop wedged in
+    // the angle reads as an accident.
+    string samplePath = Path.Combine(FindRepositoryRoot(), "samples", "sample-metro-large-network.json");
+    MetroExportDocument document = MetroJsonLoader.LoadFromFile(samplePath).Document!;
+
+    (int Plain, int Interchange) lifted = MeasureStationCorners(new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal }));
+    (int Plain, int Interchange) asLaidOut = MeasureStationCorners(new MetroSvgRenderer().Render(
+        document, new SvgRenderOptions { LayoutMode = SvgLayoutMode.SchematicAnneal, EnableStationStraightRuns = false }));
+
+    Assert(asLaidOut.Plain > 0, "The sample has no plain stop in a bend; this test proves nothing.");
+    Assert(lifted.Plain < asLaidOut.Plain,
+        $"Plain stops in bends went {asLaidOut.Plain} -> {lifted.Plain}; the pass is not lifting them.");
+    Assert(lifted.Interchange >= asLaidOut.Interchange,
+        $"Interchange corners went {asLaidOut.Interchange} -> {lifted.Interchange}; those are meant to be left alone.");
+}
+
+/// <summary>
+/// Direction changes in the drawn geometry that land on a station, split by
+/// whether that station is an interchange.
+/// </summary>
+static (int Plain, int Interchange) MeasureStationCorners(SvgRenderResult result)
+{
+    const double turnThreshold = 8.0;
+    const double stationTolerance = 6.0;
+
+    XDocument xml = XDocument.Parse(result.Svg);
+    List<((double X, double Y) Point, bool Interchange)> stations = xml
+        .Descendants()
+        .Where(element => element.Name.LocalName == "circle" && element.Attribute("data-station-id") is not null)
+        .Select(element => (
+            Point: (ReadDouble(element.Attribute("cx")), ReadDouble(element.Attribute("cy"))),
+            Interchange: ((string?)element.Attribute("class"))?.Contains("interchange") == true))
+        .ToList();
+
+    int plain = 0;
+    int interchange = 0;
+    foreach (string pathData in GetRouteElements(xml)
+        .Select(route => (string?)route.Attribute("d") ?? string.Empty)
+        .Distinct(StringComparer.Ordinal))
+    {
+        List<(double X, double Y)> drawn = ReadDrawnPolyline(pathData);
+        for (int i = 1; i < drawn.Count - 1; i++)
+        {
+            if (TurnBetween(drawn[i - 1], drawn[i], drawn[i + 1]) < turnThreshold)
+            {
+                continue;
+            }
+
+            foreach (((double X, double Y) point, bool isInterchange) in stations)
+            {
+                if (Distance(point, drawn[i]) > stationTolerance)
+                {
+                    continue;
+                }
+
+                if (isInterchange)
+                {
+                    interchange++;
+                }
+                else
+                {
+                    plain++;
+                }
+
+                break;
+            }
+        }
+    }
+
+    return (plain, interchange);
+}
+
+/// <summary>
+/// The polyline a rounded path traces. A corner is emitted as "L entry Q vertex
+/// exit", so the corner itself is the quadratic's control point and the two
+/// retreat points are not vertices of the drawn line.
+/// </summary>
+static List<(double X, double Y)> ReadDrawnPolyline(string pathData)
+{
+    List<(double X, double Y)> drawn = [];
+    string[] tokens = pathData.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    for (int i = 0; i < tokens.Length; i++)
+    {
+        if (tokens[i] is "M" or "L")
+        {
+            drawn.Add(ParsePathPoint(tokens[i + 1]));
+            i++;
+        }
+        else if (tokens[i] == "Q")
+        {
+            if (drawn.Count > 0)
+            {
+                drawn.RemoveAt(drawn.Count - 1);
+            }
+
+            drawn.Add(ParsePathPoint(tokens[i + 1]));
+            i += 2;
+        }
+    }
+
+    return drawn;
+}
+
+static double TurnBetween((double X, double Y) from, (double X, double Y) vertex, (double X, double Y) to)
+{
+    double ax = from.X - vertex.X;
+    double ay = from.Y - vertex.Y;
+    double bx = to.X - vertex.X;
+    double by = to.Y - vertex.Y;
+    double la = Math.Sqrt((ax * ax) + (ay * ay));
+    double lb = Math.Sqrt((bx * bx) + (by * by));
+    if (la < 1e-9 || lb < 1e-9)
+    {
+        return 0;
+    }
+
+    double dot = Math.Clamp(((ax * bx) + (ay * by)) / (la * lb), -1, 1);
+    return 180 - (Math.Acos(dot) * 180 / Math.PI);
 }
 
 static IReadOnlyList<XElement> GetRouteElements(XDocument xml)

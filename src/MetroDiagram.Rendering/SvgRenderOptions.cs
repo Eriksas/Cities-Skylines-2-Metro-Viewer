@@ -125,6 +125,13 @@ public sealed class SvgRenderOptions
     /// </summary>
     public bool EnableDensityRelief { get; init; } = true;
 
+    /// <summary>
+    /// Carries the line straight past a plain stop that would otherwise sit in a
+    /// bend, turning just after it instead. Interchanges keep their corners.
+    /// Display geometry only -- <c>data-points</c> is unaffected.
+    /// </summary>
+    public bool EnableStationStraightRuns { get; init; } = true;
+
     /// <summary>Radial exponent; 1 leaves the layout alone, lower expands the core more.</summary>
     public double DensityReliefExponent { get; init; } = DensityReliefDefaultExponent;
 

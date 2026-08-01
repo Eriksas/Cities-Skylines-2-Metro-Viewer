@@ -369,7 +369,10 @@ public sealed partial class MetroSvgRenderer
                         ? OffsetRouteForParallelCorridor(polyline.Points, family.FamilyKey, parallelPlan)
                         : polyline.Points;
                 drawnPoints = InsertUserBends(drawnPoints, stationPoints, options.LayoutOverrides);
-                string geometryAttributes = BuildRouteGeometryAttributes(drawnPoints, GetRouteCornerRounding(options));
+                string geometryAttributes = BuildRouteGeometryAttributes(
+                    BuildStationStraightRuns(drawnPoints, stationPoints, stationsById, options),
+                    drawnPoints,
+                    GetRouteCornerRounding(options));
                 string pathPointAttributes = routePointSet.Source == "pathPoints"
                     ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""
                     : string.Empty;

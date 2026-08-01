@@ -251,7 +251,10 @@ public sealed partial class MetroSvgRenderer
         DisplayLineFamily family = renderRoute.Family;
         MetroLine line = renderRoute.Line;
         RoutePointSet routePointSet = renderRoute.RoutePointSet;
-        string geometryAttributes = BuildRouteGeometryAttributes(command.Points, GetRouteCornerRounding(options));
+        // The geographic corridor pipeline has no station lookup in scope, so it
+        // draws the route as laid out.
+        string geometryAttributes = BuildRouteGeometryAttributes(
+            command.Points, command.Points, GetRouteCornerRounding(options));
         string pathPointAttributes = routePointSet.Source == "pathPoints"
             ? $" data-path-point-count=\"{routePointSet.OriginalPathPointCount}\" data-cleaned-path-point-count=\"{routePointSet.CleanedPathPointCount}\" data-path-reduction-ratio=\"{Format(routePointSet.ReductionRatio)}\" data-max-path-segment-length=\"{Format(routePointSet.MaxPathSegmentLength)}\" data-suspicious-jump-count=\"{routePointSet.SuspiciousJumpCount}\" data-path-simplification-tolerance=\"{Format(routePointSet.EffectiveSimplificationTolerance)}\""
             : string.Empty;
