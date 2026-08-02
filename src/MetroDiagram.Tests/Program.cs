@@ -6870,12 +6870,21 @@ static void InGameRouteCornersMatchTheDesktopRoundingBound()
     Assert(drawn.Count == stations.Length,
         $"Rounding changed the route's vertex count: {drawn.Count} instead of {stations.Length}.");
 
-    // With rounding off it is the polyline it replaced.
+    // Rounding off has to restore the exact element that has already shipped
+    // in-game, not just a straightened <path>: CS2's Gameface browser renders an
+    // SVG construct it cannot parse as nothing, so this flag is the way back.
     XDocument straight = XDocument.Parse(new PortableMetroSvgRenderer().Render(
         snapshot,
         new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal, RoundRouteCorners = false }).Svg);
     Assert(!straight.ToString().Contains(" Q ", StringComparison.Ordinal),
         "RoundRouteCorners = false still emitted curve commands.");
+    List<XElement> straightRoutes = straight.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "route")
+        .ToList();
+    Assert(straightRoutes.Count > 0 && straightRoutes.All(element => element.Name.LocalName == "polyline"),
+        "RoundRouteCorners = false must emit <polyline points>, the element the in-game panel is known to render.");
+    Assert(straightRoutes.All(element => element.Attribute("points") is not null),
+        "The unrounded in-game route lost its points attribute.");
 }
 
 static void RouteCornersRoundWithoutDetachingStationMarkers()

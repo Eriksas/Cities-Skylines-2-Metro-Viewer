@@ -1292,7 +1292,13 @@ namespace MetroDiagram.Engine
                     continue;
                 }
 
-                svg.Append("<path class=\"route\" data-line-id=\"").Append(Xml(route.Route.Line.Id))
+                // Rounding off restores the exact element this used to emit, not a
+                // straightened <path>. CS2's Gameface browser has a narrower SVG
+                // subset than a desktop one and renders what it cannot parse as
+                // nothing, so the flag has to be a real way back to the shape that
+                // has already shipped in-game.
+                bool rounded = cornerRounding.IsEnabled;
+                svg.Append(rounded ? "<path" : "<polyline").Append(" class=\"route\" data-line-id=\"").Append(Xml(route.Route.Line.Id))
                     .Append("\" data-display-family=\"").Append(Xml(route.Route.DisplayName))
                     .Append("\" data-route-source=\"").Append(route.UsesPathPoints ? "pathPoints" : "stops")
                     .Append("\" data-raw-stop-count=\"").Append(route.Route.Line.Stops.Count)
@@ -1300,8 +1306,10 @@ namespace MetroDiagram.Engine
                     .Append("\" data-route-chain-normalized=\"").Append(route.RenderedStopCount < route.Route.Line.Stops.Count ? "true" : "false")
                     .Append("\" fill=\"none\" stroke=\"").Append(Xml(NormalizeColor(route.Route.Line.Color)))
                     .Append("\" stroke-width=\"").Append(F(options.RouteWidth))
-                    .Append("\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"")
-                    .Append(BuildRoundedPathData(route.Points, cornerRounding)).Append("\"/>");
+                    .Append("\" stroke-linecap=\"round\" stroke-linejoin=\"round\" ")
+                    .Append(rounded ? "d=\"" : "points=\"")
+                    .Append(rounded ? BuildRoundedPathData(route.Points, cornerRounding) : Points(route.Points))
+                    .Append("\"/>");
             }
             bool useSchematicRouteChains = options.LayoutMode == PortableLayoutMode.SchematicAnneal;
             HashSet<string> terminalIds = FindTerminalIds(routes, useSchematicRouteChains);
