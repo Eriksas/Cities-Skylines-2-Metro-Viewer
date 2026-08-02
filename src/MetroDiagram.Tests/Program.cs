@@ -95,6 +95,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("portable geographic renderer matches desktop route semantics", PortableGeographicRendererMatchesDesktopRouteSemantics),
     ("portable schematic anneal is deterministic valid XML", PortableSchematicAnnealIsDeterministicValidXml),
     ("portable schematic collapses mirrored out-and-back route chains", PortableSchematicCollapsesMirroredOutAndBackRouteChains),
+    ("in-game route corners match the desktop rounding bound", InGameRouteCornersMatchTheDesktopRoundingBound),
     ("portable labels use collision-aware candidate positions", PortableLabelsUseCollisionAwareCandidatePositions),
     ("portable schematic anneal handles 200 stations within budget", PortableSchematicAnnealHandlesTwoHundredStationsWithinBudget),
     ("portable empty snapshot exports and renders safely", PortableEmptySnapshotExportsAndRendersSafely),
@@ -4027,7 +4028,7 @@ static void PortableSchematicCollapsesMirroredOutAndBackRouteChains()
         snapshot,
         new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal }).Svg);
     XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
-    string[] renderedPoints = ((string?)route.RouteGeometryPoints() ?? string.Empty)
+    string[] renderedPoints = route.RouteLayoutPoints()
         .Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     Assert((string?)route.Attribute("data-route-chain-normalized") == "true", "Portable renderer did not report out-and-back normalization.");
@@ -4246,7 +4247,7 @@ static void PortableSchematicKeepsSingleFamilyNetworksOnStablePreviewCanvas()
     Assert((string?)root.Attribute("overflow") == "hidden", "Portable SVG no longer contains the overflow safety boundary.");
 
     XElement route = xml.Descendants().Single(element => (string?)element.Attribute("class") == "route");
-    List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
+    List<(double X, double Y)> routePoints = SplitPoints(route.RouteLayoutPoints()).ToList();
     Assert(routePoints.Count == stops.Count, "Single-family schematic lost route stations.");
     Assert(routePoints.All(point => point.X >= 0 && point.X <= options.Width && point.Y >= 0 && point.Y <= options.Height),
         "Single-family schematic route escaped the SVG canvas.");
@@ -6809,6 +6810,74 @@ static void AssertLegendDoesNotCoverRoutes(XDocument xml, IReadOnlyList<XElement
     Assert(maxRouteX <= legendX - 20, $"{context}: route geometry reached x={maxRouteX:0.###}, too close to legend at x={legendX:0.###}.");
 }
 
+static void InGameRouteCornersMatchTheDesktopRoundingBound()
+{
+    // The in-game renderer draws the same corner as the desktop one. It has to:
+    // the in-game preview is what a player checks before exporting, and a corner
+    // that looks different there makes the preview a liar.
+    //
+    // Same deviation bound as the desktop test, and for the same reason -- our
+    // corners sit on stations, so a curve that falls too far from the vertex
+    // leaves the station marker off the line.
+    MetroSnapshotStation[] stations =
+    [
+        new MetroSnapshotStation("a", "Alpha", 0, 0, ["line_1"], false),
+        new MetroSnapshotStation("b", "Bravo", 400, 0, ["line_1"], false),
+        new MetroSnapshotStation("c", "Charlie", 700, 300, ["line_1"], false),
+        new MetroSnapshotStation("d", "Delta", 700, 800, ["line_1"], false),
+        new MetroSnapshotStation("e", "Echo", 300, 1200, ["line_1"], false)
+    ];
+    MetroNetworkSnapshot snapshot = new(
+        "Corner City",
+        "2026-08-02T00:00:00Z",
+        stations,
+        [new MetroSnapshotLine("line_1", "Line 1", "#1565C0", "metro", ["a", "b", "c", "d", "e"], [])]);
+
+    PortableRenderOptions options = new() { LayoutMode = PortableLayoutMode.SchematicAnneal };
+    XDocument xml = XDocument.Parse(new PortableMetroSvgRenderer().Render(snapshot, options).Svg);
+    List<XElement> routes = xml.Descendants()
+        .Where(element => (string?)element.Attribute("class") == "route")
+        .ToList();
+
+    Assert(routes.Count > 0, "In-game renderer drew no route.");
+    foreach (XElement route in routes)
+    {
+        Assert(route.Name.LocalName == "path", "In-game route strokes must be <path> to carry rounded corners.");
+    }
+
+    int corners = 0;
+    foreach (XElement route in routes)
+    {
+        foreach ((double X, double Y)[] corner in ReadPathCorners((string?)route.Attribute("d")))
+        {
+            corners++;
+            (double X, double Y) start = corner[0];
+            (double X, double Y) vertex = corner[1];
+            (double X, double Y) end = corner[2];
+            double offsetX = ((start.X - vertex.X) + (end.X - vertex.X)) / 4;
+            double offsetY = ((start.Y - vertex.Y) + (end.Y - vertex.Y)) / 4;
+            double deviation = Math.Sqrt((offsetX * offsetX) + (offsetY * offsetY));
+            Assert(deviation <= options.RouteWidth / 2,
+                $"An in-game rounded corner falls {deviation:F2} from its vertex, past the {options.RouteWidth / 2:F2} stroke half-width.");
+        }
+    }
+
+    Assert(corners > 0, "No in-game corner was rounded.");
+
+    // The curve must pass through the layout's own vertices, not replace them.
+    XElement single = routes.Single();
+    List<(double X, double Y)> drawn = SplitPoints(single.RouteLayoutPoints()).ToList();
+    Assert(drawn.Count == stations.Length,
+        $"Rounding changed the route's vertex count: {drawn.Count} instead of {stations.Length}.");
+
+    // With rounding off it is the polyline it replaced.
+    XDocument straight = XDocument.Parse(new PortableMetroSvgRenderer().Render(
+        snapshot,
+        new PortableRenderOptions { LayoutMode = PortableLayoutMode.SchematicAnneal, RoundRouteCorners = false }).Svg);
+    Assert(!straight.ToString().Contains(" Q ", StringComparison.Ordinal),
+        "RoundRouteCorners = false still emitted curve commands.");
+}
+
 static void RouteCornersRoundWithoutDetachingStationMarkers()
 {
     // Route strokes are <path> with geometric corner rounding, not <polyline>
@@ -7744,5 +7813,66 @@ static class RouteGeometryXmlExtensions
     public static XAttribute? RouteGeometryPoints(this XElement element)
     {
         return element.Attribute("data-points") ?? element.Attribute("points");
+    }
+
+    /// <summary>
+    /// The layout polyline behind a drawn route, whichever way the renderer
+    /// recorded it. The desktop keeps it verbatim in <c>data-points</c>; the
+    /// in-game renderer has no editor to serve, so it only emits the rounded
+    /// <c>d</c> and the vertices are read back out of it.
+    /// </summary>
+    public static string RouteLayoutPoints(this XElement element)
+    {
+        XAttribute? recorded = element.RouteGeometryPoints();
+        if (recorded is not null)
+        {
+            return (string?)recorded ?? string.Empty;
+        }
+
+        return VerticesFromPathData((string?)element.Attribute("d"));
+    }
+
+    /// <summary>
+    /// Recovers the corner vertices from rounded path data. A rounded corner is
+    /// written as "L entry Q vertex exit", so the vertex is the quadratic's
+    /// control point and the two retreat points are scaffolding.
+    /// </summary>
+    public static string VerticesFromPathData(string? pathData)
+    {
+        string[] tokens = (pathData ?? string.Empty).Split([' '], StringSplitOptions.RemoveEmptyEntries);
+        List<string> vertices = [];
+        for (int i = 0; i < tokens.Length;)
+        {
+            switch (tokens[i])
+            {
+                case "M":
+                case "L":
+                    if (i + 1 < tokens.Length)
+                    {
+                        vertices.Add(tokens[i + 1]);
+                    }
+
+                    i += 2;
+                    break;
+                case "Q":
+                    if (vertices.Count > 0)
+                    {
+                        vertices.RemoveAt(vertices.Count - 1);   // the entry retreat point
+                    }
+
+                    if (i + 1 < tokens.Length)
+                    {
+                        vertices.Add(tokens[i + 1]);             // the corner itself
+                    }
+
+                    i += 3;                                      // skip the exit retreat point
+                    break;
+                default:
+                    i++;
+                    break;
+            }
+        }
+
+        return string.Join(" ", vertices);
     }
 }

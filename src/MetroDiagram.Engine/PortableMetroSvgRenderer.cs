@@ -12,7 +12,7 @@ namespace MetroDiagram.Engine
     /// It intentionally implements the in-game preview profiles only; the full
     /// cartographic renderer remains in MetroDiagram.Rendering.
     /// </summary>
-    public sealed class PortableMetroSvgRenderer
+    public sealed partial class PortableMetroSvgRenderer
     {
         private const string SvgFontFamily = "Overpass, 'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans', Arial, sans-serif";
 
@@ -155,6 +155,7 @@ namespace MetroDiagram.Engine
                 ShowIntercityRail = options.ShowIntercityRail,
                 AnnealAttemptLimit = options.AnnealAttemptLimit,
                 AdaptCanvasHeightToNetwork = options.AdaptCanvasHeightToNetwork,
+                RoundRouteCorners = options.RoundRouteCorners,
                 TitleSuffix = options.TitleSuffix,
                 LegendHeader = options.LegendHeader
             };
@@ -1258,6 +1259,10 @@ namespace MetroDiagram.Engine
                 stationPoints,
                 projector,
                 intercityRoutes);
+            // Intercity rail keeps its polyline: its sleeper marks are sampled
+            // along the raw arc length, and rounding a corner underneath them
+            // would slide every mark past its computed position.
+            RouteCornerRounding cornerRounding = GetRouteCornerRounding(options);
             foreach (RenderedRoute route in renderedRoutes)
             {
                 if (route.IsIntercity)
@@ -1287,7 +1292,7 @@ namespace MetroDiagram.Engine
                     continue;
                 }
 
-                svg.Append("<polyline class=\"route\" data-line-id=\"").Append(Xml(route.Route.Line.Id))
+                svg.Append("<path class=\"route\" data-line-id=\"").Append(Xml(route.Route.Line.Id))
                     .Append("\" data-display-family=\"").Append(Xml(route.Route.DisplayName))
                     .Append("\" data-route-source=\"").Append(route.UsesPathPoints ? "pathPoints" : "stops")
                     .Append("\" data-raw-stop-count=\"").Append(route.Route.Line.Stops.Count)
@@ -1295,8 +1300,8 @@ namespace MetroDiagram.Engine
                     .Append("\" data-route-chain-normalized=\"").Append(route.RenderedStopCount < route.Route.Line.Stops.Count ? "true" : "false")
                     .Append("\" fill=\"none\" stroke=\"").Append(Xml(NormalizeColor(route.Route.Line.Color)))
                     .Append("\" stroke-width=\"").Append(F(options.RouteWidth))
-                    .Append("\" stroke-linecap=\"round\" stroke-linejoin=\"round\" points=\"")
-                    .Append(Points(route.Points)).Append("\"/>");
+                    .Append("\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"")
+                    .Append(BuildRoundedPathData(route.Points, cornerRounding)).Append("\"/>");
             }
             bool useSchematicRouteChains = options.LayoutMode == PortableLayoutMode.SchematicAnneal;
             HashSet<string> terminalIds = FindTerminalIds(routes, useSchematicRouteChains);

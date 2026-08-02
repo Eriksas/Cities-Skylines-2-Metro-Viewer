@@ -43,6 +43,13 @@ namespace MetroDiagram.Engine
         public bool AdaptCanvasHeightToNetwork { get; set; } = true;
 
         /// <summary>
+        /// Draws route corners as geometric curves instead of relying on
+        /// <c>stroke-linejoin: round</c>, whose effective radius is only half the
+        /// stroke width. Matches the desktop renderer's default.
+        /// </summary>
+        public bool RoundRouteCorners { get; set; } = true;
+
+        /// <summary>
         /// Appended to the city name to form the sheet title (defaults keep the
         /// historical "{city} Metro Diagram"). Null or empty falls back to the
         /// default so existing outputs stay byte-identical.
