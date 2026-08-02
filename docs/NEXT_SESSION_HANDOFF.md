@@ -192,13 +192,13 @@ Reference and comparison layouts:
 ```text
 geographic (faithful geometry fallback)
 schematic-map
-schematic-v2
 ```
 
-Removed from the toolchain (2026-07):
+Removed from the toolchain (2026-07 / 2026-08):
 
 ```text
 schematic-lite
+schematic-v2   (mode only; its layout engine still draws schematic-map)
 ```
 
 ## Important Current Facts
@@ -216,7 +216,7 @@ schematic-lite
   - `Auto` follows the game locale
   - `English` and `简体中文` override this mod's options text only
 - Product/regression scripts default to `schematic-anneal`; alpha bundles also
-  retain geographic, schematic-map, and schematic-v2 evidence.
+  retain geographic and schematic-map evidence.
 - Alpha validation index:
   - `artifacts\alpha-validation\index.md`
   - `artifacts\alpha-validation\index.csv`
@@ -325,7 +325,7 @@ Good next tasks:
   same-number/same-color branch lanes stay centered when collapsed; adjacent
   different-color lines offset beside them.
 - Prefer product-map polish that improves hierarchy and framing first; do not
-  restart schematic-v2 route-chain or old schematic-lite overlap work unless
+  restart schematic-map route-chain or old schematic-lite overlap work unless
   a future task explicitly asks for it.
 - Watch for regressions where a route that should be straight becomes a shallow
   zigzag; use the product-candidate audit and debug overlay rather than adding

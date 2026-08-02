@@ -6,6 +6,27 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Retire The `schematic-v2` Mode, Keep Its Layout Engine
+
+Decision: remove `SvgLayoutMode.SchematicV2` and every entry point to it (CLI
+`--layout`, Viewer dropdown, tests). Keep `MetroSvgRenderer.SchematicV2.cs`,
+its member names, and the `schematic-v2-*` attributes it writes into the SVG.
+
+Reason: `schematic-map` was built on the same engine, not beside it. Inside the
+renderer only two places ever tested for the mode itself; everything else went
+through a predicate that covered both. Deleting the mode therefore removes a
+menu entry, not 2900 lines. The emitted `schematic-v2-*` attribute names are
+read by the Viewer's edit script and asserted by the tests, so renaming them
+would change `schematic-map` output for no benefit.
+
+Consequence: `schematic-map` is the only mode on that engine, and the engine
+keeps the older name. A saved Viewer setting of `schematic-v2` normalizes to
+`schematic-map`; `--layout schematic-v2` fails with a message naming the
+replacement. Two corridor tests moved to `schematic-map` and needed their
+synthetic fixtures placed on exact 45-degree headings first: `schematic-map`
+runs normalization passes that `schematic-v2` did not, and those passes moved
+an off-heading fixture enough to break the shared run the tests were checking.
+
 ## Render Railway Texture As Explicit Arc-length Marks
 
 Decision: render passenger intercity rail as a continuous neutral bed plus

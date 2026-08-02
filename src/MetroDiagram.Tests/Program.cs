@@ -450,7 +450,7 @@ static void TransitMapLegendExplainsExpressMarker()
 {
     MetroExportDocument document = CreateSchematicV2ServiceVariantSimplificationDocument();
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(
-        SvgLayoutMode.SchematicV2,
+        SvgLayoutMode.SchematicMap,
         width: 980,
         height: 620,
         legendWidth: 220,
@@ -489,7 +489,7 @@ static void TransitMapRouteBadgesAvoidPlacedLabels()
 {
     MetroExportDocument document = CreateTransitMapBadgeCollisionDocument();
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(
-        SvgLayoutMode.SchematicV2,
+        SvgLayoutMode.SchematicMap,
         width: 980,
         height: 620,
         legendWidth: 220,
@@ -573,12 +573,12 @@ static void SchematicV2PreservesStopOrderAndAdjacency()
     MetroExportDocument document = CreateSchematicOverlapDocument(
         new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b", "station_c"]));
 
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, minStationSpacing: 64);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, minStationSpacing: 64);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
     List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
 
-    Assert((string?)xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes").Attribute("data-layout") == "schematic-v2", "Schematic-v2 did not record its layout mode.");
+    Assert((string?)xml.Descendants().First(element => element.Name.LocalName == "g" && (string?)element.Attribute("id") == "routes").Attribute("data-layout") == "schematic-map", "Schematic-map did not record its layout mode.");
     Assert(routePoints.Count == 3, "Schematic-v2 route did not preserve stop count/order.");
     Assert(Distance(routePoints[0], GetStationCenter(xml, "station_a")) < 0.001, "Schematic-v2 route first point is not station A.");
     Assert(Distance(routePoints[1], GetStationCenter(xml, "station_b")) < 0.001, "Schematic-v2 route second point is not station B.");
@@ -592,7 +592,7 @@ static void SchematicV2PreservesInterchangeNode()
         new SchematicLineSpec("line_2", "Line 2", ["station_a", "station_b"]),
         new SchematicLineSpec("line_8", "Line 8", ["station_c", "station_b"]));
 
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, minStationSpacing: 64);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, minStationSpacing: 64);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     (double X, double Y) interchange = GetStationCenter(xml, "station_b");
 
@@ -605,7 +605,7 @@ static void SchematicV2PreservesInterchangeNode()
 static void SchematicV2SpacingDoesNotReverseCloseStations()
 {
     MetroExportDocument document = CreateCloseSchematicStationDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 700, height: 460, legendWidth: 160, minStationSpacing: 40);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 700, height: 460, legendWidth: 160, minStationSpacing: 40);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
     List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
@@ -621,7 +621,7 @@ static void SchematicV2ReportsRemainingDenseStationPairs()
         new SchematicLineSpec("line_8", "Line 8", ["station_d", "station_e", "station_f"]));
 
     SvgRenderOptions options = CreateSchematicOverlapTestOptions(
-        SvgLayoutMode.SchematicV2,
+        SvgLayoutMode.SchematicMap,
         width: 700,
         height: 460,
         legendWidth: 160,
@@ -656,7 +656,7 @@ static void SchematicV2RelaxesSharpDetourStation()
         }
     };
 
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 760, height: 520, legendWidth: 180);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 760, height: 520, legendWidth: 180);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement route = GetRouteElements(xml).Single();
     List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
@@ -671,7 +671,7 @@ static void SchematicV2RelaxesSharpDetourStation()
 static void SchematicV2UsesTopologyRichFamilyVariantForSharedCorridors()
 {
     MetroExportDocument document = CreateSchematicV2SharedCorridorDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 900, height: 560, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 900, height: 560, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement line10 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "10号线");
@@ -685,7 +685,7 @@ static void SchematicV2UsesTopologyRichFamilyVariantForSharedCorridors()
 static void SchematicV2PreservesSharedCorridorEdge()
 {
     MetroExportDocument document = CreateSchematicV2SharedCorridorDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 900, height: 560, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 900, height: 560, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     (double X, double Y) sharedStart = GetStationCenter(xml, "station_shared_start");
     (double X, double Y) sharedEnd = GetStationCenter(xml, "station_shared_end");
@@ -701,7 +701,7 @@ static void SchematicV2PreservesSharedCorridorEdge()
 static void SchematicV2SharedEdgeGuidesDoNotInjectNeighboringBranchStations()
 {
     MetroExportDocument document = CreateSchematicV2BranchingSharedEdgeDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement line3 = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 3");
@@ -725,7 +725,7 @@ static void SchematicV2SharedEdgeGuidesDoNotInjectNeighboringBranchStations()
 static void SchematicV2RendersExactSharedPlatformCorridors()
 {
     MetroExportDocument document = CreateSchematicV2ExactSharedPlatformDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
@@ -750,7 +750,7 @@ static void SchematicV2RendersExactSharedPlatformCorridors()
 static void SchematicV2RendersExactSharedEdgeWithExpressFamily()
 {
     MetroExportDocument document = CreateSchematicV2ExpressExactSharedEdgeDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
@@ -775,7 +775,7 @@ static void SchematicV2RendersExactSharedEdgeWithExpressFamily()
 static void SchematicV2RendersThreeFamilyExactSharedEdgeVisibly()
 {
     MetroExportDocument document = CreateSchematicV2ThreeFamilyExactSharedEdgeDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
@@ -800,7 +800,7 @@ static void SchematicV2RendersThreeFamilyExactSharedEdgeVisibly()
 static void SchematicV2CollapsesSameNumberBranchPlatformLanes()
 {
     MetroExportDocument document = CreateSchematicV2BranchSharedPlatformDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
@@ -831,7 +831,7 @@ static void SchematicV2CollapsesSameNumberBranchPlatformLanes()
 static void SchematicV2OrdersSharedPlatformLanesByContinuationSide()
 {
     MetroExportDocument document = CreateSchematicV2SideOrderedSharedPlatformDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> platformCorridors = GetSchematicV2ParallelCorridorElements(xml)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "exact-shared-platform")
@@ -853,7 +853,7 @@ static void SchematicV2OrdersSharedPlatformLanesByContinuationSide()
 static void SchematicV2DetectsGeometrySharedCorridorForSkipStopService()
 {
     MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement local = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 2");
@@ -876,7 +876,7 @@ static void SchematicV2ChoosesCanonicalServiceRouteByStopCount()
     MetroExportDocument document = CreateSchematicV2ServiceVariantSimplificationDocument();
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
     List<(double X, double Y)> routePoints = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
@@ -897,7 +897,7 @@ static void SchematicV2HidesExpressVariantGeometry()
 
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220)).Svg);
     IReadOnlyList<XElement> familyRoutes = GetRouteElements(xml)
         .Where(route => (string?)route.Attribute("data-display-family-key") == "Line 10")
         .ToList();
@@ -912,7 +912,7 @@ static void SchematicV2MarksExpressServiceFamilyWithCenterStripe()
     MetroExportDocument document = CreateSchematicV2ServiceVariantSimplificationDocument();
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220)).Svg);
     IReadOnlyList<XElement> stripes = GetExpressMarkerElements(xml)
         .Where(element => (string?)element.Attribute("data-display-family-key") == "Line 10")
         .ToList();
@@ -1649,7 +1649,7 @@ static void SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes()
     MetroLine expressSource = document.Network!.Lines!.Single(line => line.Id == "line_10_express");
     Assert(expressSource.Stops!.SequenceEqual(["station_local_start", "station_corridor_mid", "station_corridor_end", "station_line10_terminal"]), "Fixture express raw stops were unexpectedly changed.");
 
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     XElement express = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
     List<(double X, double Y)> points = SplitPoints((string?)express.RouteGeometryPoints()).ToList();
@@ -1674,7 +1674,7 @@ static void SchematicV2ReconstructsFollowerRouteChainWithPassThroughNodes()
 static void SchematicV2MaterializesRouteGuideAsParallelCorridor()
 {
     MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> parallelCorridors = GetSchematicV2ParallelCorridorElements(xml);
 
@@ -1693,10 +1693,10 @@ static void SchematicV2SharedCorridorIsStableAcrossSizePresets()
     MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorDocument();
     XDocument standard = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 2200, height: 1400, legendWidth: 240)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 2200, height: 1400, legendWidth: 240)).Svg);
     XDocument poster = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 3200, height: 2000, legendWidth: 240)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 3200, height: 2000, legendWidth: 240)).Svg);
 
     IReadOnlyList<XElement> standardCorridors = GetSchematicV2ParallelCorridorElements(standard)
         .Where(element => (string?)element.Attribute("data-schematic-v2-parallel-corridor-source") == "geometry-route-guide")
@@ -1722,7 +1722,7 @@ static void SchematicV2SharedCorridorIsStableAcrossSizePresets()
 static void SchematicV2RendersExpressStripeOnParallelCorridor()
 {
     MetroExportDocument document = CreateSchematicV2GeometrySharedCorridorWithExpressFamilyDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     IReadOnlyList<XElement> corridorStripes = GetExpressMarkerElements(xml)
@@ -1743,7 +1743,7 @@ static void SchematicV2NormalizesCanonicalBacktrackingRouteChains()
     MetroExportDocument document = CreateSchematicV2BacktrackingCanonicalRouteDocument();
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
     List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
@@ -1760,7 +1760,7 @@ static void SchematicV2StraightensZigzagTerminalTails()
     MetroExportDocument document = CreateSchematicV2ZigzagTerminalTailDocument();
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(
         document,
-        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 1600, height: 1000, legendWidth: 220)).Svg);
+        CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 1600, height: 1000, legendWidth: 220)).Svg);
 
     XElement route = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Tail Line");
     List<(double X, double Y)> points = SplitPoints((string?)route.RouteGeometryPoints()).ToList();
@@ -1781,7 +1781,7 @@ static void SchematicV2StraightensZigzagTerminalTails()
 static void SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors()
 {
     MetroExportDocument document = CreateSchematicV2CrossingOnlyDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     XElement vertical = GetRouteElements(xml).Single(route => (string?)route.Attribute("data-display-family-key") == "Line 10");
@@ -1793,7 +1793,7 @@ static void SchematicV2DoesNotMistakeSingleCrossingsForSharedCorridors()
 static void SchematicV2DoesNotRenderParallelCorridorForSingleCrossing()
 {
     MetroExportDocument document = CreateSchematicV2CrossingOnlyDocument();
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, width: 980, height: 620, legendWidth: 220);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, width: 980, height: 620, legendWidth: 220);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
 
     Assert(GetSchematicV2ParallelCorridorElements(xml).Count == 0, "Single-point crossing incorrectly rendered a schematic-v2 parallel corridor.");
@@ -1805,7 +1805,7 @@ static void SchematicV2DoesNotMergeNonSharedLines()
         new SchematicLineSpec("line_2", "2号线", ["station_a", "station_b"]),
         new SchematicLineSpec("line_10", "10号线", ["station_b", "station_c"]));
 
-    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicV2, minStationSpacing: 64);
+    SvgRenderOptions options = CreateSchematicOverlapTestOptions(SvgLayoutMode.SchematicMap, minStationSpacing: 64);
     XDocument xml = XDocument.Parse(new MetroSvgRenderer().Render(document, options).Svg);
     IReadOnlyList<XElement> routes = GetRouteElements(xml);
 
@@ -2119,7 +2119,7 @@ static void IntercityRenderersKeepRailHiddenAndGeographicOnly()
         document,
         new SvgRenderOptions
         {
-            LayoutMode = SvgLayoutMode.SchematicV2,
+            LayoutMode = SvgLayoutMode.SchematicMap,
             EnableIntercityRail = true
         }).Svg);
     Assert(!desktopSchematic.Descendants().Any(element =>
@@ -5607,13 +5607,18 @@ static MetroExportDocument CreateSchematicV2ExactSharedPlatformDocument()
         {
             Stations =
             [
-                new MetroStation { Id = "station_3_west", Name = "Line 3 West", Position = new MetroPosition { X = -120, Z = 20 }, Lines = ["line_3"] },
-                new MetroStation { Id = "station_4_west", Name = "Line 4 West", Position = new MetroPosition { X = -120, Z = -20 }, Lines = ["line_4"] },
+                // Stubs leave the shared chain at exactly 45 degrees and every edge
+                // is the same length, so the schematic-map normalization passes have
+                // nothing to move. The chain itself is what the test is about: an
+                // off-heading fixture gets straightened, and the straightening is
+                // what breaks the shared run, not the corridor detector.
+                new MetroStation { Id = "station_3_west", Name = "Line 3 West", Position = new MetroPosition { X = -100, Z = 100 }, Lines = ["line_3"] },
+                new MetroStation { Id = "station_4_west", Name = "Line 4 West", Position = new MetroPosition { X = -100, Z = -100 }, Lines = ["line_4"] },
                 new MetroStation { Id = "station_shared_a", Name = "Shared A", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["line_3", "line_4"] },
                 new MetroStation { Id = "station_shared_b", Name = "Shared B", Position = new MetroPosition { X = 100, Z = 0 }, Lines = ["line_3", "line_4"] },
                 new MetroStation { Id = "station_shared_c", Name = "Shared C", Position = new MetroPosition { X = 200, Z = 0 }, Lines = ["line_3", "line_4"] },
-                new MetroStation { Id = "station_3_east", Name = "Line 3 East", Position = new MetroPosition { X = 320, Z = 30 }, Lines = ["line_3"] },
-                new MetroStation { Id = "station_4_east", Name = "Line 4 East", Position = new MetroPosition { X = 320, Z = -30 }, Lines = ["line_4"] }
+                new MetroStation { Id = "station_3_east", Name = "Line 3 East", Position = new MetroPosition { X = 300, Z = 100 }, Lines = ["line_3"] },
+                new MetroStation { Id = "station_4_east", Name = "Line 4 East", Position = new MetroPosition { X = 300, Z = -100 }, Lines = ["line_4"] }
             ],
             Lines =
             [
@@ -5719,9 +5724,11 @@ static MetroExportDocument CreateSchematicV2BranchSharedPlatformDocument()
             [
                 new MetroStation { Id = "station_a", Name = "A", Position = new MetroPosition { X = 0, Z = 0 }, Lines = ["line_5", "line_7", "line_7_branch"] },
                 new MetroStation { Id = "station_b", Name = "B", Position = new MetroPosition { X = 100, Z = 0 }, Lines = ["line_5", "line_7", "line_7_branch"] },
-                new MetroStation { Id = "station_5_west", Name = "5 West", Position = new MetroPosition { X = -120, Z = 60 }, Lines = ["line_5"] },
-                new MetroStation { Id = "station_7_west", Name = "7 West", Position = new MetroPosition { X = -120, Z = 0 }, Lines = ["line_7"] },
-                new MetroStation { Id = "station_7_branch_west", Name = "7 Branch West", Position = new MetroPosition { X = -120, Z = -60 }, Lines = ["line_7_branch"] }
+                // Approaches on exact 45/0/-45 headings; see the exact-shared-platform
+                // fixture for why the geometry has to start octilinear.
+                new MetroStation { Id = "station_5_west", Name = "5 West", Position = new MetroPosition { X = -100, Z = 100 }, Lines = ["line_5"] },
+                new MetroStation { Id = "station_7_west", Name = "7 West", Position = new MetroPosition { X = -100, Z = 0 }, Lines = ["line_7"] },
+                new MetroStation { Id = "station_7_branch_west", Name = "7 Branch West", Position = new MetroPosition { X = -100, Z = -100 }, Lines = ["line_7_branch"] }
             ],
             Lines =
             [
@@ -6486,7 +6493,7 @@ static SvgRenderOptions CreateCompositeTestOptions(bool enableExpressCenterStrip
 }
 
 static SvgRenderOptions CreateSchematicOverlapTestOptions(
-    SvgLayoutMode layoutMode = SvgLayoutMode.SchematicV2,
+    SvgLayoutMode layoutMode = SvgLayoutMode.SchematicMap,
     int width = 900,
     int height = 520,
     int legendWidth = 220,

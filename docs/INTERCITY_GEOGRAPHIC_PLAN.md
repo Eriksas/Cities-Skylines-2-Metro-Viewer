@@ -79,7 +79,7 @@ in a schematic layout.
 
 - Tram.
 - Freight or cargo train lines.
-- Intercity rail in `schematic-map`, `schematic-v2`, or legacy schematic modes.
+- Intercity rail in `schematic-map` or legacy schematic modes.
 - Automatic rail schematic layout.
 - Shared-corridor styling between metro and railway.
 - Changes to metro stop semantics.

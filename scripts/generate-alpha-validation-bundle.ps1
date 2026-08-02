@@ -180,7 +180,7 @@ $warningText
 - Size preset: poster
 - Label filters: hide generic labels, hide crowded labels
 - Product candidate layout: schematic-anneal
-- Comparison layouts: schematic-map, schematic-v2
+- Comparison layouts: schematic-map
 - Schematic-anneal status: current default product candidate
 - Schematic-v2 status: experimental
 - Schematic-map status: retained comparison layout
@@ -205,8 +205,6 @@ $warningText
 - baseline-geographic.full.png, unless -SkipPng was used
 - visual-continuity-summary.txt
 - visual-continuity-debug.svg
-- schematic-v2.svg
-- schematic-v2.full.png, unless -SkipPng was used
 - schematic-map.svg
 - schematic-map.full.png, unless -SkipPng was used
 - schematic-anneal.svg
@@ -256,8 +254,6 @@ $warningText
 - metro-export-diagnostics.txt, if available
 - baseline-geographic.svg
 - baseline-geographic.full.png, if generated
-- schematic-v2.svg
-- schematic-v2.full.png, if generated
 - schematic-map.svg
 - schematic-map.full.png, if generated
 - schematic-anneal.svg
@@ -269,7 +265,7 @@ $warningText
 
 ## Viewer Settings
 
-- Layout mode: schematic-anneal / geographic / schematic-map / schematic-v2
+- Layout mode: schematic-anneal / geographic / schematic-map
 - Width:
 - Height:
 - Label font size:
@@ -323,7 +319,6 @@ function Write-BundleManifest {
             'schematic-anneal.full.png',
             'baseline-geographic.full.png',
             'schematic-map.full.png',
-            'schematic-v2.full.png',
             'visual-continuity-summary.txt',
             'schematic-v2-diagnostics\topology-summary.txt',
             'notes.md'
@@ -333,8 +328,6 @@ function Write-BundleManifest {
             exportDiagnostics = 'metro-export-diagnostics.txt'
             geographicSvg = 'baseline-geographic.svg'
             geographicPng = 'baseline-geographic.full.png'
-            schematicV2Svg = 'schematic-v2.svg'
-            schematicV2Png = 'schematic-v2.full.png'
             schematicMapSvg = 'schematic-map.svg'
             schematicMapPng = 'schematic-map.full.png'
             schematicAnnealSvg = 'schematic-anneal.svg'
@@ -358,7 +351,7 @@ function Write-BundleManifest {
                 size = 'poster'
                 status = 'current default product candidate'
             }
-            comparisons = @('schematic-map', 'schematic-v2')
+            comparisons = @('schematic-map')
             screenshotsGenerated = $ScreenshotsGenerated
         }
         validationWarnings = $ValidationWarnings
@@ -431,8 +424,6 @@ try {
 
     $baselineSvg = Join-Path $tempBundlePath 'baseline-geographic.svg'
     $baselinePng = Join-Path $tempBundlePath 'baseline-geographic.full.png'
-    $schematicV2Svg = Join-Path $tempBundlePath 'schematic-v2.svg'
-    $schematicV2Png = Join-Path $tempBundlePath 'schematic-v2.full.png'
     $schematicMapSvg = Join-Path $tempBundlePath 'schematic-map.svg'
     $schematicMapPng = Join-Path $tempBundlePath 'schematic-map.full.png'
     $schematicAnnealSvg = Join-Path $tempBundlePath 'schematic-anneal.svg'
@@ -441,7 +432,6 @@ try {
     $visualDebugSvg = Join-Path $tempBundlePath 'visual-continuity-debug.svg'
 
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $baselineSvg -Layout 'geographic' -UsePathPoints
-    Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicV2Svg -Layout 'schematic-v2'
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicMapSvg -Layout 'schematic-map' -UsePathPoints
     Invoke-CliRender -CliProject $cliProject -InputPath $bundleJson -OutputPath $schematicAnnealSvg -Layout 'schematic-anneal' -UsePathPoints
 
@@ -450,7 +440,6 @@ try {
     }
     else {
         Invoke-Capture -CaptureScript $captureScript -InputSvg $baselineSvg -OutputPng $baselinePng
-        Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicV2Svg -OutputPng $schematicV2Png
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicMapSvg -OutputPng $schematicMapPng
         Invoke-Capture -CaptureScript $captureScript -InputSvg $schematicAnnealSvg -OutputPng $schematicAnnealPng
     }

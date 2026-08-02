@@ -1982,7 +1982,6 @@ public partial class MainWindow : Window
             "schematic-map" => SvgLayoutMode.SchematicMap,
             "schematic-anneal" => SvgLayoutMode.SchematicAnneal,
             "schematic-beta" => SvgLayoutMode.SchematicBeta,
-            "schematic-v2" => SvgLayoutMode.SchematicV2,
             _ => SvgLayoutMode.Geographic
         };
     }
@@ -3118,7 +3117,6 @@ public partial class MainWindow : Window
     {
         return layoutMode switch
         {
-            SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
             SvgLayoutMode.SchematicAnneal => "schematic-anneal",
             SvgLayoutMode.SchematicBeta => "schematic-beta",
@@ -3443,10 +3441,13 @@ public partial class MainWindow : Window
     {
         return layoutMode switch
         {
-            "schematic-lite" => "schematic-v2",
-            "schematic-v2" => "schematic-v2",
+            // Retired modes land on their successor rather than on the geographic
+            // fallback, so an old settings file does not silently change the map.
+            "schematic-lite" => "schematic-map",
+            "schematic-v2" => "schematic-map",
             "schematic-map" => "schematic-map",
             "schematic-anneal" => "schematic-anneal",
+            "schematic-beta" => "schematic-beta",
             _ => "geographic"
         };
     }

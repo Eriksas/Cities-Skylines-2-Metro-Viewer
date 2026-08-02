@@ -11,7 +11,6 @@ Review in this order:
 1. `schematic-anneal`
 2. `geographic`
 3. `schematic-map`
-4. `schematic-v2`
 
 `schematic-anneal` is the alpha recommended product output.
 
@@ -20,7 +19,7 @@ Review in this order:
 `schematic-map` is the previous pass-stack product candidate retained for
 comparison.
 
-`schematic-v2` is the topology/diagnostic schematic base.
+`schematic-map` is the topology-first schematic base.
 
 ## Generate A Validation Bundle
 
@@ -139,8 +138,6 @@ Each current bundle should contain:
 - `schematic-anneal.full.png`, when PNG screenshots were generated
 - `schematic-map.svg`
 - `schematic-map.full.png`, when PNG screenshots were generated
-- `schematic-v2.svg`
-- `schematic-v2.full.png`, when PNG screenshots were generated
 - `visual-continuity-summary.txt`
 - `schematic-v2-diagnostics\`
 - `manifest.json`

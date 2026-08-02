@@ -55,8 +55,7 @@ Use `Preview` to choose the in-app preview scale. `Fit window` (the default) sca
 Layout modes:
 
 - `geographic`: keeps normalized source coordinate geometry.
-- `schematic-v2`: experimental topology-first schematic layout for validation and diagnostics.
-- `schematic-map`: product-facing official-map style schematic output built on `schematic-v2`, with transit-map framing and service/express visual defaults.
+- `schematic-map`: product-facing official-map style schematic output from the topology-first layout engine, with transit-map framing and service/express visual defaults.
 
 The older `schematic-lite` renderer has been removed from the toolchain.
 

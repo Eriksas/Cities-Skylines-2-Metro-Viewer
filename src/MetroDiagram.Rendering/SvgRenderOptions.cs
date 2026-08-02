@@ -3,8 +3,15 @@ namespace MetroDiagram.Rendering;
 public enum SvgLayoutMode
 {
     Geographic,
-    SchematicV2,
+
+    /// <summary>
+    /// Topology-first schematic. Retired mode <c>schematic-v2</c> was built on the
+    /// same layout engine and was removed once this one superseded it; the engine
+    /// still carries the <c>SchematicV2</c> name in its file, members and emitted
+    /// attributes.
+    /// </summary>
     SchematicMap,
+
     SchematicAnneal,
 
     /// <summary>

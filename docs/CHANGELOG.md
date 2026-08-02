@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Rendering
+
+- Removed the `schematic-v2` layout mode. `schematic-map` is built on the same
+  layout engine and is unchanged; the engine keeps its `SchematicV2` file and
+  attribute names. A saved Viewer setting of `schematic-v2` now opens
+  `schematic-map`, and `--layout schematic-v2` reports the replacement.
+- Fixed the Viewer dropping a saved `schematic-beta` layout choice back to
+  `geographic` on restart.
+
 ## v0.1.1 - 2026-07-30
 
 Viewer-only map editing release. The in-game Mod remains on

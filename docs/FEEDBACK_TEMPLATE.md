@@ -27,14 +27,14 @@ Please include as much of this information as possible.
 - Timestamped snapshot JSON and diagnostics from the `exports` subdirectory, if relevant
 - `baseline-geographic.full.png`
 - `schematic-map.full.png`
-- `schematic-v2.full.png`, if schematic behavior is part of the issue
+- `schematic-map.full.png`, if schematic behavior is part of the issue
 - Exported SVG, or a screenshot of the Viewer/SVG
 - Viewer settings from `Documents\CS2MetroDiagram\viewer-settings.json`
 - Relevant game/mod log excerpt if export failed
 
 ## Viewer Settings
 
-- Layout mode: `geographic` / `schematic-v2` / `schematic-map`
+- Layout mode: `geographic` / `schematic-map` / `schematic-anneal` / `schematic-beta`
 - Width:
 - Height:
 - Label font size:

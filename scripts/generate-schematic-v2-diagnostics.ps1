@@ -890,7 +890,7 @@ $stationDegreeRows = foreach ($station in $stations) {
 }
 
 $schematicV2Svg = Join-Path $outputPath 'schematic-topology-debug.svg'
-Invoke-CliRender -RepoRoot $repoRoot -InputPath $inputPath -OutputPath $schematicV2Svg -Layout 'schematic-v2'
+Invoke-CliRender -RepoRoot $repoRoot -InputPath $inputPath -OutputPath $schematicV2Svg -Layout 'schematic-map'
 Copy-Item -LiteralPath $schematicV2Svg -Destination (Join-Path $outputPath 'schematic-v2-service-simplified.svg') -Force
 Copy-Item -LiteralPath $schematicV2Svg -Destination (Join-Path $outputPath 'schematic-v2-service-simplified-debug.svg') -Force
 

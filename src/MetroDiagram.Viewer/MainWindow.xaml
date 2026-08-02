@@ -50,7 +50,6 @@
                         <TextBlock x:Name="LayoutLabelTextBlock" Style="{StaticResource InlineLabel}" Text="Layout" Margin="0,0,8,0" />
                         <ComboBox x:Name="LayoutComboBox" Width="152" SelectionChanged="LayoutComboBox_SelectionChanged">
                             <ComboBoxItem Content="geographic" Tag="geographic" />
-                            <ComboBoxItem Content="schematic-v2" Tag="schematic-v2" />
                             <ComboBoxItem Content="schematic-map" Tag="schematic-map" />
                             <ComboBoxItem Content="schematic-anneal" Tag="schematic-anneal" IsSelected="True" />
                             <ComboBoxItem Content="schematic-beta" Tag="schematic-beta" />

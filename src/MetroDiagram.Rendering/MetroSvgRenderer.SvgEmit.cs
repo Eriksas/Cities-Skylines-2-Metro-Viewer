@@ -282,7 +282,7 @@ public sealed partial class MetroSvgRenderer
         List<RenderRoute> renderRoutes = [];
         foreach (DisplayLineFamily family in families)
         {
-            MetroLine line = IsSchematicV2FamilyLayout(options.LayoutMode)
+            MetroLine line = UsesSchematicMapEngine(options.LayoutMode)
                 ? CreateSchematicV2TopologyLine(family, stationsById, geometry.StationPoints)
                 : family.PrimaryLine;
             RoutePointSet routePointSet = CreateRoutePoints(family, line, stationsById, geometry, options, warnings);
@@ -408,7 +408,7 @@ public sealed partial class MetroSvgRenderer
             }
         }
 
-        if (IsSchematicV2FamilyLayout(options.LayoutMode))
+        if (UsesSchematicMapEngine(options.LayoutMode))
         {
             AppendSchematicV2ParallelCorridorOverlays(svg, renderRoutes, geometry, options);
         }
@@ -439,7 +439,7 @@ public sealed partial class MetroSvgRenderer
 
     private static string BuildSchematicV2ServiceFamilyAttributes(DisplayLineFamily family, MetroLine line, SvgRenderOptions options)
     {
-        if (!IsSchematicV2FamilyLayout(options.LayoutMode))
+        if (!UsesSchematicMapEngine(options.LayoutMode))
         {
             return string.Empty;
         }
@@ -671,7 +671,6 @@ public sealed partial class MetroSvgRenderer
     {
         return layoutMode switch
         {
-            SvgLayoutMode.SchematicV2 => "schematic-v2",
             SvgLayoutMode.SchematicMap => "schematic-map",
             SvgLayoutMode.SchematicAnneal => "schematic-anneal",
             SvgLayoutMode.SchematicBeta => "schematic-beta",

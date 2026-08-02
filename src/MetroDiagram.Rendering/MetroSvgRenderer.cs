@@ -93,7 +93,7 @@ public sealed partial class MetroSvgRenderer
             return _geometryCacheValue;
         }
 
-        CanonicalSchematicNetwork? canonicalNetwork = IsSchematicV2FamilyLayout(options.LayoutMode)
+        CanonicalSchematicNetwork? canonicalNetwork = UsesSchematicMapEngine(options.LayoutMode)
             ? CanonicalSchematicNetworkBuilder.Build(document, options.EnableServiceFamilyMerge)
             : null;
 
@@ -231,7 +231,7 @@ public sealed partial class MetroSvgRenderer
             return new RenderGeometry(fittedPoints, projector, annealLayout.Adjustments, [], null, null, intercityRoutes);
         }
 
-        if (IsSchematicV2FamilyLayout(options.LayoutMode))
+        if (UsesSchematicMapEngine(options.LayoutMode))
         {
             SvgRenderOptions canonicalOptions = CreateSchematicV2CanonicalOptions(options);
             CoordinateProjector canonicalProjector = CoordinateProjector.Create(sourceCoordinates, canonicalOptions, reserveLegendSpace) ?? projector;
@@ -673,9 +673,15 @@ public sealed partial class MetroSvgRenderer
             && !displayFamilies.Any(family => family.Variants.Count > 1);
     }
 
-    private static bool IsSchematicV2FamilyLayout(SvgLayoutMode layoutMode)
+    /// <summary>
+    /// Modes drawn by the topology-first layout engine in
+    /// <c>MetroSvgRenderer.SchematicV2.cs</c>. Only <see cref="SvgLayoutMode.SchematicMap"/>
+    /// is left since <c>schematic-v2</c> retired, but the engine is a mode selector
+    /// rather than a mode, so the predicate stays.
+    /// </summary>
+    private static bool UsesSchematicMapEngine(SvgLayoutMode layoutMode)
     {
-        return layoutMode is SvgLayoutMode.SchematicV2 or SvgLayoutMode.SchematicMap;
+        return layoutMode is SvgLayoutMode.SchematicMap;
     }
 
     private static StationRouteAnchorMap ResolveStationRouteAnchors(

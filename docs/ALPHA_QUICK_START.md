@@ -81,7 +81,7 @@ Use the `Layout` dropdown:
 
 - `geographic`: normalized source coordinate rendering.
 - `schematic-map`: experimental product-facing schematic map style.
-- `schematic-v2`: experimental topology/diagnostic schematic layout.
+- `schematic-map`: topology-first schematic layout, product-facing transit-map framing.
 
 Click `Refresh Preview` after changing numeric settings.
 

@@ -215,7 +215,7 @@ public sealed partial class MetroSvgRenderer
             StrokeWidth = GetExpressCenterStripeWidth(options),
             ExtraAttributes = baseCommand.ExtraAttributes
                 + $" data-express-marker=\"white-center-stripe\" data-express-family=\"{Escape(baseCommand.RenderRoute.Family.FamilyKey)}\""
-                + (IsSchematicV2FamilyLayout(options.LayoutMode) ? " data-schematic-v2-express-marker=\"white-center-stripe\"" : string.Empty)
+                + (UsesSchematicMapEngine(options.LayoutMode) ? " data-schematic-v2-express-marker=\"white-center-stripe\"" : string.Empty)
         });
     }
 
@@ -292,7 +292,7 @@ public sealed partial class MetroSvgRenderer
     private static bool ShouldRenderExpressCenterStripe(SvgRenderOptions options, DisplayLineFamily family)
     {
         return HasExpressServiceVariant(family)
-            && (options.EnableExpressCenterStripe || IsSchematicV2FamilyLayout(options.LayoutMode));
+            && (options.EnableExpressCenterStripe || UsesSchematicMapEngine(options.LayoutMode));
     }
 
     private static string GetCorridorDrawLayerName(CorridorDrawLayer layer)
@@ -330,7 +330,7 @@ public sealed partial class MetroSvgRenderer
             stripeStyle += $" {routeStyle}";
         }
 
-        string schematicV2MarkerAttribute = IsSchematicV2FamilyLayout(options.LayoutMode)
+        string schematicV2MarkerAttribute = UsesSchematicMapEngine(options.LayoutMode)
             ? " data-schematic-v2-express-marker=\"white-center-stripe\""
             : string.Empty;
         string stripeAttributes = commonAttributes.Replace("class=\"route\"", "class=\"express-decoration\"", StringComparison.Ordinal);
@@ -1357,7 +1357,7 @@ public sealed partial class MetroSvgRenderer
         }
 
         List<string> routeStopIds = (line.Stops ?? []).ToList();
-        if (IsSchematicV2FamilyLayout(options.LayoutMode)
+        if (UsesSchematicMapEngine(options.LayoutMode)
             && geometry.SchematicV2RouteGuideByFamily is not null
             && geometry.SchematicV2RouteGuideByFamily.TryGetValue(family.FamilyKey, out List<string>? routeGuide)
             && routeGuide.Count >= 2)

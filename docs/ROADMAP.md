@@ -9,7 +9,7 @@ Goal: make the current build safe, repeatable, and easy to test on more cities.
 
 - Keep `schematic-anneal` as the recommended product layout and `geographic` as
   the faithful-geometry fallback.
-- Keep `schematic-map` and `schematic-v2` as comparison/diagnostic modes rather
+- Keep `schematic-map` as a comparison/diagnostic mode rather
   than separate product directions.
 - Generate one alpha validation bundle for every real city export.
 - Use bundle notes to record whether the city is a regression case.

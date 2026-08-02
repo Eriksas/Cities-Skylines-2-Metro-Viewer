@@ -227,7 +227,6 @@ Current schematic directions:
 
 - `schematic-anneal` - DEFAULT. Global-optimization layout (single cost function + deterministic simulated annealing). Wins every layout metric on the corpus; same-line clearance exemption keeps out-and-back lines straight; output is recentered in the canvas.
 - `schematic-map` - previous product-facing pass-stack schematic; retained for comparison until anneal has broader validation.
-- `schematic-v2` - topology/diagnostic schematic base; still experimental.
 - `schematic-lite` - removed from the toolchain (2026-07). History remains in git.
 
 The latest notable product candidate is:
@@ -278,8 +277,8 @@ checked across real exports and synthetic regression samples before visual
 acceptance.
 
 The regression/product workflow now uses `schematic-anneal` as its candidate
-layout by default. Alpha validation bundles still include `geographic`,
-`schematic-map`, and `schematic-v2` comparison outputs so regressions remain
+layout by default. Alpha validation bundles still include `geographic` and
+`schematic-map` comparison outputs so regressions remain
 visible rather than silently replacing the evidence set.
 
 Current post-alpha.6 engineering changes:
@@ -416,7 +415,7 @@ Short term:
 - Continue polishing `schematic-map` only through evidence-backed candidate bundles.
 - Treat Phase 5C.2 as cartographic polish only: header/footer/legend,
   station hierarchy, label hierarchy, and framing refinements. Do not use it
-  as a reason to restart schematic-v2 route-chain or crossing-convention work.
+  as a reason to restart schematic-map route-chain or crossing-convention work.
 - Run the schematic regression gate before accepting layout/rendering changes.
 - Use debug overlays and scoring reports before layout changes.
 - Preserve the current shared-platform behavior: same-number branch/shared-service lanes collapse when they share the exact same platform segment; distinct colored lanes remain visible and consistent width.

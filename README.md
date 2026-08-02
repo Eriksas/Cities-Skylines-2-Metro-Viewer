@@ -16,7 +16,7 @@ The project has three parts:
 
 - **`schematic-anneal`** (default) — an octilinear metro map laid out by global optimization. Lines run horizontal/vertical/45°, shared tracks render as parallel lines, and the map fills the canvas. Recommended for most maps.
 - **`geographic`** — the most faithful render of the real route geometry; use it when you want true shapes rather than a schematic.
-- `schematic-map` / `schematic-v2` — earlier schematic / diagnostic modes, kept for comparison.
+- `schematic-map` — earlier topology-first schematic mode, kept for comparison.
 
 ## Quick start
 
@@ -81,7 +81,7 @@ More: [docs/](docs/README.md) · [project state](docs/PROJECT_STATE.md) · [JSON
 
 - **`schematic-anneal`**（默认）—— 通过全局优化排布的八方向线路图。线段横平竖直或走 45°，共享轨道渲染成平行线，且铺满画布。多数城市推荐使用。
 - **`geographic`** —— 最忠实还原真实线路几何；想要真实形状而非示意图时用它。
-- `schematic-map` / `schematic-v2` —— 早期的示意/诊断模式，保留用于对比。
+- `schematic-map` —— 早期的拓扑优先示意模式，保留用于对比。
 
 ## 快速上手
 
