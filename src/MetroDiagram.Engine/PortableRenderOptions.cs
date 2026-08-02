@@ -50,6 +50,13 @@ namespace MetroDiagram.Engine
         public bool RoundRouteCorners { get; set; } = true;
 
         /// <summary>
+        /// Places every run of the annealed layout exactly on one of the eight
+        /// compass headings. Moves station positions, so it stays off until the
+        /// in-game result has been looked at.
+        /// </summary>
+        public bool SnapToOctilinearGrid { get; set; }
+
+        /// <summary>
         /// Appended to the city name to form the sheet title (defaults keep the
         /// historical "{city} Metro Diagram"). Null or empty falls back to the
         /// default so existing outputs stay byte-identical.

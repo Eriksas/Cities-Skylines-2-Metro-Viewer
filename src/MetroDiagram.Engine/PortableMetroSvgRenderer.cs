@@ -156,6 +156,7 @@ namespace MetroDiagram.Engine
                 AnnealAttemptLimit = options.AnnealAttemptLimit,
                 AdaptCanvasHeightToNetwork = options.AdaptCanvasHeightToNetwork,
                 RoundRouteCorners = options.RoundRouteCorners,
+                SnapToOctilinearGrid = options.SnapToOctilinearGrid,
                 TitleSuffix = options.TitleSuffix,
                 LegendHeader = options.LegendHeader
             };
@@ -467,6 +468,9 @@ namespace MetroDiagram.Engine
             ArrayLayout layout = ArrayLayout.Create(points, routes, edges, options);
 
             RunAnnealSearch(layout, options);
+            // Before the fit, which is a uniform scale plus a translation and so
+            // preserves the headings the snap just established.
+            ApplyOctilinearSnap(layout, options);
             FitPointsToFrame(layout, options);
             layout.WriteBack(points);
         }
@@ -1000,6 +1004,14 @@ namespace MetroDiagram.Engine
             public int[] TripleStation { get; }
             public int[] TripleNext { get; }
             public int[][] TriplesByStation { get; }
+
+            /// <summary>
+            /// Each display route as an ordered list of station indexes. The
+            /// octilinear snap assigns headings per RUN rather than per edge, and
+            /// a run is a stretch of one of these chains, so it needs the chain
+            /// itself -- the triples index adjacency but not order along a line.
+            /// </summary>
+            public int[][] RouteChains { get; private set; } = new int[0][];
             public double PreferredSpacing { get; }
             public double MinimumSpacingSquared { get; }
             public double ClearanceSquared { get; }
@@ -1075,6 +1087,7 @@ namespace MetroDiagram.Engine
                 }
 
                 HashSet<long> tripleKeys = new HashSet<long>();
+                List<int[]> routeChains = new List<int[]>();
                 for (int routeIndex = 0; routeIndex < routes.Count; routeIndex++)
                 {
                     ulong bit = 1ul << Math.Min(routeIndex, 63);
@@ -1086,6 +1099,11 @@ namespace MetroDiagram.Engine
                         {
                             stops.Add(index);
                         }
+                    }
+
+                    if (stops.Count >= 2)
+                    {
+                        routeChains.Add(stops.ToArray());
                     }
 
                     foreach (int stop in stops)
@@ -1147,7 +1165,7 @@ namespace MetroDiagram.Engine
                 double minimumSpacing = Math.Max(grid * 1.35, options.RouteWidth * 3.2);
                 double clearance = Math.Max(options.RouteWidth * 2.0, grid * 0.45);
 
-                return new ArrayLayout(
+                ArrayLayout layout = new ArrayLayout(
                     stationIds,
                     positions,
                     anchors,
@@ -1165,6 +1183,8 @@ namespace MetroDiagram.Engine
                     clearance,
                     grid,
                     CreateMapFrame(options));
+                layout.RouteChains = routeChains.ToArray();
+                return layout;
             }
 
             private static void AddDistinct(List<int> list, int value)
