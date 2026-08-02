@@ -958,9 +958,30 @@ public sealed partial class MetroSvgRenderer
             return new SvgPoint(dx / distance, dy / distance);
         }
 
-        int hash = StringComparer.Ordinal.GetHashCode(firstId + "|" + secondId);
-        double angle = (Math.Abs(hash) % 8) * Math.PI / 4.0;
+        // Coincident stations have no vector to separate along, so the octant is
+        // picked from the id pair instead. string.GetHashCode is seeded per
+        // process, which made this pick — and the layout downstream of it — differ
+        // between runs, so hash the ids ourselves.
+        uint octant = GetStableOrdinalHash(firstId + "|" + secondId) % 8;
+        double angle = octant * Math.PI / 4.0;
         return new SvgPoint(Math.Cos(angle), Math.Sin(angle));
+    }
+
+    // FNV-1a over the UTF-16 code units. Unlike string.GetHashCode this depends
+    // only on the characters, so it is stable across processes and machines.
+    private static uint GetStableOrdinalHash(string value)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (char character in value)
+            {
+                hash ^= character;
+                hash *= 16777619;
+            }
+
+            return hash;
+        }
     }
 
     private static double GetSchematicStationAnchorWeight(string stationId, Dictionary<string, int> degreeByStation, HashSet<string> interchangeStationIds)

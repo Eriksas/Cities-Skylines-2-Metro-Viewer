@@ -78,6 +78,7 @@ public static readonly List<(string Name, Action Test)> tests =
     ("schematic-map adds local clearance near unrelated route segments", SchematicMapAddsLocalClearanceNearUnrelatedRouteSegments),
     ("schematic-map renders non-station route crossings as direct pass-through", SchematicMapRendersNonStationRouteCrossingsAsDirectPassThrough),
     ("schematic-map does not bridge station crossings", SchematicMapDoesNotBridgeStationCrossings),
+    ("coincident station separation does not depend on the process", CoincidentStationSeparationDoesNotDependOnTheProcess),
     ("schematic-anneal renders deterministic valid svg", SchematicAnnealRendersDeterministicValidSvg),
     ("schematic-anneal enforces minimum station spacing", SchematicAnnealEnforcesMinimumStationSpacing),
     ("schematic-anneal audit reports non-increasing quality cost", SchematicAnnealAuditReportsNonIncreasingQualityCost),
@@ -3765,6 +3766,66 @@ static MetroExportDocument CreateParallelCorridorDocument(params List<MetroPathP
         City = new CityInfo { Name = "Parallel Corridor City" },
         Network = network
     };
+}
+
+static void CoincidentStationSeparationDoesNotDependOnTheProcess()
+{
+    // Two stations on the same point have no vector to separate along, so the
+    // push octant is derived from their ids. That derivation used
+    // string.GetHashCode, which .NET seeds per process, and schematic-map
+    // layouts drifted between runs as a result. The constants below are
+    // hard-coded on purpose: they hold only while the octant depends on the id
+    // characters alone.
+    MethodInfo stableHash = typeof(MetroSvgRenderer).GetMethod(
+        "GetStableOrdinalHash",
+        BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException("GetStableOrdinalHash is missing.");
+
+    (string Value, uint Hash)[] hashes =
+    [
+        ("station_a|station_b", 4058514166u),
+        ("station_b|station_c", 1687016584u),
+        ("平安里|西直门", 3308258150u)
+    ];
+
+    foreach ((string value, uint expected) in hashes)
+    {
+        uint actual = (uint)stableHash.Invoke(null, [value])!;
+        Assert(actual == expected, $"Stable ordinal hash of '{value}' was {actual}, expected {expected}.");
+    }
+
+    MethodInfo separation = typeof(MetroSvgRenderer).GetMethod(
+        "GetSchematicSeparationDirection",
+        BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException("GetSchematicSeparationDirection is missing.");
+    Type pointType = typeof(MetroSvgRenderer).GetNestedType("SvgPoint", BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("SvgPoint is missing.");
+
+    (string First, string Second, int Octant)[] octants =
+    [
+        ("station_a", "station_b", 6),
+        ("station_b", "station_c", 0),
+        ("平安里", "西直门", 6)
+    ];
+
+    foreach ((string first, string second, int expected) in octants)
+    {
+        object coincident = Activator.CreateInstance(pointType, 240.0, 180.0)!;
+        object direction = separation.Invoke(null, [coincident, coincident, first, second])!;
+        double x = (double)pointType.GetProperty("X")!.GetValue(direction)!;
+        double y = (double)pointType.GetProperty("Y")!.GetValue(direction)!;
+        int actual = ((int)Math.Round(Math.Atan2(y, x) / (Math.PI / 4)) + 8) % 8;
+        Assert(actual == expected, $"Coincident separation octant for {first}|{second} was {actual}, expected {expected}; the direction is process-dependent again.");
+        Assert(Math.Abs(Math.Sqrt(x * x + y * y) - 1) < 0.000001, $"Coincident separation direction for {first}|{second} was not a unit vector.");
+    }
+
+    // Stations that are apart still separate along their own vector.
+    object left = Activator.CreateInstance(pointType, 100.0, 100.0)!;
+    object right = Activator.CreateInstance(pointType, 130.0, 100.0)!;
+    object plain = separation.Invoke(null, [left, right, "station_a", "station_b"])!;
+    Assert(Math.Abs((double)pointType.GetProperty("X")!.GetValue(plain)! - 1) < 0.000001
+        && Math.Abs((double)pointType.GetProperty("Y")!.GetValue(plain)!) < 0.000001,
+        "Separated stations no longer push along their own vector.");
 }
 
 static void SchematicAnnealRendersDeterministicValidSvg()

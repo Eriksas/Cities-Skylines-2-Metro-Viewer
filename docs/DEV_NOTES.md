@@ -1496,3 +1496,27 @@ Validation completed:
 - schematic regression gate: 8/8 cases passed;
 - self-contained Viewer publish: passed;
 - packaged Viewer five-second launch smoke: passed.
+
+## 2026-08-02 schematic-map layout was nondeterministic across processes
+
+- Symptom: the same binary, JSON and flags produced different SVG bytes per run
+  under `--layout schematic-map`. A 23-export corpus sweep at 5 runs each found
+  four unstable networks: `安岭市-20260716-024332`, `奥斯特-20260724-170238`,
+  `奥斯特-20260725-125629` and `奥斯特-20260731-233400`. Two runs can coincide by
+  chance, so short checks under-report; the last of those four only diverged
+  twice in five runs.
+- Cause: `GetSchematicSeparationDirection` picks a push octant for two stations
+  that sit on the exact same point, and it derived that octant from
+  `StringComparer.Ordinal.GetHashCode`. .NET seeds string hashing per process,
+  so the octant — and every layout pass fed by the resulting positions — changed
+  on every run. Only networks that actually produce a coincident pair after grid
+  snapping were affected, which is why 19 of 23 exports looked stable and why
+  geographic, schematic-anneal and schematic-beta never showed it.
+- Fix: hash the id pair with an FNV-1a over the UTF-16 code units
+  (`GetStableOrdinalHash`) so the octant depends on the characters alone.
+- Not the cause: iteration order over `Dictionary<string,…>` / `HashSet<string>`.
+  Both enumerate their backing entry array, so order follows insertion and is
+  identical across processes regardless of the hash seed. Adding `OrderBy` at
+  those sites would have changed output bytes without fixing anything.
+- Verified: 10 consecutive renders byte-identical for all 23 exports, and the 19
+  already-stable exports keep their exact pre-fix bytes.
