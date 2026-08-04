@@ -114,7 +114,8 @@ namespace MetroDiagram.Engine
                 HideCrowdedLabels = hideCrowdedLabels,
                 MergeServiceFamilies = true,
                 AnnealAttemptLimit = 24000,
-                AdaptCanvasHeightToNetwork = false
+                AdaptCanvasHeightToNetwork = false,
+                SnapToOctilinearGrid = true
             };
         }
 
@@ -122,6 +123,7 @@ namespace MetroDiagram.Engine
         {
             PortableRenderOptions options = CreateInGameSchematic(showGenericStationNames, hideCrowdedLabels);
             options.LayoutMode = PortableLayoutMode.Geographic;
+            options.SnapToOctilinearGrid = false;
             return options;
         }
     }

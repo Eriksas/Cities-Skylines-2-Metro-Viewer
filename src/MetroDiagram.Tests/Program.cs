@@ -4136,12 +4136,14 @@ static void InGamePreviewRenderProfilesKeepStableDefaults()
     Assert(schematic.Width == 1800 && schematic.Height == 1100, "In-game schematic profile dimensions changed unexpectedly.");
     Assert(!schematic.AdaptCanvasHeightToNetwork, "In-game schematic profile re-enabled per-network canvas dimensions.");
     Assert(schematic.MergeServiceFamilies, "In-game schematic profile stopped merging service families.");
+    Assert(schematic.SnapToOctilinearGrid, "In-game schematic profile did not enable the candidate octilinear pass.");
     Assert(!schematic.ShowGenericStationNames && schematic.HideCrowdedLabels, "In-game schematic profile label defaults changed unexpectedly.");
 
     PortableRenderOptions geographic = PortableRenderProfiles.CreateInGameGeographic(true, false);
     Assert(geographic.LayoutMode == PortableLayoutMode.Geographic, "In-game geographic profile selected the wrong layout.");
     Assert(geographic.Width == schematic.Width && geographic.Height == schematic.Height, "In-game layouts no longer share one viewport size.");
     Assert(!geographic.AdaptCanvasHeightToNetwork, "In-game geographic profile re-enabled per-network canvas dimensions.");
+    Assert(!geographic.SnapToOctilinearGrid, "In-game geographic profile inherited schematic octilinear snapping.");
     Assert(geographic.ShowGenericStationNames && !geographic.HideCrowdedLabels, "In-game geographic profile did not preserve requested label options.");
 }
 
