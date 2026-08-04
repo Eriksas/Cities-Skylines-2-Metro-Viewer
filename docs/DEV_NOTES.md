@@ -12,6 +12,9 @@
   made for the version promotion.
 - Mod file version advanced from `0.1.0.13` to `0.1.0.14` so Windows artifacts
   remain distinguishable even though assembly compatibility stays `0.1.0.0`.
+- Paradox Mods publication completed successfully on 2026-08-04. The publisher
+  reported `New mod version published`, and the public API independently
+  confirmed latest version id `13` with `userVersion=0.1.0` for ModId `146643`.
 
 ## 2026-07-29 Anneal: multi-start restored + per-direction-change charge
 

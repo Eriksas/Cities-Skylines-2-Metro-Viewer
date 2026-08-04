@@ -8,8 +8,9 @@ Current public releases: Viewer `v0.1.1` on GitHub; in-game Mod `0.1.0` on the
 existing public Paradox Mods ModId `146643`.
 
 The Viewer v0.1.1 release adds map-element editing, information boxes, and
-station-node multi-selection. The PDX Mod binary/version was intentionally not
-republished because the Viewer and Mod use independent release trains.
+station-node multi-selection. That Viewer-only release did not republish the
+PDX Mod; the in-game Mod was subsequently promoted independently to stable
+`0.1.0` after its own owner validation.
 
 The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on
@@ -17,7 +18,8 @@ authorized and published to GitHub and the existing public PDX listing on
 
 The desktop Viewer and read-only in-game Mod are stable releases. The current
 in-game schematic algorithm was owner-validated on 2026-08-04 before the Mod
-was promoted from beta.8 to `0.1.0`.
+was promoted from beta.8 to `0.1.0`. Paradox Mods version id `13` is the
+independently verified public `0.1.0` release on ModId `146643`.
 
 ## Current Status
 
