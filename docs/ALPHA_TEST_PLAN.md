@@ -1,6 +1,6 @@
 # Alpha Test Plan
 
-Use this plan for desktop Viewer `v0.1.0` with in-game Mod `0.1.0-beta.8`.
+Use this regression plan for desktop Viewer `v0.1.1` with in-game Mod `0.1.0`.
 
 The testing unit is an alpha validation bundle, not a loose screenshot.
 

@@ -1,11 +1,11 @@
-# Feedback Template - Viewer v0.1.1 / Mod 0.1.0-beta.8
+# Feedback Template - Viewer v0.1.1 / Mod 0.1.0
 
 Please include as much of this information as possible.
 
 ## Environment
 
-- Desktop Viewer version: `v0.1.0`
-- In-game Mod version: `0.1.0-beta.8`
+- Desktop Viewer version: `v0.1.1`
+- In-game Mod version: `0.1.0`
 - Cities: Skylines II game version:
 - Operating system:
 - Are other transport-related mods enabled? If yes, list them:

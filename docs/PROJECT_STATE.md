@@ -4,8 +4,8 @@
 
 Repository and companion Viewer: `v0.1.1`
 
-Current public releases: Viewer `v0.1.1` on GitHub; in-game Mod
-`0.1.0-beta.8` on the existing public Paradox Mods ModId `146643`.
+Current public releases: Viewer `v0.1.1` on GitHub; in-game Mod `0.1.0` on the
+existing public Paradox Mods ModId `146643`.
 
 The Viewer v0.1.1 release adds map-element editing, information boxes, and
 station-node multi-selection. The PDX Mod binary/version was intentionally not
@@ -15,7 +15,9 @@ The owner accepted the exact Phase 7 candidate on 2026-07-13. Beta.6 was
 authorized and published to GitHub and the existing public PDX listing on
 2026-07-16 after universal offline framing validation.
 
-The desktop Viewer is the first stable release. The in-game Mod remains beta.
+The desktop Viewer and read-only in-game Mod are stable releases. The current
+in-game schematic algorithm was owner-validated on 2026-08-04 before the Mod
+was promoted from beta.8 to `0.1.0`.
 
 ## Current Status
 
@@ -199,8 +201,8 @@ refresh did not create another Mod binary/version.
 
 Current publication state:
 
-- Repository/Viewer release line: `v0.1.0` (published)
-- Paradox Mods release: `0.1.0-beta.8` (published 2026-07-18)
+- Repository/Viewer release line: `v0.1.1` (published)
+- Paradox Mods release: `0.1.0` (stable release prepared 2026-08-04)
 - Paradox Mods access level: `Public`
 - Paradox Mods ModId: `146643`
 
@@ -303,7 +305,7 @@ artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip
 
 The package includes a freshly built CS2 mod artifact, the self-contained Viewer,
 docs, samples, and regression samples. It is retained as historical release
-evidence; the current Paradox Mods public version is `0.1.0-beta.8`.
+evidence; the current Paradox Mods public version is `0.1.0`.
 
 Latest real-export regression gate:
 

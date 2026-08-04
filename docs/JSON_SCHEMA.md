@@ -23,7 +23,7 @@ Unsupported `schemaVersion` values are load errors.
 ## Generator
 
 - `name`: generator name.
-- `version`: generator version. Current PDX Mod exports use `v0.1.0-beta.8`;
+- `version`: generator version. Current PDX Mod exports use `v0.1.0`;
   this is intentionally independent from the desktop Viewer version.
 
 ## Game

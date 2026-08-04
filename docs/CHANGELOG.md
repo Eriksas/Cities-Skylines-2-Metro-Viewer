@@ -11,6 +11,29 @@
 - Fixed the Viewer dropping a saved `schematic-beta` layout choice back to
   `geographic` on restart.
 
+## In-game Mod 0.1.0 - 2026-08-04
+
+First stable in-game Mod release on the existing public Paradox Mods listing
+(`ModId 146643`). The desktop Viewer remains on its independent `v0.1.1`
+release train.
+
+### In-game preview
+
+- Promoted the owner-validated read-only preview and JSON/SVG export workflow
+  from beta.8 to stable.
+- Improved the portable schematic with deterministic horizontal, vertical, and
+  45-degree alignment, rounded corners, density relief, station straight-runs,
+  and shared-corridor lane handling.
+- Kept geographic view as the faithful default and fallback.
+
+### Compatibility and validation
+
+- Preserved exporter semantics, JSON schema version 1, and read-only city
+  behavior.
+- Includes the beta.8 auto-name fix for numbered metro lines.
+- Passed the offline solution build, full test catalog, CS2 Release
+  post-process, and owner in-game validation before publication.
+
 ## v0.1.1 - 2026-07-30
 
 Viewer-only map editing release. The in-game Mod remains on

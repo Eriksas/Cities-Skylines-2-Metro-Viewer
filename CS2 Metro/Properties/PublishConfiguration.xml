@@ -9,11 +9,11 @@
 	<LongDescription>
 Turn the metro/subway network of your Cities: Skylines II city into a clean, readable metro map.
 
-The current beta includes a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
+The current release includes a read-only in-game preview. Open the metro-map button in the top-right toolbar to inspect the current city, refresh it, switch between geographic and schematic views, filter labels, zoom/pan, export JSON, or save the current SVG without leaving the game.
 
 For the most complete official-style schematic map, export your city's metro network to JSON and open it in the free companion Windows Viewer. The Viewer can save SVG, PNG, or PDF for wallpapers, posters, printing, and sharing.
 
-The companion Windows Viewer is released separately on GitHub and is now at v0.1.0. Its version may be newer than the in-game Mod because Viewer-only updates do not require a duplicate Paradox Mods upload.
+The companion Windows Viewer is released separately on GitHub and is now at v0.1.1. Its version may be newer than the in-game Mod because Viewer-only updates do not require a duplicate Paradox Mods upload.
 
 How to use:
 1. Load a city and click the metro-map button in the top-right toolbar for the in-game preview.
@@ -32,7 +32,7 @@ https://pan.baidu.com/s/5RspPYzFb0dPoOE0aZu7d4A
 Does your city's map not look quite right? Share your metro-export.json in a GitHub issue and the next version will be tuned against YOUR city.
 觉得你的城市图排得不够好？把 metro-export.json 发到 GitHub issue，下个版本就拿你的城市调优。
 
-Beta notes:
+Current limitations:
 - Metro/subway only.
 - Preview/export only; it never edits your city.
 - The desktop Viewer remains recommended for manual layout editing and PNG/PDF export.
@@ -49,7 +49,7 @@ Beta notes:
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.1.0-beta.8" />
+	<ModVersion Value="0.1.0" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -58,10 +58,12 @@ Beta notes:
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
 	<ChangeLog>
-Beta.8 - all lines now display (first player bug report, thank you!):
-- Fixed: metro lines you never renamed exported as "地铁路线工具" and were merged into one line, so a city with 8 lines showed only 3. All lines now render, each with its own color.
-- Fixed: auto-named lines now export with their real numbered names ("地铁 3 号线" / "Metro Line 3"). Re-export your city once after updating to refresh the names.
-- Lines that share a numbered name (e.g. two "10号线" services) still merge into one family as before.
+0.1.0 - first stable in-game release:
+- Promoted the owner-validated read-only in-game metro preview and export workflow to stable.
+- Improved the in-game schematic with deterministic horizontal, vertical, and 45-degree route alignment, rounded corners, density relief, station straight-runs, and shared-corridor lane handling.
+- Geographic view remains the faithful default and fallback; its route geometry is unchanged by the schematic polish.
+- Preserved the JSON export schema and read-only city behavior.
+- Includes the beta.8 fix that gives auto-named metro lines their real numbered names.
 	</ChangeLog>
 	<!--<ChangeLog>
 	</ChangeLog>-->

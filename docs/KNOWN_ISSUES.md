@@ -1,7 +1,7 @@
-# Known Issues - Viewer v0.1.1 / Mod 0.1.0-beta.8
+# Known Issues - Viewer v0.1.1 / Mod 0.1.0
 
-The desktop Viewer is stable. The in-game Mod remains beta and should still be
-treated as test software, although its preview/export path is read-only.
+The desktop Viewer and read-only in-game Mod are stable. Layout output remains
+subject to the limitations below and should still be reviewed before sharing.
 
 ## Current Limitations
 

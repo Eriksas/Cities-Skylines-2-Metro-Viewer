@@ -1,5 +1,18 @@
 # Development Notes
 
+## 2026-08-04 In-game Mod 0.1.0 stable release
+
+- Promoted only the in-game Mod from public `0.1.0-beta.8` to stable `0.1.0`;
+  the independent desktop Viewer remains `v0.1.1`.
+- Reused the existing public Paradox Mods listing (`ModId 146643`) with
+  `PublishNewVersion`; never create a new listing for this release.
+- Release source includes the owner-validated portable schematic algorithm at
+  commit `4d8db03`. Geographic rendering remains the faithful default.
+- No exporter ECS behavior, `MetroExportDocument`, or JSON schema change was
+  made for the version promotion.
+- Mod file version advanced from `0.1.0.13` to `0.1.0.14` so Windows artifacts
+  remain distinguishable even though assembly compatibility stays `0.1.0.0`.
+
 ## 2026-07-29 Anneal: multi-start restored + per-direction-change charge
 
 Two contained changes to the schematic-anneal layout, from the layout study in

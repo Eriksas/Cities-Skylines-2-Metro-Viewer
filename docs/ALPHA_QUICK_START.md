@@ -1,7 +1,7 @@
 # CS2 Metro Diagram Quick Start
 
-Desktop Viewer: `v0.1.0`. In-game Mod: `0.1.0-beta.8`. The Viewer is stable;
-the Mod remains a beta build for testing.
+Desktop Viewer: `v0.1.1`. In-game Mod: `0.1.0`. Both releases are stable; the
+Mod preview and export workflow remains read-only.
 
 ## What Is Included
 

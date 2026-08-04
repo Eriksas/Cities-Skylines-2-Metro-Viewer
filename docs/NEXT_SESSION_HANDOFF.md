@@ -7,9 +7,10 @@ Map elements workflow, project-owned transport symbols, editable information
 boxes, and Ctrl-click/marquee station-node multi-selection. Manual edits remain
 in sibling layout sidecars and never modify exported JSON.
 
-The in-game Mod remains `0.1.0-beta.8` on PDX ModId `146643`. Do not create a
-new PDX binary for this Viewer-only release. Hidden passenger-intercity
-development remains outside player-facing controls until separately approved.
+The in-game Mod is `0.1.0` on PDX ModId `146643`. Viewer and Mod releases remain
+independent; do not create a PDX binary for a Viewer-only release. Hidden
+passenger-intercity development remains outside player-facing controls until
+separately approved.
 
 ## Start Here
 
@@ -55,9 +56,9 @@ currently absent from HEAD.
 
 ## Current Version
 
-Repository and Viewer: `v0.1.0`
+Repository and Viewer: `v0.1.1`
 
-Paradox Mods current release: `v0.1.0-beta.8` (Public, existing ModId `146643`)
+Paradox Mods current release: `v0.1.0` (Public, existing ModId `146643`)
 
 Viewer and Mod now use independent version sources. Desktop packaging reads
 `MetroDiagramViewerInformationalVersion`; `CS2 Metro` and
@@ -256,12 +257,12 @@ schematic-v2   (mode only; its layout engine still draws schematic-map)
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate`
   - `artifacts\releases\CS2MetroDiagram-v0.1.0-alpha.2-candidate-win-x64.zip`
 - Repository/Viewer release line:
-  - `v0.1.0-beta.8`
+  - `v0.1.1`
 - Paradox Mods:
   - ModId `146643`
-  - Version `0.1.0-beta.8`
+  - Version `0.1.0`
   - Access level `Public`
-  - Publish status: `PublishNewVersion` succeeded on 2026-07-18.
+  - Publish mode: update the existing listing with `PublishNewVersion`.
 
 ## Schematic-map Comparison Notes
 

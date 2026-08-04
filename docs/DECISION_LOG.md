@@ -6,6 +6,21 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Promote The Owner-validated In-game Mod To 0.1.0
+
+Decision: publish the read-only in-game Mod as stable `0.1.0` on the existing
+public Paradox Mods listing (`ModId 146643`). Keep the desktop Viewer on its
+independent `v0.1.1` release train.
+
+Reason: the current geographic default, export workflow, and portable
+schematic were built, regression-tested, and accepted in game by the owner.
+Remaining schematic polish items are non-blocking and the Mod does not mutate
+city data.
+
+Consequence: use `PublishNewVersion`, not `PublishNewMod`; retain JSON schema 1
+and existing exporter contracts. The existing Git tag `v0.1.0` belongs to the
+desktop Viewer and must not be moved or recreated for the Mod release.
+
 ## Retire The `schematic-v2` Mode, Keep Its Layout Engine
 
 Decision: remove `SvgLayoutMode.SchematicV2` and every entry point to it (CLI

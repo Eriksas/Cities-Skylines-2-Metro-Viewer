@@ -6626,7 +6626,7 @@ static void DesktopViewerAndModUseIndependentVersionTrains()
     string modVersion = props.Descendants("MetroDiagramModInformationalVersion").Single().Value;
 
     Assert(viewerVersion == "v0.1.1", $"Viewer version source was '{viewerVersion}', expected v0.1.1.");
-    Assert(modVersion == "v0.1.0-beta.8", $"Mod version source was '{modVersion}', expected v0.1.0-beta.8.");
+    Assert(modVersion == "v0.1.0", $"Mod version source was '{modVersion}', expected v0.1.0.");
     Assert(MetroDiagram.Core.MetroDiagramAppInfo.Version == viewerVersion, "Viewer app version does not match the Viewer version source.");
 
     string modProject = File.ReadAllText(Path.Combine(root, "CS2 Metro", "CS2 Metro.csproj"));
