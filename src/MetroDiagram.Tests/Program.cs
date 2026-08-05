@@ -6631,8 +6631,22 @@ static void DesktopViewerAndModUseIndependentVersionTrains()
 
     string modProject = File.ReadAllText(Path.Combine(root, "CS2 Metro", "CS2 Metro.csproj"));
     string engineProject = File.ReadAllText(Path.Combine(root, "src", "MetroDiagram.Engine", "MetroDiagram.Engine.csproj"));
+    string setting = File.ReadAllText(Path.Combine(root, "CS2 Metro", "Setting.cs"));
+    XDocument publishConfiguration = XDocument.Load(Path.Combine(root, "CS2 Metro", "Properties", "PublishConfiguration.xml"));
+    string longDescription = publishConfiguration.Root?.Element("LongDescription")?.Value ?? string.Empty;
     Assert(modProject.Contains("<Version>$(MetroDiagramModVersion)</Version>", StringComparison.Ordinal), "CS2 Mod project did not override the desktop version source.");
     Assert(engineProject.Contains("<Version>$(MetroDiagramModVersion)</Version>", StringComparison.Ordinal), "Portable Engine project did not stay on the Mod version source.");
+    Assert(setting.Contains("public string InstalledVersion", StringComparison.Ordinal)
+        && setting.Contains("get => VersionInfo.ReleaseVersion", StringComparison.Ordinal),
+        "CS2 Options no longer displays the installed Mod version from the canonical version source.");
+    Assert(setting.Contains("SettingsUIDisableByCondition(typeof(Setting), nameof(IsInstalledVersionReadOnly))", StringComparison.Ordinal),
+        "CS2 Options installed-version field is no longer read-only.");
+    Assert(setting.Contains("GetOptionLabelLocaleID(nameof(Setting.InstalledVersion))", StringComparison.Ordinal)
+        && setting.Contains("已安装版本", StringComparison.Ordinal),
+        "CS2 Options installed-version field is missing localized labels.");
+    Assert(longDescription.Contains("中文简介", StringComparison.Ordinal)
+        && longDescription.Contains("不会修改城市、线路或存档", StringComparison.Ordinal),
+        "Paradox Mods long description no longer contains the Chinese safety and usage summary.");
 }
 
 static void ViewerPersistsFitWindowPreviewAndSaveFormatDefaults()

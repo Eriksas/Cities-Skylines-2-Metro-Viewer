@@ -4,7 +4,7 @@
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="CS2 Metro Diagram" />
 	<!--Short description of the mod-->
-	<ShortDescription Value="Turn your city's metro network into a clean, readable metro map." />
+	<ShortDescription Value="Preview and export your city's metro map. / 预览并导出城市地铁线路图。" />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 	<LongDescription>
 Turn the metro/subway network of your Cities: Skylines II city into a clean, readable metro map.
@@ -36,6 +36,30 @@ Current limitations:
 - Metro/subway only.
 - Preview/export only; it never edits your city.
 - The desktop Viewer remains recommended for manual layout editing and PNG/PDF export.
+
+中文简介：
+把《城市：天际线 II》城市中的地铁网络转换为清晰、易读的地铁线路图。
+
+当前版本提供只读的游戏内预览。点击右上角工具栏中的地铁线路图按钮，即可查看当前城市，刷新数据，在地理图与示意图之间切换，筛选站名，缩放或拖动画布，导出 JSON，或直接保存当前 SVG。模组只读取并导出交通数据，不会修改城市、线路或存档。
+
+如需更完整的官方风格示意图、手动调整以及 PNG/PDF 导出，请把 JSON 导入免费的 Windows 桌面 Viewer。Viewer 与游戏内模组分别发布，因此版本号可能不同；当前桌面 Viewer 为 v0.1.1。
+
+使用方法：
+1. 进入城市，点击右上角的地铁线路图按钮打开游戏内预览。
+2. 在“选项 &gt; CS2 地铁线路图”中选择自动、English 或简体中文，并设置导出文件夹。
+3. 点击导出 JSON，然后在桌面 Viewer 中使用“打开默认导出”载入线路网。
+4. 按需调整布局和尺寸，再保存为 SVG、PNG 或 PDF。
+
+Viewer 与完整源代码：
+https://github.com/Eriksas/Cities-Skylines-2-Metro-Viewer
+
+Viewer 百度网盘下载：
+https://pan.baidu.com/s/5RspPYzFb0dPoOE0aZu7d4A
+
+当前限制：
+- 目前仅支持地铁 / Subway。
+- 游戏内功能只负责预览和导出，不会编辑城市数据。
+- 手动排版与 PNG/PDF 导出仍推荐使用桌面 Viewer。
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />

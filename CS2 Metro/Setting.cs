@@ -70,6 +70,22 @@ namespace CS2_Metro
             };
         }
 
+        [SettingsUISection(kSection, kInterfaceGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsInstalledVersionReadOnly))]
+        public string InstalledVersion
+        {
+            get => VersionInfo.ReleaseVersion;
+            set
+            {
+                // Display-only value required by the Options property contract.
+            }
+        }
+
+        public bool IsInstalledVersionReadOnly()
+        {
+            return true;
+        }
+
         [SettingsUISection(kSection, kFolderGroup)]
         public string ExportDirectory { get; set; } = string.Empty;
 
@@ -203,7 +219,7 @@ namespace CS2_Metro
         {
             return new Dictionary<string, string>
             {
-                { m_Setting.GetSettingsLocaleID(), "CS2 Metro Diagram" },
+                { m_Setting.GetSettingsLocaleID(), "CS2 Metro Diagram " + VersionInfo.ReleaseVersion },
                 { m_Setting.GetOptionTabLocaleID(Setting.kSection), "Main" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kInterfaceGroup), "Interface" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kFolderGroup), "Export Folder" },
@@ -213,6 +229,8 @@ namespace CS2_Metro
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.Auto"), "Auto (follow game)" },
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.English"), "English" },
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.Chinese"), "Chinese (Simplified)" },
+                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.InstalledVersion)), "Installed version" },
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.InstalledVersion)), "The installed in-game Mod version. Viewer releases use a separate version number." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportDirectory)), "Export folder" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportDirectory)), "Paste a full folder path, or click a preset below. The latest JSON export, diagnostics, and timestamped snapshots will be written here. Leave blank to use Documents\\CS2MetroDiagram." },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDocumentsExportFolder)), "Use Documents folder" },
@@ -230,7 +248,7 @@ namespace CS2_Metro
         {
             return new Dictionary<string, string>
             {
-                { m_Setting.GetSettingsLocaleID(), "CS2 地铁线路图" },
+                { m_Setting.GetSettingsLocaleID(), "CS2 地铁线路图 " + VersionInfo.ReleaseVersion },
                 { m_Setting.GetOptionTabLocaleID(Setting.kSection), "主要设置" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kInterfaceGroup), "界面" },
                 { m_Setting.GetOptionGroupLocaleID(Setting.kFolderGroup), "导出文件夹" },
@@ -240,6 +258,8 @@ namespace CS2_Metro
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.Auto"), "自动（跟随游戏）" },
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.English"), "English" },
                 { m_Setting.GetOptionLabelLocaleID("InterfaceLanguage.Chinese"), "简体中文" },
+                { m_Setting.GetOptionLabelLocaleID(nameof(Setting.InstalledVersion)), "已安装版本" },
+                { m_Setting.GetOptionDescLocaleID(nameof(Setting.InstalledVersion)), "当前安装的游戏内模组版本。桌面 Viewer 使用独立版本号。" },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.ExportDirectory)), "导出文件夹" },
                 { m_Setting.GetOptionDescLocaleID(nameof(Setting.ExportDirectory)), "粘贴完整文件夹路径，或点击下方常用位置。最新 JSON、诊断文件和带时间戳的快照都会写入这里。留空时使用 Documents\\CS2MetroDiagram。" },
                 { m_Setting.GetOptionLabelLocaleID(nameof(Setting.UseDocumentsExportFolder)), "使用文档文件夹" },

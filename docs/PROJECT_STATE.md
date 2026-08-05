@@ -23,6 +23,20 @@ independently verified public `0.1.0` release on ModId `146643`.
 
 ## Current Status
 
+### Bilingual PDX metadata and in-game version display
+
+The Paradox Mods description now includes English and Chinese introductions,
+usage steps, safety language, download links, and current limitations. This is
+a metadata-only update for the existing public ModId `146643`; it does not
+replace the validated public `0.1.0` binary.
+
+The next Mod binary also displays `VersionInfo.ReleaseVersion` in the Options
+page title and in a disabled `Installed version / 已安装版本` row. The code,
+tests, Release build, post-process, and Burst compilation pass, but this Options
+change must receive an in-game localization/load smoke test before it is
+published as a new Mod version. Do not republish a different binary as
+`0.1.0`.
+
 ### Tram and intercity experiment parked
 
 The opt-in tram/intercity prototype and its follow-up renderer rescue were

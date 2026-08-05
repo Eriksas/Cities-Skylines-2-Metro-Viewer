@@ -1,5 +1,18 @@
 # Next Session Handoff
 
+## Pending Mod Options Smoke Test
+
+The PDX listing metadata has a bilingual English/Chinese description. Source
+now also shows the canonical installed Mod version in the Options page title
+and in a disabled `Installed version / 已安装版本` row. Offline build, tests, CS2
+post-process, and Burst compilation pass.
+
+Before publishing another Mod binary, test the staged build in CS2: open the
+Options page, verify English/Chinese/Auto localization and the version row,
+load a city, open the preview, and export JSON. Keep public Mod `0.1.0` in place
+until that smoke test passes; the accepted binary should receive a new Mod
+version rather than silently replacing `0.1.0`.
+
 ## Viewer v0.1.1 Release
 
 Viewer v0.1.1 is the current desktop release candidate. It adds a top-level

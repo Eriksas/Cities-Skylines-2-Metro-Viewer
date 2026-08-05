@@ -4,6 +4,16 @@ Use this regression plan for desktop Viewer `v0.1.1` with in-game Mod `0.1.0`.
 
 The testing unit is an alpha validation bundle, not a loose screenshot.
 
+## Mod Options Version And Localization Smoke
+
+- Open `Options > CS2 Metro Diagram` and confirm the page title includes the
+  installed Mod version.
+- Confirm `Installed version / 已安装版本` is visible and cannot be edited.
+- Switch Auto, English, and Simplified Chinese; confirm labels resolve instead
+  of exposing localization keys.
+- Load a city, open the in-game preview, and export JSON to confirm Options
+  localization did not block Mod or exporter initialization.
+
 ## Recommended Baseline
 
 Review in this order:

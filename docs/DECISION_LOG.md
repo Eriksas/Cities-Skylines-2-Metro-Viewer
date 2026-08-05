@@ -6,6 +6,21 @@ This file contains current high-level decisions only. Full historical decisions 
 docs\archive\2026-06-18-doc-consolidation\DECISION_LOG.full.md
 ```
 
+## Separate PDX Metadata Updates From Mod Binary Updates
+
+Decision: publish bilingual PDX descriptions with
+`UpdatePublishedConfiguration`, while treating the in-game installed-version
+display as a separate binary change that requires an owner-run CS2 smoke test.
+
+Reason: metadata does not affect runtime loading, but Options localization and
+settings registration previously caused visible localization keys and Mod load
+failures. The display must use the canonical `VersionInfo.ReleaseVersion`, and
+localization failure must never block exporter initialization.
+
+Consequence: do not create a new listing and do not republish changed binaries
+as the existing `0.1.0`. Validate the Options page in Auto, English, and Chinese
+before advancing the independent Mod version train.
+
 ## Promote The Owner-validated In-game Mod To 0.1.0
 
 Decision: publish the read-only in-game Mod as stable `0.1.0` on the existing

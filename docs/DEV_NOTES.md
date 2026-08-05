@@ -1,5 +1,23 @@
 # Development Notes
 
+## 2026-08-05 PDX bilingual description and installed-version display
+
+- Added a Chinese introduction, usage guide, safety statement, links, and
+  limitations to `CS2 Metro/Properties/PublishConfiguration.xml` while keeping
+  the existing public ModId `146643` and public `0.1.0` release.
+- Added a disabled `Installed version / 已安装版本` Options row backed by
+  `VersionInfo.ReleaseVersion`; the localized Options page title also includes
+  the same canonical Mod version.
+- Offline solution build, full tests, CS2 Release build, post-process, and Burst
+  compilation pass. The staged Mod remains under
+  `artifacts/cs2-local-mods/CS2 Metro` on drive E.
+- Metadata can be updated with `UpdatePublishedConfiguration` without creating
+  a new Mod binary. The Options change is binary code and requires an in-game
+  load/localization/export smoke test before publishing the next Mod version.
+- Never publish a changed binary under the already-public `0.1.0` label. After
+  owner acceptance, advance the Mod release train separately from Viewer
+  `v0.1.1`.
+
 ## 2026-08-04 In-game Mod 0.1.0 stable release
 
 - Promoted only the in-game Mod from public `0.1.0-beta.8` to stable `0.1.0`;
